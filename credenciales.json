@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "perfumes-490621",
+  "private_key_id": "3d5d961aa9019037dd1c935aabad146c7a2dca6a",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDD4BWVXc5y5BGF\nC6rdQOhj+zD1n0wM9EzBhYNWG200+xrLmzlkEef2sO2TA1NOIZs72OC4i3z7bGtz\nAAGVTBXu2TngC2omw9aRpK726z7sEGnQbU6hifR9IzJyI5z453lIU77Xqnw40gpV\n+y6Fyw6OFuz7cyV/QI2UnGI/FCkroTXD1wTZ4UD+7FqXJYWLKthM/7fOLoFIvV+6\nqHEtYAGBwvB/98l3mINdCjkN7PXfJfpoSEKWOxCS8i343tDFxHOJDWl5HrePPC7V\nDQFylhsf3vL7yFykeStGvec3RY0VsHFzaui4UN9GdGerWeXnQ/nCnN1P+ESFHabY\n29FiNpzxAgMBAAECggEABQngHuyqprDwNG8a5kBzrz1jF9u7qJT7iSTb6TH2arJP\nkPo9YodwDfFPgy8cNvp3/vTyvuczqqyyIjispxWty2xCErMoeAvPRVrU91wQzSC/\noBFtFYxcwiqkHbnbIVn5ot8oncKbGcO+vqch82Ydnzu+vS8hQUyR98ctYyMBIMf5\nclRKBFev2xbYqmh1xH/VAM8Lv1pOw0EiRLk+Uvk6dG9bqj+VMnh50yUqVZ3oWl9J\nWWrf8eAeEJSq5fC1WosopAnYPcsuurY47XXJ/JU0+Buiyz9LWn+WpAkI5toK0aea\n/9giPRsG2GqxlTn0CfFQry6OSlaK6IxQIHEppo058wKBgQDxY9K7Ovy0dq8+b9u+\nsZuN4DsTlJAiJIhn+1vru65/Wi1Jo9Z9ish0Iu7k2rVNbcVOLZvH+jQKamDBhSgR\nu72nS4UXdQ9cLuIvpJ+p+f35oC835sApNu1bSm6CkVGG9bLZoCZC1oG7jmfbyCdI\ndZVqYsGqFrmgbYINoXc4ha7zDwKBgQDPuwrkKZSEaqwm+O2tF2zLU8ffXLa6BDTw\nYPICXIbzG+UbUMRE6AdDmR43m9VJY/5J33oVnTUe5+TLZRGv8SvY8Nk9v2iKy8uc\n4wZXpHNZW8HQ94ImP4Sag6k5Yx7sBt7LQrvdpuZ03jV/EWgG+Q5pO/t5JJ4yCUzJ\nAvWg7YFv/wKBgA/qVf2UQQ8g+CL0uxdSnH/5NcvvsqUdpYS9lOzw/etVpcDCNaUn\nXloR55BdPzDwuN6TsT65J288Xk7EGcU5jKKYHxlR1YZtbOpZP1G0suMfhZ148FiH\nT5UCTlD7hdWRI46nuX4UqI8WL5DVHInxfr1572zofKqwLa/6YmLupX9PAoGBAId7\nLwxGDiYayHKWkbT9fShTWR1Vg5tomPpZ0B04KY+vFsqs74Uda3dsCugry3yVKckW\nZrJoGLgyd+cr4NBGU9mmo5kBGHbFmeOVsZJBoDWcgZj/hDPb42k/C4RxID7B8FbT\nDGHws4dvUaaxPI6nqv15cHa/KinqJNlJA9hUbsITAoGAVm85SMKCGpMH2vb+91O5\nNwCrRG+z5mTdl9oqP3z3y38sZSf4ORWN887/BnwMXASqGvI6YUHaYFHBUQMbKO1C\nY4x4rCfe2hoNpcnHQWhDvVQ/EnOcGz99c1nwCdpV7OkXBT4d2x7djyLFaPLtlrTg\nbiJOBISGjlhFLOHxCr+EHxM=\n-----END PRIVATE KEY-----\n",
+  "client_email": "mi-app-perfumes@perfumes-490621.iam.gserviceaccount.com",
+  "client_id": "109994782610845147444",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/mi-app-perfumes%40perfumes-490621.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -22,7 +22,6 @@ try:
     df = cargar_catalogo()
     tab1, tab2 = st.tabs(["🏷️  Por Marca", "🔍  Por Nombre"])
 
-    # ── Pestaña 1: Por Marca ──────────────────────────────
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
@@ -34,13 +33,13 @@ try:
         df_filtrado = df[df["Marca"] == marca_seleccionada]
         mostrar_lista_marca(df_filtrado, PRECIOS_COLUMNAS[tamanio1], tamanio1)
 
-    # ── Pestaña 2: Por Nombre ─────────────────────────────
     with tab2:
         nombres = sorted(df["Nombre"].unique().tolist())
         nombre_seleccionado = st.selectbox("Perfume", nombres, key="nombre")
         perfume = df[df["Nombre"] == nombre_seleccionado].iloc[0]
 
-        mostrar_perfume_card(perfume["Marca"], perfume["Nombre"])
+        url_imagen = perfume.get("URL_imagen", "")
+        mostrar_perfume_card(perfume["Marca"], perfume["Nombre"], url_imagen)
 
         tamanio2 = st.selectbox("Tamaño del decant", list(PRECIOS_COLUMNAS.keys()), key="tamanio2")
         precio2 = perfume[PRECIOS_COLUMNAS[tamanio2]]

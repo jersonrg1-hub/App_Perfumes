@@ -2,8 +2,6 @@ import streamlit as st
 import gspread
 from google.oauth2.service_account import Credentials
 import pandas as pd
-from calculos import calcular_precio
-from variables import TAMANIOS_ML, AJUSTES_PAGO
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -23,52 +21,66 @@ def cargar_catalogo():
 
 st.title("🌸 Calculadora de Decants")
 
+PRECIOS_COLUMNAS = {
+    "2 ml":  "Precio_2ml",
+    "3 ml":  "Precio_3ml",
+    "5 ml":  "Precio_5ml",
+    "10 ml": "Precio_10ml"
+}
+
 try:
     df = cargar_catalogo()
 
-    # ── Selección de perfume ──────────────────────────────────
-    nombres = df["Nombre"].sort_values().unique().tolist()
-    seleccion = st.selectbox("🔍 Elige un perfume:", nombres)
-    perfume = df[df["Nombre"] == seleccion].iloc[0]
+    tab1, tab2 = st.tabs(["🏷️ Buscar por Marca", "🔍 Buscar por Nombre"])
 
-    st.markdown(f"**Marca:** {perfume['Marca']} | "
-                f"**Botella:** {perfume['Ml_Botella']} ml | "
-                f"**Costo botella:** ${perfume['Costo_Botella']}")
+    with tab1:
+        marcas = sorted(df["Marca"].unique().tolist())
+        marca_seleccionada = st.selectbox("Elige una marca:", marcas, key="marca")
 
-    st.markdown("---")
+        df_filtrado = df[df["Marca"] == marca_seleccionada]
 
-    # ── Selección de tamaño y pago ────────────────────────────
-    col1, col2 = st.columns(2)
-    with col1:
-        ml = st.selectbox("📏 Tamaño del decant:", TAMANIOS_ML, format_func=lambda x: f"{x} ml")
-    with col2:
-        medio_pago = st.selectbox("💳 Medio de pago:", list(AJUSTES_PAGO.keys()))
+        tamanio1 = st.selectbox(
+            "📏 Tamaño del decant:",
+            list(PRECIOS_COLUMNAS.keys()),
+            key="tamanio1"
+        )
+        columna1 = PRECIOS_COLUMNAS[tamanio1]
 
-    ajuste = AJUSTES_PAGO[medio_pago]
+        st.markdown(f"### Perfumes de {marca_seleccionada}")
+        st.markdown(f"Precios para **{tamanio1}:**")
+        st.markdown("---")
 
-    # ── Cálculo ───────────────────────────────────────────────
-    resultado = calcular_precio(
-        costo_botella=perfume["Costo_Botella"],
-        ml_botella=perfume["Ml_Botella"],
-        ml_seleccionado=ml,
-        ajuste_pago=ajuste
-    )
+        for _, row in df_filtrado.iterrows():
+            precio = row[columna1]
+            if precio:
+                st.write(f"✨ **{row['Nombre']}** → S/ {precio}")
+            else:
+                st.write(f"✨ **{row['Nombre']}** → Sin precio")
 
-    st.markdown("---")
+    with tab2:
+        nombres = sorted(df["Nombre"].unique().tolist())
+        nombre_seleccionado = st.selectbox(
+            "Busca o elige un perfume:",
+            nombres,
+            key="nombre"
+        )
 
-    # ── Precio final destacado ────────────────────────────────
-    st.metric("💰 Precio de Venta", f"${resultado['precio_final']}")
-    st.metric("📈 Ganancia Neta", f"${resultado['ganancia_neta']}")
+        perfume = df[df["Nombre"] == nombre_seleccionado].iloc[0]
 
-    # ── Desglose opcional ─────────────────────────────────────
-    with st.expander("🔍 Ver desglose de costos"):
-        st.write(f"- Costo por ML: ${resultado['costo_ml']}")
-        st.write(f"- ML usados (con {resultado['margen']} merma): {resultado['ml_con_merma']} ml")
-        st.write(f"- Costo líquido: ${resultado['subtotal_liquido']}")
-        st.write(f"- Costo vial {ml}ml: ${resultado['costo_vial']}")
-        st.write(f"- Costo packaging: ${resultado['costo_packaging']}")
-        st.write(f"- **Costo total producción: ${resultado['costo_total']}**")
-        st.write(f"- Margen aplicado: {resultado['margen']} sobre venta")
+        st.markdown(f"**Marca:** {perfume['Marca']}")
+        st.markdown("---")
+
+        tamanio2 = st.selectbox(
+            "📏 Tamaño del decant:",
+            list(PRECIOS_COLUMNAS.keys()),
+            key="tamanio2"
+        )
+
+        columna2 = PRECIOS_COLUMNAS[tamanio2]
+        precio2 = perfume[columna2]
+
+        st.markdown("---")
+        st.metric("💰 Precio de Venta", f"S/ {precio2}")
 
 except Exception as e:
     st.error(f"❌ Error: {e}")

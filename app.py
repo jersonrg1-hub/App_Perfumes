@@ -14,6 +14,7 @@ st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centere
 
 @st.cache_data
 def cargar_catalogo():
+    # ✅ Esta usa los Secrets de Streamlit Cloud
     creds = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"], scopes=SCOPES
     )

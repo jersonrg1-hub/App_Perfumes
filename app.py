@@ -14,7 +14,9 @@ st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centere
 
 @st.cache_data
 def cargar_catalogo():
-    creds = Credentials.from_service_account_file("credenciales.json", scopes=SCOPES)
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES
+    )
     cliente = gspread.authorize(creds)
     hoja = cliente.open("PERFUMES PYTHON").worksheet("Catalogo")
     return pd.DataFrame(hoja.get_all_records())

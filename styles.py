@@ -223,5 +223,64 @@ def get_styles():
         margin-bottom: 1rem;
         font-style: italic;
     }
+    
+    /* ── ANIMACIONES ── */
+
+    /* Entrada suave de toda la app */
+    .stApp {
+        animation: fadeIn 0.6s ease-in-out;
+    }
+
+    /* Entrada de las tarjetas de precio */
+    .precio-box {
+        animation: slideUp 0.5s ease-out;
+    }
+
+    /* Entrada de la tarjeta de perfume */
+    .perfume-card {
+        animation: slideUp 0.4s ease-out;
+    }
+
+    /* Entrada de cada item de la lista */
+    .perfume-item {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    /* Definición de animaciones */
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Hover suave en items de marca */
+    [data-testid="column"] {
+        transition: all 0.2s ease;
+    }
+
+    /* Animación en las cajas de precio por tamaño */
+    div[style*="linear-gradient(135deg, #2c1a0e"] {
+        animation: slideUp 0.4s ease-out;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    div[style*="linear-gradient(135deg, #2c1a0e"]:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(44, 26, 14, 0.35) !important;
+    }
 </style>
 """

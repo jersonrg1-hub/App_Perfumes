@@ -13,6 +13,7 @@ from tabs.tab_marca import mostrar_tab_marca
 from tabs.tab_nombre import mostrar_tab_nombre
 from tabs.tab_venta import mostrar_tab_venta
 from tabs.tab_estadisticas import mostrar_tab_estadisticas
+from tabs.tab_notas import mostrar_tab_notas
 
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
 st.markdown("""
@@ -34,9 +35,10 @@ try:
             mostrar_error_columna(col)
         st.stop()
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🏷️  Por Marca",
         "🔍  Por Nombre",
+        "🎵  Por Nota",
         "📝  Nueva Venta",
         "📊  Estadísticas",
         "🔒  Sesión"
@@ -49,25 +51,28 @@ try:
         mostrar_tab_nombre(df)
 
     with tab3:
-        if check_password():
-            mostrar_tab_venta(df)
-        else:
-            mostrar_login(key="tab3")
+        mostrar_tab_notas(df)
 
     with tab4:
         if check_password():
-            cerrar_sesion(key="logout_tab4")
-            mostrar_tab_estadisticas(df)
+            mostrar_tab_venta(df)
         else:
             mostrar_login(key="tab4")
 
     with tab5:
         if check_password():
-            st.markdown("### 🔓 Sesión activa")
-            st.success("✅ Estás autenticada")
             cerrar_sesion(key="logout_tab5")
+            mostrar_tab_estadisticas(df)
         else:
             mostrar_login(key="tab5")
+
+    with tab6:
+        if check_password():
+            st.markdown("### 🔓 Sesión activa")
+            st.success("✅ Estás autenticada")
+            cerrar_sesion(key="logout_tab6")
+        else:
+            mostrar_login(key="tab6")
 
 except Exception as e:
     mostrar_error_conexion()

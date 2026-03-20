@@ -210,4 +210,99 @@ COMPONENTS = """
     .stExpander [data-testid="stExpanderDetails"] ul {
         color: #2c1a0e !important;
     }
+    
+    /* ── MULTISELECT ── */
+    .stMultiSelect [data-baseweb="select"] {
+        background-color: #ffffff !important;
+        border-color: #e0c9b4 !important;
+        min-height: 48px !important;
+    }
+
+    .stMultiSelect [data-baseweb="select"] span,
+    .stMultiSelect [data-baseweb="select"] div {
+        color: #2c1a0e !important;
+        background-color: #ffffff !important;
+        font-size: 1rem !important;
+    }
+
+    /* Tags seleccionados */
+    .stMultiSelect [data-baseweb="tag"] {
+        background-color: #2c1a0e !important;
+        color: white !important;
+    }
+
+    .stMultiSelect [data-baseweb="tag"] span {
+        color: white !important;
+        background-color: transparent !important;
+    }
+    
+    /* ── MULTISELECT ── */
+    .stMultiSelect > div > div {
+        background-color: #ffffff !important;
+        border-color: #e0c9b4 !important;
+    }
+
+    /* Texto del placeholder */
+    .stMultiSelect input {
+        color: #2c1a0e !important;
+    }
+
+    /* Tags/chips seleccionados */
+    .stMultiSelect span[data-baseweb="tag"] {
+        background-color: #2c1a0e !important;
+        color: white !important;
+    }
+
+    .stMultiSelect span[data-baseweb="tag"] span {
+        color: white !important;
+    }
+
+    .stMultiSelect [data-baseweb="tag"] {
+        background-color: #2c1a0e !important;
+    }
+
+    .stMultiSelect [data-baseweb="tag"] * {
+        color: white !important;
+        background-color: transparent !important;
+    }
+
+    /* Texto dentro del multiselect cuando hay selección */
+    .stMultiSelect div[data-baseweb="select"] > div {
+        background-color: #ffffff !important;
+    }
+
+    .stMultiSelect div[data-baseweb="select"] > div > div {
+        color: #2c1a0e !important;
+    }
+
+    /* Forzar color en todos los spans del multiselect */
+    .stMultiSelect li span,
+    .stMultiSelect [role="option"] span {
+        color: #2c1a0e !important;
+    }
+    
+    /* ── MENSAJES WARNING, INFO, SUCCESS ── */
+    .stWarning,
+    .stWarning p,
+    .stWarning strong,
+    [data-testid="stNotification"] p,
+    [data-testid="stNotification"] strong {
+        color: #744210 !important;
+    }
+
+    .stInfo,
+    .stInfo p {
+        color: #2c5282 !important;
+    }
+
+    .stSuccess,
+    .stSuccess p {
+        color: #276749 !important;
+    }
+
+    /* Forzar texto visible en alertas */
+    div[data-baseweb="notification"] p,
+    div[data-baseweb="notification"] strong {
+        color: #2c1a0e !important;
+    }
 """

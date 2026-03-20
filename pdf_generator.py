@@ -1,6 +1,7 @@
 from fpdf import FPDF
 import pandas as pd
 from datetime import date
+from config import fmt_precio
 
 def exportar_pdf_ventas_hoy(df_ventas, df_catalogo):
     """Genera un PDF con las ventas del día actual"""
@@ -13,7 +14,6 @@ def exportar_pdf_ventas_hoy(df_ventas, df_catalogo):
         if ventas_hoy.empty:
             return None
 
-        # Preparar catálogo una sola vez antes del loop
         df_catalogo = df_catalogo.copy()
         df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
 
@@ -36,7 +36,7 @@ def exportar_pdf_ventas_hoy(df_ventas, df_catalogo):
             nombre_p = match.iloc[0]["Nombre"] if not match.empty else id_p
 
             precio = float(row.get("Precio_Cobrado", 0))
-            pdf.cell(0, 6, f"Perfume: {nombre_p} {row.get('Ml_Vendido','')}ml | S/ {precio}", ln=True)
+            pdf.cell(0, 6, f"Perfume: {nombre_p} {row.get('Ml_Vendido','')}ml | S/ {fmt_precio(precio)}", ln=True)
             pdf.cell(0, 4, f"Pago: {row.get('Metodo_Pago','')} | Estado: {row.get('Estado','')}", ln=True)
             pdf.line(10, pdf.get_y(), 200, pdf.get_y())
             pdf.ln(3)
@@ -44,7 +44,7 @@ def exportar_pdf_ventas_hoy(df_ventas, df_catalogo):
 
         pdf.ln(5)
         pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, f"TOTAL DEL DIA: S/ {total_dia:.1f}", ln=True, align="R")
+        pdf.cell(0, 8, f"TOTAL DEL DIA: S/ {fmt_precio(total_dia)}", ln=True, align="R")
         return bytes(pdf.output())
 
     except Exception as e:

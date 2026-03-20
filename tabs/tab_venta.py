@@ -1,5 +1,5 @@
 import streamlit as st
-from config import PRECIOS_COLUMNAS, ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO
+from config import PRECIOS_COLUMNAS, ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio
 from data import guardar_venta, obtener_ultimo_id_compra
 from components import generar_url_whatsapp
 
@@ -63,7 +63,7 @@ def mostrar_tab_venta(df):
                 text-align: center; margin: 0.5rem 0;
             ">
                 <div style="color:#e8c9a8; font-size:0.75rem; text-transform:uppercase;">Precio</div>
-                <div style="color:white; font-size:1.5rem; font-weight:700;">S/ {precio_item}</div>
+                <div style="color:white; font-size:1.5rem; font-weight:700;">S/ {fmt_precio(precio_item)}</div>
                 <div style="color:#c8956c; font-size:0.75rem;">{perfume_venta} — {ml_vendido}ml</div>
             </div>
             """, unsafe_allow_html=True)
@@ -99,7 +99,7 @@ def mostrar_tab_venta(df):
             with col2:
                 st.markdown(f"{item['ml']}ml")
             with col3:
-                st.markdown(f"**S/ {item['precio']}**")
+                st.markdown(f"**S/ {fmt_precio(item['precio'])}**")
             with col4:
                 if st.button("🗑️", key=f"del_{i}"):
                     st.session_state.cesta.pop(i)
@@ -115,7 +115,7 @@ def mostrar_tab_venta(df):
             text-align: center; margin: 0.5rem 0;
         ">
             <div style="color:#e8c9a8; font-size:0.8rem; text-transform:uppercase;">Total a cobrar</div>
-            <div style="color:white; font-family:'Playfair Display',serif; font-size:2.5rem; font-weight:700;">S/ {total:.1f}</div>
+            <div style="color:white; font-family:'Playfair Display',serif; font-size:2.5rem; font-weight:700;">S/ {fmt_precio(total)}</div>
             <div style="color:#c8956c; font-size:0.8rem;">{len(st.session_state.cesta)} item(s)</div>
         </div>
         """, unsafe_allow_html=True)
@@ -133,7 +133,7 @@ def mostrar_tab_venta(df):
                         guardar_venta([
                             id_compra, str(fecha), comprador, celular,
                             str(item["id_perfume"]), str(item["ml"]),
-                            str(item["precio"]), item["metodo"],
+                            fmt_precio(item["precio"]), item["metodo"],
                             tipo_envio, direccion, "Pendiente"
                         ])
 

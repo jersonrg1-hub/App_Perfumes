@@ -1,9 +1,14 @@
 import streamlit as st
-import gspread
-from google.oauth2.service_account import Credentials
-from config import PRECIOS_COLUMNAS, SCOPES, SHEET_NAME
+from config import (
+    PRECIOS_COLUMNAS, ML_OPCIONES,
+    METODOS_PAGO, TIPOS_ENVIO
+)
 from styles import get_styles
-from data import cargar_catalogo, guardar_venta, obtener_ultimo_id_compra
+from data import (
+    cargar_catalogo, guardar_venta,
+    obtener_ultimo_id_compra, cargar_ventas,
+    limpiar_cache_catalogo
+)
 from components import (
     mostrar_encabezado,
     mostrar_perfume_card,
@@ -17,7 +22,7 @@ from errores import (
     validar_dataframe
 )
 from auth import check_password, mostrar_login, cerrar_sesion
-from estadisticas import mostrar_estadisticas, cargar_ventas, mostrar_ventas_pendientes
+from estadisticas import mostrar_estadisticas, mostrar_ventas_pendientes
 
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
 st.markdown("""
@@ -120,9 +125,7 @@ try:
                     max_chars=9,
                     key="celular_input")
             with col2:
-                tipo_envio = st.selectbox("🚚 Tipo de Envío", [
-                    "Shalom", "Motorizado", "Contraentrega"
-                ], key="tipo_envio")
+                tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="tipo_envio")
                 direccion = st.text_input("📍 Dirección",
                     placeholder="Ej: Av. Lima 123, Miraflores",
                     key="direccion_input")
@@ -134,11 +137,9 @@ try:
                 nombres_catalogo = sorted(df["Nombre"].unique().tolist())
                 perfume_venta = st.selectbox("🌸 Perfume", nombres_catalogo, key="perfume_venta")
             with col2:
-                ml_vendido = st.selectbox("📏 ML", [2, 5, 10], key="ml_venta")
+                ml_vendido = st.selectbox("📏 ML", ML_OPCIONES, key="ml_venta")
             with col3:
-                metodo_pago = st.selectbox("💳 Pago", [
-                    "Efectivo", "Yape", "Plin", "Transferencia", "Tarjeta"
-                ], key="metodo_venta")
+                metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key="metodo_venta")
 
             perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]
             id_perfume = perfume_row["ID_Perfume"]
@@ -231,7 +232,6 @@ try:
                                     "Pendiente"
                                 ])
 
-                            # ── Mensaje WhatsApp ──────────────
                             items_texto = "%0A".join([
                                 f"- {i['perfume']} {i['ml']}ml → S/ {i['precio']}"
                                 for i in st.session_state.cesta
@@ -280,22 +280,25 @@ try:
         if check_password():
             st.markdown("### 📊 Estadísticas de Ventas")
             cerrar_sesion(key="logout_tab4")
+
+            if st.button("🔄 Recargar datos", key="reload"):
+                limpiar_cache_catalogo()
+                st.rerun()
+
             st.markdown("---")
             try:
-                creds = Credentials.from_service_account_info(
-                    st.secrets["gcp_service_account"], scopes=SCOPES
-                )
-                cliente = gspread.authorize(creds)
-                df_ventas = cargar_ventas(cliente, SHEET_NAME)
-
+                df_ventas = cargar_ventas()
                 subtab1, subtab2 = st.tabs(["📊 Estadísticas", "📦 Pendientes"])
                 with subtab1:
                     mostrar_estadisticas(df_ventas, df)
                 with subtab2:
-                    mostrar_ventas_pendientes(df_ventas, cliente, SHEET_NAME)
-
+                    mostrar_ventas_pendientes(df_ventas)
             except Exception as e:
                 st.error(f"❌ Error cargando ventas: {e}")
+                if st.session_state.get("error_log"):
+                    with st.expander("🔍 Log de errores"):
+                        for log in st.session_state["error_log"]:
+                            st.code(log)
         else:
             mostrar_login(key="tab4")
 

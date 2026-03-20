@@ -17,7 +17,7 @@ from errores import (
     validar_dataframe
 )
 from auth import check_password, mostrar_login, cerrar_sesion
-from estadisticas import mostrar_estadisticas, cargar_ventas
+from estadisticas import mostrar_estadisticas, cargar_ventas, mostrar_ventas_pendientes
 
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
 st.markdown("""
@@ -109,18 +109,23 @@ try:
                 st.session_state.cesta = []
 
             st.markdown("#### 👤 Datos del Comprador")
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             with col1:
                 fecha = st.date_input("📅 Fecha", key="fecha_venta")
-            with col2:
                 comprador = st.text_input("👤 Comprador",
                     placeholder="Nombre del comprador",
                     key="comprador_input")
-            with col3:
                 celular = st.text_input("📱 Celular",
                     placeholder="Ej: 999888777",
                     max_chars=9,
                     key="celular_input")
+            with col2:
+                tipo_envio = st.selectbox("🚚 Tipo de Envío", [
+                    "Shalom", "Motorizado", "Contraentrega"
+                ], key="tipo_envio")
+                direccion = st.text_input("📍 Dirección",
+                    placeholder="Ej: Av. Lima 123, Miraflores",
+                    key="direccion_input")
 
             st.markdown("---")
             st.markdown("#### 🛒 Agregar Perfume")
@@ -220,9 +225,46 @@ try:
                                     str(item["id_perfume"]),
                                     str(item["ml"]),
                                     str(item["precio"]),
-                                    item["metodo"]
+                                    item["metodo"],
+                                    tipo_envio,
+                                    direccion,
+                                    "Pendiente"
                                 ])
+
+                            # ── Mensaje WhatsApp ──────────────
+                            items_texto = "%0A".join([
+                                f"- {i['perfume']} {i['ml']}ml → S/ {i['precio']}"
+                                for i in st.session_state.cesta
+                            ])
+                            mensaje = (
+                                f"🌸 *RESUMEN DE VENTA {id_compra}*%0A"
+                                f"━━━━━━━━━━━━━━━━%0A"
+                                f"👤 *Comprador:* {comprador}%0A"
+                                f"📱 *Celular:* {celular}%0A"
+                                f"📍 *Dirección:* {direccion}%0A"
+                                f"🚚 *Envío:* {tipo_envio}%0A"
+                                f"━━━━━━━━━━━━━━━━%0A"
+                                f"🛍️ *Productos:*%0A"
+                                f"{items_texto}%0A"
+                                f"━━━━━━━━━━━━━━━━%0A"
+                                f"💰 *Total: S/ {total:.1f}*"
+                            )
+                            url_whatsapp = f"https://wa.me/?text={mensaje}"
+
                             st.success(f"✅ Venta **{id_compra}** guardada — {len(st.session_state.cesta)} item(s) para {comprador}")
+                            st.markdown(f"""
+                            <a href="{url_whatsapp}" target="_blank" style="
+                                display: block;
+                                background: #25D366;
+                                color: white;
+                                text-align: center;
+                                padding: 0.8rem;
+                                border-radius: 10px;
+                                text-decoration: none;
+                                font-weight: 700;
+                                margin-top: 0.5rem;
+                            ">📲 Compartir por WhatsApp</a>
+                            """, unsafe_allow_html=True)
                             st.balloons()
                             st.session_state.cesta = []
                         except Exception as e:
@@ -245,7 +287,13 @@ try:
                 )
                 cliente = gspread.authorize(creds)
                 df_ventas = cargar_ventas(cliente, SHEET_NAME)
-                mostrar_estadisticas(df_ventas, df)
+
+                subtab1, subtab2 = st.tabs(["📊 Estadísticas", "📦 Pendientes"])
+                with subtab1:
+                    mostrar_estadisticas(df_ventas, df)
+                with subtab2:
+                    mostrar_ventas_pendientes(df_ventas, cliente, SHEET_NAME)
+
             except Exception as e:
                 st.error(f"❌ Error cargando ventas: {e}")
         else:

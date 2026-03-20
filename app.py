@@ -1,28 +1,18 @@
 import streamlit as st
-from config import (
-    PRECIOS_COLUMNAS, ML_OPCIONES,
-    METODOS_PAGO, TIPOS_ENVIO
-)
 from styles import get_styles
-from data import (
-    cargar_catalogo, guardar_venta,
-    obtener_ultimo_id_compra, cargar_ventas,
-    limpiar_cache_catalogo
-)
-from components import (
-    mostrar_encabezado,
-    mostrar_perfume_card,
-    mostrar_todos_precios
-)
+from data import cargar_catalogo
+from components import mostrar_encabezado
 from errores import (
     mostrar_error_conexion,
     mostrar_error_datos_vacios,
-    mostrar_sin_precio,
     mostrar_error_columna,
     validar_dataframe
 )
 from auth import check_password, mostrar_login, cerrar_sesion
-from estadisticas import mostrar_estadisticas, mostrar_ventas_pendientes
+from tabs.tab_marca import mostrar_tab_marca
+from tabs.tab_nombre import mostrar_tab_nombre
+from tabs.tab_venta import mostrar_tab_venta
+from tabs.tab_estadisticas import mostrar_tab_estadisticas
 
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
 st.markdown("""
@@ -52,257 +42,25 @@ try:
         "🔒  Sesión"
     ])
 
-    # ── Pestaña 1: Por Marca ──────────────────────────────
     with tab1:
-        col1, col2 = st.columns(2)
-        with col1:
-            marcas = ["— Elige una marca —"] + sorted(df["Marca"].unique().tolist())
-            marca_seleccionada = st.selectbox("Marca", marcas, key="marca")
-        with col2:
-            tamanio1 = st.selectbox("Tamaño", list(PRECIOS_COLUMNAS.keys()), key="tamanio1")
+        mostrar_tab_marca(df)
 
-        if marca_seleccionada != "— Elige una marca —":
-            df_filtrado = df[df["Marca"] == marca_seleccionada]
-            columna1 = PRECIOS_COLUMNAS[tamanio1]
-
-            st.markdown("---")
-            st.markdown(f"**✨ {len(df_filtrado)} perfume(s) — precios para {tamanio1}**")
-            st.markdown("")
-
-            for _, row in df_filtrado.iterrows():
-                precio = row[columna1]
-                col_nombre, col_precio = st.columns([4, 2])
-                with col_nombre:
-                    st.markdown(f"🌸 **{row['Nombre']}**")
-                with col_precio:
-                    if precio:
-                        st.markdown(f"**S/ {precio}**")
-                    else:
-                        st.markdown("*Sin precio*")
-                st.divider()
-        else:
-            st.markdown("")
-            st.info("👆 Selecciona una marca para ver sus perfumes")
-
-    # ── Pestaña 2: Por Nombre ─────────────────────────────
     with tab2:
-        nombres = ["— Elige un perfume —"] + sorted(df["Nombre"].unique().tolist())
-        nombre_seleccionado = st.selectbox("Perfume", nombres, key="nombre")
+        mostrar_tab_nombre(df)
 
-        if nombre_seleccionado != "— Elige un perfume —":
-            perfume = df[df["Nombre"] == nombre_seleccionado].iloc[0]
-            url_imagen = str(perfume.get("URL_imagen", "")).strip()
-            mostrar_perfume_card(perfume["Marca"], perfume["Nombre"], url_imagen)
-
-            st.markdown("---")
-            mostrar_todos_precios(perfume, PRECIOS_COLUMNAS)
-
-            for tamanio, columna in PRECIOS_COLUMNAS.items():
-                if not perfume.get(columna):
-                    mostrar_sin_precio(perfume["Nombre"], tamanio)
-        else:
-            st.markdown("")
-            st.info("👆 Selecciona un perfume para ver sus precios")
-
-    # ── Pestaña 3: Nueva Venta ────────────────────────────
     with tab3:
         if check_password():
-            st.markdown("### 📝 Registrar Nueva Venta")
-            st.markdown("---")
-
-            if "cesta" not in st.session_state:
-                st.session_state.cesta = []
-
-            st.markdown("#### 👤 Datos del Comprador")
-            col1, col2 = st.columns(2)
-            with col1:
-                fecha = st.date_input("📅 Fecha", key="fecha_venta")
-                comprador = st.text_input("👤 Comprador",
-                    placeholder="Nombre del comprador",
-                    key="comprador_input")
-                celular = st.text_input("📱 Celular",
-                    placeholder="Ej: 999888777",
-                    max_chars=9,
-                    key="celular_input")
-            with col2:
-                tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="tipo_envio")
-                direccion = st.text_input("📍 Dirección",
-                    placeholder="Ej: Av. Lima 123, Miraflores",
-                    key="direccion_input")
-
-            st.markdown("---")
-            st.markdown("#### 🛒 Agregar Perfume")
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                nombres_catalogo = sorted(df["Nombre"].unique().tolist())
-                perfume_venta = st.selectbox("🌸 Perfume", nombres_catalogo, key="perfume_venta")
-            with col2:
-                ml_vendido = st.selectbox("📏 ML", ML_OPCIONES, key="ml_venta")
-            with col3:
-                metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key="metodo_venta")
-
-            perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]
-            id_perfume = perfume_row["ID_Perfume"]
-            columna_precio = f"Precio_{ml_vendido}ml"
-            precio_item = perfume_row.get(columna_precio, 0)
-
-            if precio_item:
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-                    border-radius: 10px; padding: 0.8rem;
-                    text-align: center; margin: 0.5rem 0;
-                ">
-                    <div style="color:#e8c9a8; font-size:0.75rem; text-transform:uppercase;">Precio</div>
-                    <div style="color:white; font-size:1.5rem; font-weight:700;">S/ {precio_item}</div>
-                    <div style="color:#c8956c; font-size:0.75rem;">{perfume_venta} — {ml_vendido}ml</div>
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.warning(f"⚠️ Sin precio para {ml_vendido}ml")
-
-            if st.button("➕ Agregar a cesta", use_container_width=True, disabled=not precio_item):
-                if not comprador:
-                    st.error("❌ Ingresa el nombre del comprador primero")
-                elif len(celular) != 9 or not celular.isdigit():
-                    st.error("❌ El celular debe tener exactamente 9 números")
-                else:
-                    st.session_state.cesta.append({
-                        "perfume": perfume_venta,
-                        "id_perfume": id_perfume,
-                        "ml": ml_vendido,
-                        "precio": precio_item,
-                        "metodo": metodo_pago
-                    })
-                    st.success(f"✅ {perfume_venta} agregado a la cesta")
-
-            if st.session_state.cesta:
-                st.markdown("---")
-                st.markdown("#### 🛍️ Cesta actual")
-
-                total = 0
-                for i, item in enumerate(st.session_state.cesta):
-                    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-                    with col1:
-                        st.markdown(f"🌸 **{item['perfume']}**")
-                    with col2:
-                        st.markdown(f"{item['ml']}ml")
-                    with col3:
-                        st.markdown(f"**S/ {item['precio']}**")
-                    with col4:
-                        if st.button("🗑️", key=f"del_{i}"):
-                            st.session_state.cesta.pop(i)
-                            st.rerun()
-                    total += float(item['precio'])
-
-                st.markdown("---")
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-                    border-radius: 12px; padding: 1rem;
-                    text-align: center; margin: 0.5rem 0;
-                ">
-                    <div style="color:#e8c9a8; font-size:0.8rem; text-transform:uppercase;">Total a cobrar</div>
-                    <div style="color:white; font-family:'Playfair Display',serif; font-size:2.5rem; font-weight:700;">S/ {total:.1f}</div>
-                    <div style="color:#c8956c; font-size:0.8rem;">{len(st.session_state.cesta)} item(s)</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                st.markdown("")
-                if st.button("✅ Guardar Venta Completa", use_container_width=True, type="primary"):
-                    if not comprador:
-                        st.error("❌ El nombre del comprador es obligatorio")
-                    elif len(celular) != 9 or not celular.isdigit():
-                        st.error("❌ El celular debe tener exactamente 9 números")
-                    else:
-                        try:
-                            id_compra = obtener_ultimo_id_compra()
-                            for item in st.session_state.cesta:
-                                guardar_venta([
-                                    id_compra,
-                                    str(fecha),
-                                    comprador,
-                                    celular,
-                                    str(item["id_perfume"]),
-                                    str(item["ml"]),
-                                    str(item["precio"]),
-                                    item["metodo"],
-                                    tipo_envio,
-                                    direccion,
-                                    "Pendiente"
-                                ])
-
-                            items_texto = "%0A".join([
-                                f"- {i['perfume']} {i['ml']}ml → S/ {i['precio']}"
-                                for i in st.session_state.cesta
-                            ])
-                            mensaje = (
-                                f"🌸 *RESUMEN DE VENTA {id_compra}*%0A"
-                                f"━━━━━━━━━━━━━━━━%0A"
-                                f"👤 *Comprador:* {comprador}%0A"
-                                f"📱 *Celular:* {celular}%0A"
-                                f"📍 *Dirección:* {direccion}%0A"
-                                f"🚚 *Envío:* {tipo_envio}%0A"
-                                f"━━━━━━━━━━━━━━━━%0A"
-                                f"🛍️ *Productos:*%0A"
-                                f"{items_texto}%0A"
-                                f"━━━━━━━━━━━━━━━━%0A"
-                                f"💰 *Total: S/ {total:.1f}*"
-                            )
-                            url_whatsapp = f"https://wa.me/?text={mensaje}"
-
-                            st.success(f"✅ Venta **{id_compra}** guardada — {len(st.session_state.cesta)} item(s) para {comprador}")
-                            st.markdown(f"""
-                            <a href="{url_whatsapp}" target="_blank" style="
-                                display: block;
-                                background: #25D366;
-                                color: white;
-                                text-align: center;
-                                padding: 0.8rem;
-                                border-radius: 10px;
-                                text-decoration: none;
-                                font-weight: 700;
-                                margin-top: 0.5rem;
-                            ">📲 Compartir por WhatsApp</a>
-                            """, unsafe_allow_html=True)
-                            st.balloons()
-                            st.session_state.cesta = []
-                        except Exception as e:
-                            st.error(f"❌ No se pudo guardar: {e}")
-            else:
-                st.markdown("")
-                st.info("🛒 La cesta está vacía — agrega perfumes arriba")
+            mostrar_tab_venta(df)
         else:
             mostrar_login(key="tab3")
 
-    # ── Pestaña 4: Estadísticas ───────────────────────────
     with tab4:
         if check_password():
-            st.markdown("### 📊 Estadísticas de Ventas")
             cerrar_sesion(key="logout_tab4")
-
-            if st.button("🔄 Recargar datos", key="reload"):
-                limpiar_cache_catalogo()
-                st.rerun()
-
-            st.markdown("---")
-            try:
-                df_ventas = cargar_ventas()
-                subtab1, subtab2 = st.tabs(["📊 Estadísticas", "📦 Pendientes"])
-                with subtab1:
-                    mostrar_estadisticas(df_ventas, df)
-                with subtab2:
-                    mostrar_ventas_pendientes(df_ventas)
-            except Exception as e:
-                st.error(f"❌ Error cargando ventas: {e}")
-                if st.session_state.get("error_log"):
-                    with st.expander("🔍 Log de errores"):
-                        for log in st.session_state["error_log"]:
-                            st.code(log)
+            mostrar_tab_estadisticas(df)
         else:
             mostrar_login(key="tab4")
 
-    # ── Pestaña 5: Sesión ─────────────────────────────────
     with tab5:
         if check_password():
             st.markdown("### 🔓 Sesión activa")

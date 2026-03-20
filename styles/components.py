@@ -108,4 +108,106 @@ COMPONENTS = """
         margin-bottom: 1rem;
         font-style: italic;
     }
+    
+    /* ── BOTONES ── */
+    .stButton button {
+        background-color: #2c1a0e !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+    }
+
+    .stButton button:hover {
+        background-color: #5c3a1e !important;
+        color: white !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(44, 26, 14, 0.3) !important;
+    }
+
+    .stButton button:active {
+        transform: translateY(0) !important;
+        background-color: #1a0f08 !important;
+    }
+
+    /* Botón primario (Guardar Venta) */
+    .stButton button[kind="primary"] {
+        background-color: #c8956c !important;
+    }
+
+    .stButton button[kind="primary"]:hover {
+        background-color: #a07850 !important;
+    }
+
+    /* Botón WhatsApp */
+    a[href*="wa.me"]:hover {
+        opacity: 0.85 !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* Botón Marcar entregado */
+    .stExpander .stButton button {
+        background-color: #2c1a0e !important;
+    }
+
+    .stExpander .stButton button:hover {
+        background-color: #5c3a1e !important;
+        color: white !important;
+    }
+    
+    /* ── EXPANDER ── */
+    .stExpander {
+        border: 1px solid #e8d5c4 !important;
+        border-radius: 12px !important;
+        background: white !important;
+    }
+
+    .stExpander summary {
+        background: #2c1a0e !important;
+        border-radius: 10px !important;
+        color: white !important;
+    }
+
+    .stExpander summary span,
+    .stExpander summary p {
+        color: white !important;
+    }
+
+    .stExpander summary:hover {
+        background: #5c3a1e !important;
+    }
+
+    /* Contenido dentro del expander */
+    .stExpander [data-testid="stExpanderDetails"] {
+        background: white !important;
+        padding: 1rem !important;
+    }
+
+    .stExpander [data-testid="stExpanderDetails"] p,
+    .stExpander [data-testid="stExpanderDetails"] strong {
+        color: #2c1a0e !important;
+    }
+    
+    /* ── BOTÓN MARCAR ENTREGADO ── */
+    .stExpander .stButton button {
+        background-color: #2c1a0e !important;
+        color: white !important;
+    }
+
+    .stExpander .stButton button p,
+    .stExpander .stButton button span {
+        color: white !important;
+    }
+
+    .stExpander .stButton button:hover {
+        background-color: #5c3a1e !important;
+        color: white !important;
+    }
+    
+    /* Texto productos en expander */
+    .stExpander [data-testid="stExpanderDetails"] li,
+    .stExpander [data-testid="stExpanderDetails"] ul {
+        color: #2c1a0e !important;
+    }
 """

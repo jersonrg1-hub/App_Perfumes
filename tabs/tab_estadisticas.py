@@ -16,7 +16,7 @@ def mostrar_tab_estadisticas(df):
         with subtab1:
             mostrar_estadisticas(df_ventas, df)
         with subtab2:
-            mostrar_ventas_pendientes(df_ventas)
+            mostrar_ventas_pendientes(df_ventas, df)
     except Exception as e:
         st.error(f"❌ Error cargando ventas: {e}")
         if st.session_state.get("error_log"):

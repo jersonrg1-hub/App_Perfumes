@@ -5,7 +5,6 @@ from config import COL_ESTADO_NUM
 from data import marcar_entregado
 from pdf_generator import exportar_pdf_ventas_hoy
 
-# ── Función base para métricas ─────────────────────────────
 def _metrica_card(titulo, valor):
     return f"""
     <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
@@ -30,7 +29,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         (df_ventas["Fecha"].dt.year == hoy.year)
     ]
 
-    # ── Métricas ──────────────────────────────────────────
     st.markdown("#### 📊 Resumen")
     col1, col2, col3, col4 = st.columns(4)
     total_hoy = ventas_hoy["Precio_Cobrado"].sum()
@@ -47,7 +45,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
 
     st.markdown("")
 
-    # ── Perfumes más vendidos ─────────────────────────────
     st.markdown("#### 🏆 Perfumes más vendidos")
     if "ID_Perfume" in df_ventas.columns:
         df_ventas["ID_Perfume"] = df_ventas["ID_Perfume"].astype(str)
@@ -73,7 +70,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
                 st.markdown(f"**{row['Cantidad']}x**")
             st.divider()
 
-    # ── Historial completo ────────────────────────────────
     st.markdown("#### 📋 Historial completo")
     with st.expander("Ver todas las ventas"):
         st.dataframe(
@@ -81,7 +77,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             use_container_width=True, hide_index=True
         )
 
-    # ── Exportar PDF ──────────────────────────────────────
     st.markdown("---")
     st.markdown("#### 📄 Exportar ventas del día")
     if st.button("⬇️ Generar PDF del día", use_container_width=True):
@@ -97,7 +92,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         else:
             st.warning("⚠️ No hay ventas hoy para exportar")
 
-def mostrar_ventas_pendientes(df_ventas):
+def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
     if df_ventas.empty:
         st.info("📭 No hay ventas registradas")
         return
@@ -111,6 +106,17 @@ def mostrar_ventas_pendientes(df_ventas):
     if pendientes.empty:
         st.success("✅ No hay ventas pendientes")
         return
+
+    # Preparar catálogo para buscar nombres
+    if df_catalogo is not None:
+        df_catalogo = df_catalogo.copy()
+        df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
+
+    def get_nombre_perfume(id_perfume):
+        if df_catalogo is None:
+            return f"ID: {id_perfume}"
+        match = df_catalogo[df_catalogo["ID_Perfume"] == str(id_perfume)]
+        return match.iloc[0]["Nombre"] if not match.empty else f"ID: {id_perfume}"
 
     grupos = pendientes.groupby("ID_Compra")
     st.markdown(f"**{grupos.ngroups} compra(s) pendiente(s)**")
@@ -131,7 +137,12 @@ def mostrar_ventas_pendientes(df_ventas):
 
             st.markdown("**🛍️ Productos:**")
             for _, item in grupo.iterrows():
-                st.markdown(f"- {item.get('Ml_Vendido','')}ml | S/ {item.get('Precio_Cobrado','')}")
+                nombre = get_nombre_perfume(item.get('ID_Perfume', ''))
+                st.markdown(
+                    f"- 🌸 **{nombre}** — "
+                    f"{item.get('Ml_Vendido','')}ml "
+                    f"| S/ {item.get('Precio_Cobrado','')}"
+                )
 
             if st.button("✅ Marcar como entregado", key=f"entregar_{id_compra}"):
                 try:

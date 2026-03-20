@@ -1,5 +1,4 @@
 import streamlit as st
-from pathlib import Path
 from config import PRECIOS_COLUMNAS
 from styles import get_styles
 from data import cargar_catalogo
@@ -8,6 +7,13 @@ from components import (
     mostrar_perfume_card,
     mostrar_todos_precios
 )
+from errores import (
+    mostrar_error_conexion,
+    mostrar_error_datos_vacios,
+    mostrar_sin_precio,
+    mostrar_error_columna,
+    validar_dataframe
+)
 
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
 st.markdown(get_styles(), unsafe_allow_html=True)
@@ -15,6 +21,19 @@ mostrar_encabezado()
 
 try:
     df = cargar_catalogo()
+
+    # ── Validar que no esté vacío ─────────────────────────
+    if df.empty:
+        mostrar_error_datos_vacios()
+        st.stop()
+
+    # ── Validar columnas requeridas ───────────────────────
+    columnas_faltantes = validar_dataframe(df)
+    if columnas_faltantes:
+        for col in columnas_faltantes:
+            mostrar_error_columna(col)
+        st.stop()
+
     tab1, tab2 = st.tabs(["🏷️  Por Marca", "🔍  Por Nombre"])
 
     # ── Pestaña 1: Por Marca ──────────────────────────────
@@ -26,7 +45,6 @@ try:
         with col2:
             tamanio1 = st.selectbox("Tamaño", list(PRECIOS_COLUMNAS.keys()), key="tamanio1")
 
-        # Solo mostrar si eligió una marca real
         if marca_seleccionada != "— Elige una marca —":
             df_filtrado = df[df["Marca"] == marca_seleccionada]
             columna1 = PRECIOS_COLUMNAS[tamanio1]
@@ -61,10 +79,18 @@ try:
             mostrar_perfume_card(perfume["Marca"], perfume["Nombre"], url_imagen)
 
             st.markdown("---")
+            # ✅ Después
             mostrar_todos_precios(perfume, PRECIOS_COLUMNAS)
+
+            # Avisar si algún tamaño no tiene precio
+            for tamanio, columna in PRECIOS_COLUMNAS.items():
+                if not perfume.get(columna):
+                    mostrar_sin_precio(perfume["Nombre"], tamanio)
         else:
             st.markdown("")
             st.info("👆 Selecciona un perfume para ver sus precios")
 
 except Exception as e:
-    st.error(f"❌ Error: {e}")
+    mostrar_error_conexion()
+    with st.expander("🔍 Ver detalle del error"):
+        st.code(str(e))

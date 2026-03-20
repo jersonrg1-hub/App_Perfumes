@@ -1,31 +1,24 @@
 from fpdf import FPDF
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date
-
-def cargar_ventas(cliente, sheet_name):
-    hoja = cliente.open(sheet_name).worksheet("Ventas_Pendientes")
-    datos = hoja.get_all_records()
-    if not datos:
-        return pd.DataFrame()
-    return pd.DataFrame(datos)
+from datetime import date
+from config import COL_ESTADO_NUM
+from data import marcar_entregado
 
 def mostrar_estadisticas(df_ventas, df_catalogo):
     if df_ventas.empty:
         st.info("📭 No hay ventas registradas todavía")
         return
 
+    df_ventas = df_ventas.copy()
     df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"], errors="coerce")
     df_ventas["Precio_Cobrado"] = pd.to_numeric(df_ventas["Precio_Cobrado"], errors="coerce")
 
     hoy = pd.Timestamp(date.today())
-    mes_actual = hoy.month
-    anio_actual = hoy.year
-
     ventas_hoy = df_ventas[df_ventas["Fecha"].dt.date == hoy.date()]
     ventas_mes = df_ventas[
-        (df_ventas["Fecha"].dt.month == mes_actual) &
-        (df_ventas["Fecha"].dt.year == anio_actual)
+        (df_ventas["Fecha"].dt.month == hoy.month) &
+        (df_ventas["Fecha"].dt.year == hoy.year)
     ]
 
     st.markdown("#### 📊 Resumen")
@@ -38,7 +31,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">{len(ventas_hoy)}</div>
         </div>
         """, unsafe_allow_html=True)
-
     with col2:
         total_hoy = ventas_hoy["Precio_Cobrado"].sum()
         st.markdown(f"""
@@ -47,7 +39,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">S/ {total_hoy:.1f}</div>
         </div>
         """, unsafe_allow_html=True)
-
     with col3:
         st.markdown(f"""
         <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
@@ -55,7 +46,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">{len(ventas_mes)}</div>
         </div>
         """, unsafe_allow_html=True)
-
     with col4:
         total_mes = ventas_mes["Precio_Cobrado"].sum()
         st.markdown(f"""
@@ -66,28 +56,25 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         """, unsafe_allow_html=True)
 
     st.markdown("")
-
     st.markdown("#### 🏆 Perfumes más vendidos")
     if "ID_Perfume" in df_ventas.columns:
         df_ventas["ID_Perfume"] = df_ventas["ID_Perfume"].astype(str)
+        df_catalogo = df_catalogo.copy()
         df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
 
         mas_vendidos = (
             df_ventas.groupby("ID_Perfume")
-            .size()
-            .reset_index(name="Cantidad")
-            .sort_values("Cantidad", ascending=False)
-            .head(5)
+            .size().reset_index(name="Cantidad")
+            .sort_values("Cantidad", ascending=False).head(5)
         )
         mas_vendidos = mas_vendidos.merge(
             df_catalogo[["ID_Perfume", "Nombre", "Marca"]],
             on="ID_Perfume", how="left"
         )
-
         for _, row in mas_vendidos.iterrows():
             col1, col2, col3 = st.columns([4, 2, 1])
             with col1:
-                st.markdown(f"🌸 **{row.get('Nombre', 'Desconocido')}**")
+                st.markdown(f"🌸 **{row.get('Nombre','Desconocido')}**")
             with col2:
                 st.caption(str(row.get('Marca', '')))
             with col3:
@@ -98,11 +85,9 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     with st.expander("Ver todas las ventas"):
         st.dataframe(
             df_ventas.sort_values("Fecha", ascending=False),
-            use_container_width=True,
-            hide_index=True
+            use_container_width=True, hide_index=True
         )
 
-    # ── Exportar PDF ──────────────────────────────────────
     st.markdown("---")
     st.markdown("#### 📄 Exportar ventas del día")
     if st.button("⬇️ Generar PDF del día", use_container_width=True):
@@ -121,9 +106,9 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
 def exportar_pdf_ventas_hoy(df_ventas, df_catalogo):
     try:
         hoy = date.today()
+        df_ventas = df_ventas.copy()
         df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"], errors="coerce")
         ventas_hoy = df_ventas[df_ventas["Fecha"].dt.date == hoy]
-
         if ventas_hoy.empty:
             return None
 
@@ -156,13 +141,12 @@ def exportar_pdf_ventas_hoy(df_ventas, df_catalogo):
         pdf.ln(5)
         pdf.set_font("Helvetica", "B", 12)
         pdf.cell(0, 8, f"TOTAL DEL DIA: S/ {total_dia:.1f}", ln=True, align="R")
-
         return bytes(pdf.output())
     except Exception as e:
         st.error(f"Error generando PDF: {e}")
         return None
 
-def mostrar_ventas_pendientes(df_ventas, cliente, sheet_name):
+def mostrar_ventas_pendientes(df_ventas):
     if df_ventas.empty:
         st.info("📭 No hay ventas registradas")
         return
@@ -178,7 +162,6 @@ def mostrar_ventas_pendientes(df_ventas, cliente, sheet_name):
         return
 
     st.markdown(f"**{len(pendientes)} venta(s) pendiente(s)**")
-    st.markdown("")
 
     for idx, row in pendientes.iterrows():
         with st.expander(f"📦 {row.get('ID_Compra','')} — {row.get('Comprador','')}"):
@@ -194,8 +177,7 @@ def mostrar_ventas_pendientes(df_ventas, cliente, sheet_name):
 
             if st.button("✅ Marcar como entregado", key=f"entregar_{idx}"):
                 try:
-                    hoja = cliente.open(sheet_name).worksheet("Ventas_Pendientes")
-                    hoja.update_cell(idx + 2, 11, "Entregado")
+                    marcar_entregado(idx + 2, COL_ESTADO_NUM)
                     st.success("✅ Marcado como entregado")
                     st.rerun()
                 except Exception as e:

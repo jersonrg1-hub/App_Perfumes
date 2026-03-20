@@ -282,5 +282,72 @@ def get_styles():
         transform: translateY(-3px);
         box-shadow: 0 8px 25px rgba(44, 26, 14, 0.35) !important;
     }
+    
+    /* ── OPTIMIZACIÓN MÓVIL ── */
+    @media (max-width: 768px) {
+
+        /* Título más pequeño en móvil */
+        .titulo-app {
+            font-size: 2rem !important;
+        }
+
+        .subtitulo-app {
+            font-size: 0.8rem !important;
+        }
+
+        /* Precio box más compacto */
+        .precio-box .valor {
+            font-size: 2.2rem !important;
+        }
+
+        /* Cajas de precio por tamaño más compactas */
+        div[style*="linear-gradient(135deg, #2c1a0e"] {
+            padding: 0.7rem !important;
+        }
+
+        div[style*="linear-gradient(135deg, #2c1a0e"] div:last-child {
+            font-size: 1.1rem !important;
+        }
+
+        /* Tarjeta perfume más compacta */
+        .perfume-card {
+            padding: 0.9rem 1rem !important;
+        }
+
+        .perfume-card .nombre {
+            font-size: 1.2rem !important;
+        }
+
+        /* Pestañas más grandes para dedos */
+        .stTabs [data-baseweb="tab"] {
+            padding: 0.6rem 1rem !important;
+            font-size: 0.9rem !important;
+        }
+
+        /* Selectbox más grande para dedos */
+        div[data-baseweb="select"] {
+            min-height: 48px !important;
+        }
+
+        div[data-baseweb="select"] span {
+            font-size: 1rem !important;
+        }
+
+        /* Items de lista más grandes */
+        [data-testid="column"] p {
+            font-size: 1rem !important;
+            padding: 0.3rem 0 !important;
+        }
+
+        /* Más espacio entre elementos */
+        .stMarkdown {
+            margin-bottom: 0.5rem !important;
+        }
+
+        /* Divisor más visible */
+        hr {
+            margin: 0.8rem 0 !important;
+        }
+    }
 </style>
 """

@@ -16,6 +16,10 @@ from errores import (
 )
 
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
+# Detectar si es móvil y ajustar layout
+st.markdown("""
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+""", unsafe_allow_html=True)
 st.markdown(get_styles(), unsafe_allow_html=True)
 mostrar_encabezado()
 
@@ -79,7 +83,6 @@ try:
             mostrar_perfume_card(perfume["Marca"], perfume["Nombre"], url_imagen)
 
             st.markdown("---")
-            # ✅ Después
             mostrar_todos_precios(perfume, PRECIOS_COLUMNAS)
 
             # Avisar si algún tamaño no tiene precio

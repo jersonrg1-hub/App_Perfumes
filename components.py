@@ -64,3 +64,23 @@ def mostrar_todos_precios(perfume, precios_columnas):
 
 def mostrar_lista_marca(df_filtrado, columna, tamanio):
     pass  # Ya no se usa, lógica movida a app.py
+
+def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, cesta, total):
+    items_texto = "%0A".join([
+        f"- {i['perfume']} {i['ml']}ml → S/ {i['precio']}"
+        for i in cesta
+    ])
+    mensaje = (
+        f"🌸 *RESUMEN DE VENTA {id_compra}*%0A"
+        f"━━━━━━━━━━━━━━━━%0A"
+        f"👤 *Comprador:* {comprador}%0A"
+        f"📱 *Celular:* {celular}%0A"
+        f"📍 *Dirección:* {direccion}%0A"
+        f"🚚 *Envío:* {tipo_envio}%0A"
+        f"━━━━━━━━━━━━━━━━%0A"
+        f"🛍️ *Productos:*%0A"
+        f"{items_texto}%0A"
+        f"━━━━━━━━━━━━━━━━%0A"
+        f"💰 *Total: S/ {total:.1f}*"
+    )
+    return f"https://wa.me/?text={mensaje}"

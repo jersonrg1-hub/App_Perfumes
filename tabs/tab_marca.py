@@ -1,7 +1,6 @@
 import streamlit as st
 from config import PRECIOS_COLUMNAS, fmt_precio
 
-
 def mostrar_tab_marca(df):
     col_marca, col_tamanio = st.columns(2)
     with col_marca:
@@ -18,11 +17,18 @@ def mostrar_tab_marca(df):
         st.markdown(f"**✨ {len(df_filtrado)} perfume(s) — precios para {tamanio}**")
         st.markdown("")
 
+        tiene_notas = "Notas" in df.columns
+        tiene_perfil = "Perfil_Olfativo" in df.columns
+
         for _, row in df_filtrado.iterrows():
             precio = row[columna]
             col_nombre, col_precio = st.columns([4, 2])
             with col_nombre:
                 st.markdown(f"🌸 **{row['Nombre']}**")
+                if tiene_notas and row.get('Notas'):
+                    st.caption(f"🎵 {row['Notas']}")
+                if tiene_perfil and row.get('Perfil_Olfativo'):
+                    st.caption(f"✨ {row['Perfil_Olfativo']}")
             with col_precio:
                 if precio:
                     st.markdown(f"**S/ {fmt_precio(precio)}**")

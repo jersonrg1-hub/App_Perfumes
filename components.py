@@ -7,64 +7,60 @@ def mostrar_encabezado():
 
 def mostrar_perfume_card(marca, nombre, url_imagen=""):
     st.markdown(f"""
-    <div class="perfume-card">
-        <div class="marca">{marca}</div>
-        <div class="nombre">{nombre}</div>
+    <div style="
+        background: white;
+        border-left: 4px solid #c8956c;
+        border-radius: 12px;
+        padding: 1.2rem 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 2px 12px rgba(160, 120, 80, 0.12);
+    ">
+        <div style="font-size:0.8rem; letter-spacing:0.12em; text-transform:uppercase; color:#a07850; font-weight:600; margin-bottom:0.2rem;">{marca}</div>
+        <div style="font-family:'Playfair Display',serif; font-size:1.4rem; color:#2c1a0e; font-weight:600;">{nombre}</div>
     </div>
     """, unsafe_allow_html=True)
 
     if url_imagen:
-        imagen_path = Path(url_imagen.strip())
+        imagen_path = Path(url_imagen)
         if imagen_path.exists():
             st.image(str(imagen_path), width=200)
         else:
-            st.caption(f"📷 No encontrada: {imagen_path}")
+            st.caption("📷 Imagen no disponible")
 
-def mostrar_precio_box(precio, tamanio):
-    st.markdown(f"""
-    <div class="precio-box">
-        <div class="label">Precio de Venta</div>
-        <div class="valor">S/ {precio}</div>
-        <div class="tamanio">Decant de {tamanio}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-def mostrar_perfume_item(nombre, precio, url_imagen=""):
-    if url_imagen:
-        imagen_path = Path(url_imagen.strip())
-        col1, col2, col3 = st.columns([1, 4, 2])
-        with col1:
-            if imagen_path.exists():
-                st.image(str(imagen_path), width=55)
-        with col2:
-            st.markdown(f'<span class="pf-nombre">{nombre}</span>', unsafe_allow_html=True)
-        with col3:
+def mostrar_todos_precios(perfume, precios_columnas):
+    st.markdown("#### 💰 Precios por tamaño")
+    cols = st.columns(4)
+    for i, (tamanio, columna) in enumerate(precios_columnas.items()):
+        precio = perfume.get(columna, "")
+        with cols[i]:
             if precio:
-                st.markdown(f'<span class="pf-precio">S/ {precio}</span>', unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
+                    border-radius: 12px;
+                    padding: 1rem;
+                    text-align: center;
+                    box-shadow: 0 2px 10px rgba(44,26,14,0.2);
+                    margin-bottom: 0.5rem;
+                ">
+                    <div style="color:#e8c9a8; font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase;">{tamanio}</div>
+                    <div style="color:white; font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700;">S/ {precio}</div>
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                st.markdown('<span class="sin-precio">Sin precio</span>', unsafe_allow_html=True)
-    else:
-        if precio:
-            st.markdown(f"""
-            <div class="perfume-item">
-                <span class="pf-nombre">{nombre}</span>
-                <span class="pf-precio">S/ {precio}</span>
-            </div>
-            """, unsafe_allow_html=True)
-        else:
-            st.markdown(f"""
-            <div class="perfume-item">
-                <span class="pf-nombre">{nombre}</span>
-                <span class="sin-precio">Sin precio</span>
-            </div>
-            """, unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="
+                    background: #f5ede6;
+                    border-radius: 12px;
+                    padding: 1rem;
+                    text-align: center;
+                    border: 1px dashed #e0c9b4;
+                    margin-bottom: 0.5rem;
+                ">
+                    <div style="color:#c8956c; font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase;">{tamanio}</div>
+                    <div style="color:#bbb; font-size:0.85rem; font-style:italic;">Sin precio</div>
+                </div>
+                """, unsafe_allow_html=True)
 
 def mostrar_lista_marca(df_filtrado, columna, tamanio):
-    st.markdown('<hr class="divider">', unsafe_allow_html=True)
-    st.markdown(
-        f'<div class="contador">✨ {len(df_filtrado)} perfume(s) encontrados — precios para {tamanio}</div>',
-        unsafe_allow_html=True
-    )
-    for _, row in df_filtrado.iterrows():
-        url_imagen = row.get("URL_imagen", "")
-        mostrar_perfume_item(row["Nombre"], row[columna], url_imagen)
+    pass  # Ya no se usa, lógica movida a app.py

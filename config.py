@@ -11,7 +11,6 @@ WORKSHEET_NAME = "Catalogo"
 # ── Tamaños disponibles y sus columnas en el sheet ─────────
 PRECIOS_COLUMNAS = {
     "2 ml":  "Precio_2ml",
-    "3 ml":  "Precio_3ml",
     "5 ml":  "Precio_5ml",
     "10 ml": "Precio_10ml"
 }

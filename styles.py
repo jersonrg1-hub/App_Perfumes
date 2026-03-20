@@ -349,5 +349,37 @@ def get_styles():
             margin: 0.8rem 0 !important;
         }
     }
+    
+    /* ── INPUTS DE TEXTO ── */
+    .stTextInput input,
+    .stNumberInput input {
+        background-color: #ffffff !important;
+        color: #2c1a0e !important;
+        border-color: #e0c9b4 !important;
+    }
+
+    .stTextInput input::placeholder {
+        color: #a07850 !important;
+        opacity: 1 !important;
+    }
+
+    /* Date input */
+    .stDateInput input {
+        background-color: #ffffff !important;
+        color: #2c1a0e !important;
+        border-color: #e0c9b4 !important;
+    }
+    
+    /* ── LABELS DEL FORM ── */
+    .stTextInput label,
+    .stDateInput label,
+    .stSelectbox label,
+    .stNumberInput label {
+        color: #2c1a0e !important;
+        font-weight: 600 !important;
+        font-size: 0.85rem !important;
+        letter-spacing: 0.05em !important;
+        text-transform: uppercase !important;
+    }
 </style>
 """

@@ -10,14 +10,15 @@ WORKSHEET_CATALOGO = "Catalogo"
 WORKSHEET_VENTAS = "Ventas_Pendientes"
 
 # ── Tamaños y columnas de precios ──────────────────────────
+# ⚠️ Si agregas un tamaño aquí se actualiza todo automáticamente
 PRECIOS_COLUMNAS = {
     "2 ml":  "Precio_2ml",
     "5 ml":  "Precio_5ml",
     "10 ml": "Precio_10ml"
 }
 
-# ── Tamaños disponibles para venta ─────────────────────────
-ML_OPCIONES = [2, 5, 10]
+# Derivado automáticamente de PRECIOS_COLUMNAS
+ML_OPCIONES = [int(k.replace(" ml", "")) for k in PRECIOS_COLUMNAS.keys()]
 
 # ── Métodos de pago ────────────────────────────────────────
 METODOS_PAGO = ["Efectivo", "Yape", "Plin", "Transferencia", "Tarjeta"]
@@ -26,10 +27,8 @@ METODOS_PAGO = ["Efectivo", "Yape", "Plin", "Transferencia", "Tarjeta"]
 TIPOS_ENVIO = ["Shalom", "Motorizado", "Contraentrega"]
 
 # ── Columnas requeridas en el catálogo ─────────────────────
-COLUMNAS_REQUERIDAS = [
-    "Marca", "Nombre", "Precio_2ml",
-    "Precio_5ml", "Precio_10ml"
-]
+# Derivado automáticamente de PRECIOS_COLUMNAS
+COLUMNAS_REQUERIDAS = ["Marca", "Nombre"] + list(PRECIOS_COLUMNAS.values())
 
 # ── Columnas de Ventas_Pendientes ──────────────────────────
 COLUMNAS_VENTAS = [
@@ -39,4 +38,6 @@ COLUMNAS_VENTAS = [
 ]
 
 # ── Número de columna Estado en Sheets (base 1) ────────────
-COL_ESTADO_NUM = 11
+# ⚠️ IMPORTANTE: Si reordenas columnas en Ventas_Pendientes
+# actualiza este número. Estado debe ser la columna 11.
+COL_ESTADO_NUM = COLUMNAS_VENTAS.index("Estado") + 1

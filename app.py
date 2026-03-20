@@ -1,7 +1,9 @@
 import streamlit as st
-from config import PRECIOS_COLUMNAS
+import gspread
+from google.oauth2.service_account import Credentials
+from config import PRECIOS_COLUMNAS, SCOPES, SHEET_NAME
 from styles import get_styles
-from data import cargar_catalogo, guardar_venta
+from data import cargar_catalogo, guardar_venta, obtener_ultimo_id_compra
 from components import (
     mostrar_encabezado,
     mostrar_perfume_card,
@@ -14,6 +16,8 @@ from errores import (
     mostrar_error_columna,
     validar_dataframe
 )
+from auth import check_password, mostrar_login, cerrar_sesion
+from estadisticas import mostrar_estadisticas, cargar_ventas
 
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
 st.markdown("""
@@ -35,7 +39,13 @@ try:
             mostrar_error_columna(col)
         st.stop()
 
-    tab1, tab2, tab3 = st.tabs(["🏷️  Por Marca", "🔍  Por Nombre", "📝  Nueva Venta"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "🏷️  Por Marca",
+        "🔍  Por Nombre",
+        "📝  Nueva Venta",
+        "📊  Estadísticas",
+        "🔒  Sesión"
+    ])
 
     # ── Pestaña 1: Por Marca ──────────────────────────────
     with tab1:
@@ -89,39 +99,30 @@ try:
             st.markdown("")
             st.info("👆 Selecciona un perfume para ver sus precios")
 
-        # ── Pestaña 3: Nueva Venta ────────────────────────────
-        with tab3:
+    # ── Pestaña 3: Nueva Venta ────────────────────────────
+    with tab3:
+        if check_password():
             st.markdown("### 📝 Registrar Nueva Venta")
             st.markdown("---")
 
-            # ── Inicializar cesta en session_state ────────────
             if "cesta" not in st.session_state:
                 st.session_state.cesta = []
-            if "comprador_actual" not in st.session_state:
-                st.session_state.comprador_actual = ""
-            if "celular_actual" not in st.session_state:
-                st.session_state.celular_actual = ""
-            if "fecha_actual" not in st.session_state:
-                st.session_state.fecha_actual = None
 
-            # ── Datos del comprador ───────────────────────────
             st.markdown("#### 👤 Datos del Comprador")
             col1, col2, col3 = st.columns(3)
             with col1:
                 fecha = st.date_input("📅 Fecha", key="fecha_venta")
             with col2:
                 comprador = st.text_input("👤 Comprador",
-                                          placeholder="Nombre del comprador",
-                                          key="comprador_input")
+                    placeholder="Nombre del comprador",
+                    key="comprador_input")
             with col3:
                 celular = st.text_input("📱 Celular",
-                                        placeholder="Ej: 999888777",
-                                        max_chars=9,
-                                        key="celular_input")
+                    placeholder="Ej: 999888777",
+                    max_chars=9,
+                    key="celular_input")
 
             st.markdown("---")
-
-            # ── Agregar item a la cesta ───────────────────────
             st.markdown("#### 🛒 Agregar Perfume")
             col1, col2, col3 = st.columns(3)
             with col1:
@@ -134,7 +135,6 @@ try:
                     "Efectivo", "Yape", "Plin", "Transferencia", "Tarjeta"
                 ], key="metodo_venta")
 
-            # Precio automático
             perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]
             id_perfume = perfume_row["ID_Perfume"]
             columna_precio = f"Precio_{ml_vendido}ml"
@@ -170,7 +170,6 @@ try:
                     })
                     st.success(f"✅ {perfume_venta} agregado a la cesta")
 
-            # ── Mostrar cesta ─────────────────────────────────
             if st.session_state.cesta:
                 st.markdown("---")
                 st.markdown("#### 🛍️ Cesta actual")
@@ -211,8 +210,6 @@ try:
                         st.error("❌ El celular debe tener exactamente 9 números")
                     else:
                         try:
-                            from data import obtener_ultimo_id_compra
-
                             id_compra = obtener_ultimo_id_compra()
                             for item in st.session_state.cesta:
                                 guardar_venta([
@@ -225,8 +222,7 @@ try:
                                     str(item["precio"]),
                                     item["metodo"]
                                 ])
-                            st.success(
-                                f"✅ Venta **{id_compra}** guardada — {len(st.session_state.cesta)} item(s) para {comprador}")
+                            st.success(f"✅ Venta **{id_compra}** guardada — {len(st.session_state.cesta)} item(s) para {comprador}")
                             st.balloons()
                             st.session_state.cesta = []
                         except Exception as e:
@@ -234,6 +230,35 @@ try:
             else:
                 st.markdown("")
                 st.info("🛒 La cesta está vacía — agrega perfumes arriba")
+        else:
+            mostrar_login(key="tab3")
+
+    # ── Pestaña 4: Estadísticas ───────────────────────────
+    with tab4:
+        if check_password():
+            st.markdown("### 📊 Estadísticas de Ventas")
+            cerrar_sesion(key="logout_tab4")
+            st.markdown("---")
+            try:
+                creds = Credentials.from_service_account_info(
+                    st.secrets["gcp_service_account"], scopes=SCOPES
+                )
+                cliente = gspread.authorize(creds)
+                df_ventas = cargar_ventas(cliente, SHEET_NAME)
+                mostrar_estadisticas(df_ventas, df)
+            except Exception as e:
+                st.error(f"❌ Error cargando ventas: {e}")
+        else:
+            mostrar_login(key="tab4")
+
+    # ── Pestaña 5: Sesión ─────────────────────────────────
+    with tab5:
+        if check_password():
+            st.markdown("### 🔓 Sesión activa")
+            st.success("✅ Estás autenticada")
+            cerrar_sesion(key="logout_tab5")
+        else:
+            mostrar_login(key="tab5")
 
 except Exception as e:
     mostrar_error_conexion()

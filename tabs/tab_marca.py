@@ -1,5 +1,6 @@
 import streamlit as st
-from config import PRECIOS_COLUMNAS
+from config import PRECIOS_COLUMNAS, fmt_precio
+
 
 def mostrar_tab_marca(df):
     col_marca, col_tamanio = st.columns(2)
@@ -24,7 +25,7 @@ def mostrar_tab_marca(df):
                 st.markdown(f"🌸 **{row['Nombre']}**")
             with col_precio:
                 if precio:
-                    st.markdown(f"**S/ {precio}**")
+                    st.markdown(f"**S/ {fmt_precio(precio)}**")
                 else:
                     st.markdown("*Sin precio*")
             st.divider()

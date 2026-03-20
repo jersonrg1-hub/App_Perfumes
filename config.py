@@ -41,3 +41,11 @@ COLUMNAS_VENTAS = [
 # ⚠️ IMPORTANTE: Si reordenas columnas en Ventas_Pendientes
 # actualiza este número. Estado debe ser la columna 11.
 COL_ESTADO_NUM = COLUMNAS_VENTAS.index("Estado") + 1
+
+# ── Formato de precios ─────────────────────────────────────
+def fmt_precio(valor):
+    """Formatea un precio con 2 decimales. Ej: 10.9 → 10.90"""
+    try:
+        return f"{float(valor):.2f}"
+    except:
+        return str(valor)

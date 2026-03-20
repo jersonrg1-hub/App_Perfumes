@@ -3,38 +3,98 @@ def get_styles():
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;600&display=swap');
 
+    /* ── FONDO Y TEXTO BASE ── */
     .stApp {
         background-color: #fdf6f0 !important;
     }
+
+    .main { background-color: #fdf6f0; }
 
     section[data-testid="stSidebar"] {
         background-color: #f5e6d8 !important;
     }
 
-    .stSelectbox div[data-baseweb="select"] {
-        background-color: #ffffff !important;
-        border-color: #e0c9b4 !important;
+    html, body, [class*="css"] {
+        font-family: 'Lato', sans-serif;
+        color: #2c1a0e;
     }
 
-    .stSelectbox div[data-baseweb="select"] span {
+    /* ── FORZAR TEXTO OSCURO EN TODA LA APP ── */
+    .stMarkdown p,
+    .stMarkdown strong,
+    .stMarkdown span,
+    [data-testid="column"] p,
+    [data-testid="column"] strong,
+    [data-testid="stText"] {
         color: #2c1a0e !important;
     }
 
-    .stTabs [data-baseweb="tab-panel"] {
-        background-color: #fdf6f0 !important;
+    .stCaptionContainer p {
+        color: #a07850 !important;
     }
-
-    html, body, [class*="css"] {
-        font-family: 'Lato', sans-serif;
-    }
-
-    .main { background-color: #fdf6f0; }
 
     h1, h2, h3 {
         font-family: 'Playfair Display', serif !important;
         color: #2c1a0e !important;
     }
 
+    /* ── SELECTBOX ── */
+    .stSelectbox div[data-baseweb="select"],
+    div[data-baseweb="select"] {
+        background-color: #ffffff !important;
+        border-color: #e0c9b4 !important;
+    }
+
+    div[data-baseweb="select"] *,
+    .stSelectbox div[data-baseweb="select"] span,
+    .stSelectbox div[data-baseweb="select"] div,
+    .stSelectbox [data-baseweb="select"] input {
+        color: #2c1a0e !important;
+        background-color: #ffffff !important;
+    }
+
+    .stSelectbox label {
+        font-weight: 600;
+        color: #2c1a0e !important;
+        font-size: 0.85rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    /* ── PESTAÑAS ── */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #fdf6f0;
+        border-radius: 10px;
+        padding: 4px;
+    }
+
+    .stTabs [data-baseweb="tab"] {
+        font-family: 'Lato', sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        color: #a07850 !important;
+    }
+
+    .stTabs [aria-selected="true"] {
+        background-color: #2c1a0e !important;
+        border-radius: 8px;
+    }
+
+    .stTabs [aria-selected="true"] p,
+    .stTabs [aria-selected="true"] span {
+        color: white !important;
+    }
+
+    .stTabs [aria-selected="false"] p,
+    .stTabs [aria-selected="false"] span {
+        color: #a07850 !important;
+    }
+
+    .stTabs [data-baseweb="tab-panel"] {
+        background-color: #fdf6f0 !important;
+    }
+
+    /* ── TÍTULOS ── */
     .titulo-app {
         font-family: 'Playfair Display', serif;
         font-size: 2.8rem;
@@ -54,6 +114,7 @@ def get_styles():
         font-weight: 300;
     }
 
+    /* ── TARJETA PERFUME ── */
     .perfume-card {
         background: linear-gradient(135deg, #fff8f3, #fdeee4);
         border-left: 4px solid #c8956c;
@@ -79,6 +140,7 @@ def get_styles():
         font-weight: 600;
     }
 
+    /* ── PRECIO BOX ── */
     .precio-box {
         background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
         border-radius: 16px;
@@ -112,6 +174,7 @@ def get_styles():
         letter-spacing: 0.1em;
     }
 
+    /* ── LISTA PERFUMES ── */
     .perfume-item {
         display: flex;
         justify-content: space-between;
@@ -152,33 +215,6 @@ def get_styles():
         border: none;
         border-top: 1px solid #e8d5c4;
         margin: 1.5rem 0;
-    }
-
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #fdf6f0;
-        border-radius: 10px;
-        padding: 4px;
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        font-family: 'Lato', sans-serif;
-        font-weight: 600;
-        color: #a07850;
-        letter-spacing: 0.05em;
-    }
-
-    .stTabs [aria-selected="true"] {
-        background-color: #2c1a0e !important;
-        color: white !important;
-        border-radius: 8px;
-    }
-
-    .stSelectbox label {
-        font-weight: 600;
-        color: #2c1a0e !important;
-        font-size: 0.85rem;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
     }
 
     .contador {

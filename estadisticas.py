@@ -1,9 +1,18 @@
-from fpdf import FPDF
 import streamlit as st
 import pandas as pd
 from datetime import date
 from config import COL_ESTADO_NUM
 from data import marcar_entregado
+from pdf_generator import exportar_pdf_ventas_hoy
+
+# ── Función base para métricas ─────────────────────────────
+def _metrica_card(titulo, valor):
+    return f"""
+    <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
+        <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">{titulo}</div>
+        <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">{valor}</div>
+    </div>
+    """
 
 def mostrar_estadisticas(df_ventas, df_catalogo):
     if df_ventas.empty:
@@ -21,41 +30,24 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         (df_ventas["Fecha"].dt.year == hoy.year)
     ]
 
+    # ── Métricas ──────────────────────────────────────────
     st.markdown("#### 📊 Resumen")
     col1, col2, col3, col4 = st.columns(4)
+    total_hoy = ventas_hoy["Precio_Cobrado"].sum()
+    total_mes = ventas_mes["Precio_Cobrado"].sum()
 
     with col1:
-        st.markdown(f"""
-        <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
-            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">Ventas hoy</div>
-            <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">{len(ventas_hoy)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(_metrica_card("Ventas hoy", len(ventas_hoy)), unsafe_allow_html=True)
     with col2:
-        total_hoy = ventas_hoy["Precio_Cobrado"].sum()
-        st.markdown(f"""
-        <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
-            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">Total hoy</div>
-            <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">S/ {total_hoy:.1f}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(_metrica_card("Total hoy", f"S/ {total_hoy:.1f}"), unsafe_allow_html=True)
     with col3:
-        st.markdown(f"""
-        <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
-            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">Ventas mes</div>
-            <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">{len(ventas_mes)}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(_metrica_card("Ventas mes", len(ventas_mes)), unsafe_allow_html=True)
     with col4:
-        total_mes = ventas_mes["Precio_Cobrado"].sum()
-        st.markdown(f"""
-        <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
-            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">Total mes</div>
-            <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">S/ {total_mes:.1f}</div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(_metrica_card("Total mes", f"S/ {total_mes:.1f}"), unsafe_allow_html=True)
 
     st.markdown("")
+
+    # ── Perfumes más vendidos ─────────────────────────────
     st.markdown("#### 🏆 Perfumes más vendidos")
     if "ID_Perfume" in df_ventas.columns:
         df_ventas["ID_Perfume"] = df_ventas["ID_Perfume"].astype(str)
@@ -81,6 +73,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
                 st.markdown(f"**{row['Cantidad']}x**")
             st.divider()
 
+    # ── Historial completo ────────────────────────────────
     st.markdown("#### 📋 Historial completo")
     with st.expander("Ver todas las ventas"):
         st.dataframe(
@@ -88,6 +81,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             use_container_width=True, hide_index=True
         )
 
+    # ── Exportar PDF ──────────────────────────────────────
     st.markdown("---")
     st.markdown("#### 📄 Exportar ventas del día")
     if st.button("⬇️ Generar PDF del día", use_container_width=True):
@@ -102,49 +96,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             )
         else:
             st.warning("⚠️ No hay ventas hoy para exportar")
-
-def exportar_pdf_ventas_hoy(df_ventas, df_catalogo):
-    try:
-        hoy = date.today()
-        df_ventas = df_ventas.copy()
-        df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"], errors="coerce")
-        ventas_hoy = df_ventas[df_ventas["Fecha"].dt.date == hoy]
-        if ventas_hoy.empty:
-            return None
-
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Helvetica", "B", 16)
-        pdf.cell(0, 10, f"Ventas del dia - {hoy}", ln=True, align="C")
-        pdf.ln(5)
-
-        total_dia = 0
-        for _, row in ventas_hoy.iterrows():
-            pdf.set_font("Helvetica", "B", 11)
-            pdf.cell(0, 8, f"ID: {row.get('ID_Compra','')} | {row.get('Comprador','')}", ln=True)
-            pdf.set_font("Helvetica", size=10)
-            pdf.cell(0, 6, f"Celular: {row.get('Celular','')} | Envio: {row.get('Tipo_Envio','')}", ln=True)
-            pdf.cell(0, 6, f"Direccion: {row.get('Direccion','')}", ln=True)
-
-            id_p = str(row.get("ID_Perfume", ""))
-            df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
-            match = df_catalogo[df_catalogo["ID_Perfume"] == id_p]
-            nombre_p = match.iloc[0]["Nombre"] if not match.empty else id_p
-
-            precio = float(row.get("Precio_Cobrado", 0))
-            pdf.cell(0, 6, f"Perfume: {nombre_p} {row.get('Ml_Vendido','')}ml | S/ {precio}", ln=True)
-            pdf.cell(0, 4, f"Pago: {row.get('Metodo_Pago','')} | Estado: {row.get('Estado','')}", ln=True)
-            pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-            pdf.ln(3)
-            total_dia += precio
-
-        pdf.ln(5)
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, f"TOTAL DEL DIA: S/ {total_dia:.1f}", ln=True, align="R")
-        return bytes(pdf.output())
-    except Exception as e:
-        st.error(f"Error generando PDF: {e}")
-        return None
 
 def mostrar_ventas_pendientes(df_ventas):
     if df_ventas.empty:
@@ -161,24 +112,32 @@ def mostrar_ventas_pendientes(df_ventas):
         st.success("✅ No hay ventas pendientes")
         return
 
-    st.markdown(f"**{len(pendientes)} venta(s) pendiente(s)**")
+    grupos = pendientes.groupby("ID_Compra")
+    st.markdown(f"**{grupos.ngroups} compra(s) pendiente(s)**")
 
-    for idx, row in pendientes.iterrows():
-        with st.expander(f"📦 {row.get('ID_Compra','')} — {row.get('Comprador','')}"):
+    for id_compra, grupo in grupos:
+        primera = grupo.iloc[0]
+        total_compra = pd.to_numeric(grupo["Precio_Cobrado"], errors="coerce").sum()
+
+        with st.expander(f"📦 {id_compra} — {primera.get('Comprador','')} | S/ {total_compra:.1f}"):
             col1, col2 = st.columns(2)
             with col1:
-                st.write(f"📅 **Fecha:** {row.get('Fecha','')}")
-                st.write(f"📱 **Celular:** {row.get('Celular','')}")
-                st.write(f"🚚 **Envío:** {row.get('Tipo_Envio','')}")
+                st.write(f"📅 **Fecha:** {primera.get('Fecha','')}")
+                st.write(f"📱 **Celular:** {primera.get('Celular','')}")
+                st.write(f"🚚 **Envío:** {primera.get('Tipo_Envio','')}")
             with col2:
-                st.write(f"📍 **Dirección:** {row.get('Direccion','')}")
-                st.write(f"💰 **Precio:** S/ {row.get('Precio_Cobrado','')}")
-                st.write(f"💳 **Pago:** {row.get('Metodo_Pago','')}")
+                st.write(f"📍 **Dirección:** {primera.get('Direccion','')}")
+                st.write(f"💳 **Pago:** {primera.get('Metodo_Pago','')}")
 
-            if st.button("✅ Marcar como entregado", key=f"entregar_{idx}"):
+            st.markdown("**🛍️ Productos:**")
+            for _, item in grupo.iterrows():
+                st.markdown(f"- {item.get('Ml_Vendido','')}ml | S/ {item.get('Precio_Cobrado','')}")
+
+            if st.button("✅ Marcar como entregado", key=f"entregar_{id_compra}"):
                 try:
-                    marcar_entregado(idx + 2, COL_ESTADO_NUM)
-                    st.success("✅ Marcado como entregado")
+                    for idx in grupo.index:
+                        marcar_entregado(idx + 2, COL_ESTADO_NUM)
+                    st.success("✅ Compra marcada como entregada")
                     st.rerun()
                 except Exception as e:
                     st.error(f"Error: {e}")

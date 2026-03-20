@@ -1,6 +1,9 @@
 import streamlit as st
 from pathlib import Path
 
+# Ruta base del proyecto para imágenes
+BASE_DIR = Path(__file__).parent.parent
+
 def mostrar_encabezado():
     st.markdown('<div class="titulo-app">🌸 Decants</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-app">Catálogo de Precios</div>', unsafe_allow_html=True)
@@ -21,15 +24,20 @@ def mostrar_perfume_card(marca, nombre, url_imagen=""):
     """, unsafe_allow_html=True)
 
     if url_imagen:
-        imagen_path = Path(url_imagen)
+        imagen_path = BASE_DIR / url_imagen
         if imagen_path.exists():
             st.image(str(imagen_path), width=200)
         else:
             st.caption("📷 Imagen no disponible")
 
 def mostrar_todos_precios(perfume, precios_columnas):
+    # Convertir a dict si es fila de DataFrame
+    if hasattr(perfume, 'to_dict'):
+        perfume = perfume.to_dict()
+
     st.markdown("#### 💰 Precios por tamaño")
-    cols = st.columns(4)
+    cols = st.columns(len(precios_columnas))
+
     for i, (tamanio, columna) in enumerate(precios_columnas.items()):
         precio = perfume.get(columna, "")
         with cols[i]:
@@ -61,9 +69,6 @@ def mostrar_todos_precios(perfume, precios_columnas):
                     <div style="color:#bbb; font-size:0.85rem; font-style:italic;">Sin precio</div>
                 </div>
                 """, unsafe_allow_html=True)
-
-def mostrar_lista_marca(df_filtrado, columna, tamanio):
-    pass  # Ya no se usa, lógica movida a app.py
 
 def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, cesta, total):
     items_texto = "%0A".join([

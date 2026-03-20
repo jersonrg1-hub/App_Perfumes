@@ -305,4 +305,10 @@ COMPONENTS = """
     div[data-baseweb="notification"] strong {
         color: #2c1a0e !important;
     }
+    
+    /* ── NOTAS Y PERFIL EN LISTAS ── */
+    .stCaptionContainer p {
+        color: #a07850 !important;
+        font-size: 0.95rem !important;
+    }
 """

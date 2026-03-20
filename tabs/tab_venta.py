@@ -12,69 +12,80 @@ def mostrar_tab_venta(df):
 
     # ── Datos del comprador ───────────────────────────────
     st.markdown("#### 👤 Datos del Comprador")
-    col_izq, col_der = st.columns(2)
-    with col_izq:
+
+    col_fecha, col_envio = st.columns(2)
+    with col_fecha:
         fecha = st.date_input("📅 Fecha", key="fecha_venta")
+    with col_envio:
+        tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="tipo_envio")
+
+    col_comp, col_cel = st.columns(2)
+    with col_comp:
         comprador = st.text_input("👤 Comprador",
             placeholder="Nombre del comprador",
             key="comprador_input")
+    with col_cel:
         celular = st.text_input("📱 Celular",
             placeholder="Ej: 999888777",
             max_chars=9,
             key="celular_input")
-    with col_der:
-        tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="tipo_envio")
-        direccion = st.text_input("📍 Dirección",
-            placeholder="Ej: Av. Lima 123, Miraflores",
-            key="direccion_input")
+
+    direccion = st.text_input("📍 Dirección",
+        placeholder="Ej: Av. Lima 123, Miraflores",
+        key="direccion_input")
 
     st.markdown("---")
 
     # ── Agregar perfume ───────────────────────────────────
     st.markdown("#### 🛒 Agregar Perfume")
-    col_perfume, col_ml, col_pago = st.columns(3)
-    with col_perfume:
-        nombres_catalogo = sorted(df["Nombre"].unique().tolist())
-        perfume_venta = st.selectbox("🌸 Perfume", nombres_catalogo, key="perfume_venta")
+
+    nombres_opciones = ["— Elige un perfume —"] + sorted(df["Nombre"].unique().tolist())
+    perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, key="perfume_venta")
+
+    col_ml, col_pago = st.columns(2)
     with col_ml:
         ml_vendido = st.selectbox("📏 ML", ML_OPCIONES, key="ml_venta")
     with col_pago:
-        metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key="metodo_venta")
+        metodo_pago = st.selectbox("💳 Método de Pago", METODOS_PAGO, key="metodo_venta")
 
-    perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]
-    id_perfume = perfume_row["ID_Perfume"]
-    columna_precio = f"Precio_{ml_vendido}ml"
-    precio_item = perfume_row.get(columna_precio, 0)
+    # ── Precio automático ─────────────────────────────────
+    if perfume_venta != "— Elige un perfume —":
+        perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]
+        id_perfume = perfume_row["ID_Perfume"]
+        columna_precio = f"Precio_{ml_vendido}ml"
+        precio_item = perfume_row.get(columna_precio, 0)
 
-    if precio_item:
-        st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-            border-radius: 10px; padding: 0.8rem;
-            text-align: center; margin: 0.5rem 0;
-        ">
-            <div style="color:#e8c9a8; font-size:0.75rem; text-transform:uppercase;">Precio</div>
-            <div style="color:white; font-size:1.5rem; font-weight:700;">S/ {precio_item}</div>
-            <div style="color:#c8956c; font-size:0.75rem;">{perfume_venta} — {ml_vendido}ml</div>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.warning(f"⚠️ Sin precio para {ml_vendido}ml")
-
-    if st.button("➕ Agregar a cesta", use_container_width=True, disabled=not precio_item):
-        if not comprador:
-            st.error("❌ Ingresa el nombre del comprador primero")
-        elif len(celular) != 9 or not celular.isdigit():
-            st.error("❌ El celular debe tener exactamente 9 números")
+        if precio_item:
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
+                border-radius: 10px; padding: 0.8rem;
+                text-align: center; margin: 0.5rem 0;
+            ">
+                <div style="color:#e8c9a8; font-size:0.75rem; text-transform:uppercase;">Precio</div>
+                <div style="color:white; font-size:1.5rem; font-weight:700;">S/ {precio_item}</div>
+                <div style="color:#c8956c; font-size:0.75rem;">{perfume_venta} — {ml_vendido}ml</div>
+            </div>
+            """, unsafe_allow_html=True)
         else:
-            st.session_state.cesta.append({
-                "perfume": perfume_venta,
-                "id_perfume": id_perfume,
-                "ml": ml_vendido,
-                "precio": precio_item,
-                "metodo": metodo_pago
-            })
-            st.success(f"✅ {perfume_venta} agregado a la cesta")
+            st.warning(f"⚠️ Sin precio para {ml_vendido}ml")
+
+        if st.button("➕ Agregar a cesta", use_container_width=True, disabled=not precio_item):
+            if not comprador:
+                st.error("❌ Ingresa el nombre del comprador primero")
+            elif len(celular) != 9 or not celular.isdigit():
+                st.error("❌ El celular debe tener exactamente 9 números")
+            else:
+                st.session_state.cesta.append({
+                    "perfume": perfume_venta,
+                    "id_perfume": id_perfume,
+                    "ml": ml_vendido,
+                    "precio": precio_item,
+                    "metodo": metodo_pago
+                })
+                st.success(f"✅ {perfume_venta} agregado a la cesta")
+    else:
+        st.info("👆 Elige un perfume para ver el precio")
 
     # ── Cesta actual ──────────────────────────────────────
     if st.session_state.cesta:

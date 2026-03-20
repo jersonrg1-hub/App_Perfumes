@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-from config import COL_ESTADO_NUM
+from config import COL_ESTADO_NUM, fmt_precio
 from data import marcar_entregado
 from pdf_generator import exportar_pdf_ventas_hoy
 
@@ -37,11 +37,11 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     with col1:
         st.markdown(_metrica_card("Ventas hoy", len(ventas_hoy)), unsafe_allow_html=True)
     with col2:
-        st.markdown(_metrica_card("Total hoy", f"S/ {total_hoy:.1f}"), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Total hoy", f"S/ {fmt_precio(total_hoy)}"), unsafe_allow_html=True)
     with col3:
         st.markdown(_metrica_card("Ventas mes", len(ventas_mes)), unsafe_allow_html=True)
     with col4:
-        st.markdown(_metrica_card("Total mes", f"S/ {total_mes:.1f}"), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Total mes", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
 
     st.markdown("")
 
@@ -107,7 +107,6 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         st.success("✅ No hay ventas pendientes")
         return
 
-    # Preparar catálogo para buscar nombres
     if df_catalogo is not None:
         df_catalogo = df_catalogo.copy()
         df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
@@ -125,7 +124,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         primera = grupo.iloc[0]
         total_compra = pd.to_numeric(grupo["Precio_Cobrado"], errors="coerce").sum()
 
-        with st.expander(f"📦 {id_compra} — {primera.get('Comprador','')} | S/ {total_compra:.1f}"):
+        with st.expander(f"📦 {id_compra} — {primera.get('Comprador','')} | S/ {fmt_precio(total_compra)}"):
             col1, col2 = st.columns(2)
             with col1:
                 st.write(f"📅 **Fecha:** {primera.get('Fecha','')}")
@@ -141,7 +140,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                 st.markdown(
                     f"- 🌸 **{nombre}** — "
                     f"{item.get('Ml_Vendido','')}ml "
-                    f"| S/ {item.get('Precio_Cobrado','')}"
+                    f"| S/ {fmt_precio(item.get('Precio_Cobrado', 0))}"
                 )
 
             if st.button("✅ Marcar como entregado", key=f"entregar_{id_compra}"):

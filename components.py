@@ -1,5 +1,6 @@
 import streamlit as st
 from pathlib import Path
+from config import fmt_precio
 
 # Ruta base del proyecto para imágenes
 BASE_DIR = Path(__file__).parent.parent
@@ -31,7 +32,6 @@ def mostrar_perfume_card(marca, nombre, url_imagen=""):
             st.caption("📷 Imagen no disponible")
 
 def mostrar_todos_precios(perfume, precios_columnas):
-    # Convertir a dict si es fila de DataFrame
     if hasattr(perfume, 'to_dict'):
         perfume = perfume.to_dict()
 
@@ -52,7 +52,7 @@ def mostrar_todos_precios(perfume, precios_columnas):
                     margin-bottom: 0.5rem;
                 ">
                     <div style="color:#e8c9a8; font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase;">{tamanio}</div>
-                    <div style="color:white; font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700;">S/ {precio}</div>
+                    <div style="color:white; font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700;">S/ {fmt_precio(precio)}</div>
                 </div>
                 """, unsafe_allow_html=True)
             else:
@@ -72,7 +72,7 @@ def mostrar_todos_precios(perfume, precios_columnas):
 
 def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, cesta, total):
     items_texto = "%0A".join([
-        f"- {i['perfume']} {i['ml']}ml → S/ {i['precio']}"
+        f"- {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
         for i in cesta
     ])
     mensaje = (
@@ -86,6 +86,6 @@ def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, c
         f"🛍️ *Productos:*%0A"
         f"{items_texto}%0A"
         f"━━━━━━━━━━━━━━━━%0A"
-        f"💰 *Total: S/ {total:.1f}*"
+        f"💰 *Total: S/ {fmt_precio(total)}*"
     )
     return f"https://wa.me/?text={mensaje}"

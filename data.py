@@ -9,15 +9,17 @@ from config import (
 
 # ── Logger simple ──────────────────────────────────────────
 def log_error(contexto, error):
-    """Registra errores con contexto para facilitar debugging"""
+    """Registra errores con contexto — máximo 50 entradas"""
     print(f"[ERROR] {contexto}: {str(error)}")
-    st.session_state.setdefault("error_log", []).append(
-        f"[{contexto}] {str(error)}"
-    )
+    log = st.session_state.setdefault("error_log", [])
+    log.append(f"[{contexto}] {str(error)}")
+    if len(log) > 50:
+        st.session_state.error_log = log[-50:]
 
-# ── Conexión central ───────────────────────────────────────
+# ── Conexión central cacheada ──────────────────────────────
+@st.cache_resource
 def get_cliente():
-    """Retorna un cliente autenticado de Google Sheets"""
+    """Retorna un cliente autenticado de Google Sheets (cacheado)"""
     try:
         creds = Credentials.from_service_account_info(
             st.secrets["gcp_service_account"], scopes=SCOPES
@@ -86,10 +88,11 @@ def marcar_entregado(fila_num, col_estado):
 def obtener_ultimo_id_compra():
     """Genera el siguiente ID de compra correlativo"""
     try:
-        df = cargar_ventas()
-        if df.empty or "ID_Compra" not in df.columns:
-            return "V001"
-        ids = [r for r in df["ID_Compra"].tolist() if str(r).startswith("V")]
+        hoja = get_hoja(WORKSHEET_VENTAS)
+        # Leer solo la columna ID_Compra (columna 1) — más rápido
+        ids = hoja.col_values(1)
+        # Filtrar encabezado y valores vacíos
+        ids = [r for r in ids[1:] if str(r).startswith("V")]
         if not ids:
             return "V001"
         ultimo = sorted(ids)[-1]

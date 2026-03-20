@@ -12,6 +12,23 @@ def mostrar_tab_nombre(df):
         url_imagen = str(perfume.get("URL_imagen", "")).strip()
         mostrar_perfume_card(perfume["Marca"], perfume["Nombre"], url_imagen)
 
+        # ── Notas y perfil ────────────────────────────────
+        tiene_notas = "Notas" in df.columns
+        tiene_perfil = "Perfil_Olfativo" in df.columns
+
+        if tiene_notas or tiene_perfil:
+            st.markdown(f"""
+                        <div style="
+                            background: #f5ede6;
+                            border-radius: 10px;
+                            padding: 0.8rem 1.2rem;
+                            margin: 0.5rem 0;
+                        ">
+                            {"<div style='color:#a07850; font-size:1rem; margin-bottom:0.3rem;'>🎵 <strong>Notas:</strong> " + str(perfume.get('Notas', '')) + "</div>" if tiene_notas and perfume.get('Notas') else ""}
+                            {"<div style='color:#c8956c; font-size:1rem;'>✨ <strong>Perfil:</strong> " + str(perfume.get('Perfil_Olfativo', '')) + "</div>" if tiene_perfil and perfume.get('Perfil_Olfativo') else ""}
+                        </div>
+                        """, unsafe_allow_html=True)
+
         st.markdown("---")
         mostrar_todos_precios(perfume, PRECIOS_COLUMNAS)
 

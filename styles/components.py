@@ -29,34 +29,41 @@ COMPONENTS = """
     .precio-box {
         background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
         border-radius: 16px;
-        padding: 1.8rem;
+        padding: 2rem;
         text-align: center;
         margin: 1.5rem 0;
-        box-shadow: 0 4px 20px rgba(44, 26, 14, 0.25);
+        box-shadow: 0 6px 24px rgba(44, 26, 14, 0.3);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .precio-box:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(44, 26, 14, 0.4);
     }
 
     .precio-box .label {
         color: #e8c9a8;
-        font-size: 0.8rem;
-        letter-spacing: 0.18em;
+        font-size: 0.85rem;
+        letter-spacing: 0.2em;
         text-transform: uppercase;
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.5rem;
         font-weight: 300;
     }
 
     .precio-box .valor {
         color: #ffffff;
         font-family: 'Playfair Display', serif;
-        font-size: 3rem;
+        font-size: 3.5rem;
         font-weight: 700;
         line-height: 1;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
 
     .precio-box .tamanio {
         color: #c8956c;
-        font-size: 0.85rem;
-        margin-top: 0.5rem;
-        letter-spacing: 0.1em;
+        font-size: 0.9rem;
+        margin-top: 0.6rem;
+        letter-spacing: 0.12em;
     }
 
     /* ── LISTA PERFUMES ── */
@@ -64,29 +71,32 @@ COMPONENTS = """
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.8rem 1rem;
-        border-radius: 8px;
-        margin-bottom: 0.5rem;
+        padding: 0.9rem 1.2rem;
+        border-radius: 12px;
+        margin-bottom: 0.6rem;
         background: white;
         border: 1px solid #f0e0d0;
-        transition: all 0.2s;
+        transition: all 0.25s ease;
+        box-shadow: 0 1px 4px rgba(160, 120, 80, 0.08);
     }
 
     .perfume-item:hover {
         background: #fff3eb;
         border-color: #c8956c;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(160, 120, 80, 0.18);
     }
 
     .perfume-item .pf-nombre {
         color: #2c1a0e;
         font-weight: 600;
-        font-size: 0.95rem;
+        font-size: 1rem;
     }
 
     .perfume-item .pf-precio {
         color: #c8956c;
         font-weight: 700;
-        font-size: 1rem;
+        font-size: 1.1rem;
         font-family: 'Playfair Display', serif;
     }
 
@@ -228,6 +238,20 @@ COMPONENTS = """
     }
 
     /* ── MENSAJES ── */
+    div[data-testid="stAlert"] {
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 1rem 1.2rem !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06) !important;
+    }
+
+    /* Warning */
+    div[data-testid="stAlert"][data-baseweb="notification"][kind="warning"],
+    .stWarning {
+        background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+        border-left: 4px solid #d69e2e !important;
+    }
+
     .stWarning p,
     .stWarning strong,
     [data-testid="stNotification"] p,
@@ -235,14 +259,39 @@ COMPONENTS = """
     div[data-baseweb="notification"] p,
     div[data-baseweb="notification"] strong {
         color: #744210 !important;
+        font-size: 0.95rem !important;
     }
 
-    .stInfo p { color: #2c5282 !important; }
-    .stSuccess p { color: #276749 !important; }
+    /* Info */
+    .stInfo {
+        background: linear-gradient(135deg, #ebf8ff, #bee3f8) !important;
+        border-left: 4px solid #3182ce !important;
+    }
 
-    /* ── NOTAS Y PERFIL ── */
-    .stCaptionContainer p {
-        color: #a07850 !important;
+    .stInfo p {
+        color: #2c5282 !important;
+        font-size: 0.95rem !important;
+    }
+
+    /* Success */
+    .stSuccess {
+        background: linear-gradient(135deg, #f0fff4, #c6f6d5) !important;
+        border-left: 4px solid #38a169 !important;
+    }
+
+    .stSuccess p {
+        color: #276749 !important;
+        font-size: 0.95rem !important;
+    }
+
+    /* Error */
+    .stError {
+        background: linear-gradient(135deg, #fff5f5, #fed7d7) !important;
+        border-left: 4px solid #e53e3e !important;
+    }
+
+    .stError p {
+        color: #742a2a !important;
         font-size: 0.95rem !important;
     }
 """

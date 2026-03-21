@@ -43,18 +43,19 @@ def mostrar_todos_precios(perfume, precios_columnas):
         with cols[i]:
             if precio:
                 st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-                    border-radius: 12px;
-                    padding: 1rem;
-                    text-align: center;
-                    box-shadow: 0 2px 10px rgba(44,26,14,0.2);
-                    margin-bottom: 0.5rem;
-                ">
-                    <div style="color:#e8c9a8; font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase;">{tamanio}</div>
-                    <div style="color:white; font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700;">S/ {fmt_precio(precio)}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                                <div style="
+                                    background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
+                                    border-radius: 12px;
+                                    padding: 1.2rem 0.8rem;
+                                    text-align: center;
+                                    box-shadow: 0 3px 12px rgba(44,26,14,0.25);
+                                    margin-bottom: 0.5rem;
+                                    transition: transform 0.2s ease;
+                                ">
+                                    <div style="color:#e8c9a8; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.3rem;">{tamanio}</div>
+                                    <div style="color:white; font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; line-height:1;">S/ {fmt_precio(precio)}</div>
+                                </div>
+                                """, unsafe_allow_html=True)
             else:
                 st.markdown(f"""
                 <div style="

@@ -1,6 +1,11 @@
 import streamlit as st
 from data import cargar_ventas, limpiar_cache_catalogo
-from estadisticas import mostrar_estadisticas, mostrar_ventas_pendientes, mostrar_resumen_semanal
+from estadisticas import (
+    mostrar_estadisticas,
+    mostrar_ventas_pendientes,
+    mostrar_resumen_semanal,
+    mostrar_tamanios_populares
+)
 
 def mostrar_tab_estadisticas(df):
     st.markdown("### 📊 Estadísticas de Ventas")
@@ -12,9 +17,10 @@ def mostrar_tab_estadisticas(df):
     st.markdown("---")
     try:
         df_ventas = cargar_ventas()
-        subtab1, subtab2, subtab3 = st.tabs([
+        subtab1, subtab2, subtab3, subtab4 = st.tabs([
             "📊 Estadísticas",
             "📦 Pendientes",
+            "📏 Tamaños",
             "📅 Semanal & Meses"
         ])
         with subtab1:
@@ -22,6 +28,8 @@ def mostrar_tab_estadisticas(df):
         with subtab2:
             mostrar_ventas_pendientes(df_ventas, df)
         with subtab3:
+            mostrar_tamanios_populares(df_ventas)
+        with subtab4:
             mostrar_resumen_semanal(df_ventas, df)
     except Exception as e:
         st.error(f"❌ Error cargando ventas: {e}")

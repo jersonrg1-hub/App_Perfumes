@@ -1,0 +1,159 @@
+import streamlit as st
+import pandas as pd
+from datetime import date
+from config import fmt_precio
+from estadisticas.resumen import _metrica_card
+
+def mostrar_resumen_semanal(df_ventas, df_catalogo):
+    if df_ventas.empty:
+        st.info("📭 No hay ventas registradas todavía")
+        return
+
+    df_ventas = df_ventas.copy()
+    df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"], errors="coerce")
+    df_ventas["Precio_Cobrado"] = pd.to_numeric(df_ventas["Precio_Cobrado"], errors="coerce")
+
+    hoy = pd.Timestamp(date.today())
+    inicio_semana = hoy - pd.Timedelta(days=hoy.weekday())
+    fin_semana = inicio_semana + pd.Timedelta(days=6)
+
+    ventas_semana = df_ventas[
+        (df_ventas["Fecha"].dt.date >= inicio_semana.date()) &
+        (df_ventas["Fecha"].dt.date <= fin_semana.date())
+    ]
+
+    st.markdown("#### 📅 Resumen de esta semana")
+    st.caption(f"{inicio_semana.strftime('%d/%m/%Y')} — {fin_semana.strftime('%d/%m/%Y')}")
+    st.markdown("")
+
+    col1, col2, col3 = st.columns(3)
+    total_semana = ventas_semana["Precio_Cobrado"].sum()
+    num_ventas = len(ventas_semana)
+
+    with col1:
+        st.markdown(_metrica_card("Ventas semana", num_ventas), unsafe_allow_html=True)
+    with col2:
+        st.markdown(_metrica_card("Total semana", f"S/ {fmt_precio(total_semana)}"), unsafe_allow_html=True)
+    with col3:
+        promedio = total_semana / num_ventas if num_ventas > 0 else 0
+        st.markdown(_metrica_card("Promedio", f"S/ {fmt_precio(promedio)}"), unsafe_allow_html=True)
+
+    if not ventas_semana.empty and "ID_Perfume" in ventas_semana.columns:
+        st.markdown("")
+        df_catalogo = df_catalogo.copy()
+        df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
+        ventas_semana = ventas_semana.copy()
+        ventas_semana["ID_Perfume"] = ventas_semana["ID_Perfume"].astype(str)
+
+        top = (
+            ventas_semana.groupby("ID_Perfume")
+            .size().reset_index(name="Cantidad")
+            .sort_values("Cantidad", ascending=False)
+            .iloc[0]
+        )
+        match = df_catalogo[df_catalogo["ID_Perfume"] == top["ID_Perfume"]]
+        nombre_top = match.iloc[0]["Nombre"] if not match.empty else top["ID_Perfume"]
+
+        st.markdown(f"""
+        <div style="
+            background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
+            border-radius: 12px; padding: 1rem;
+            text-align: center; margin: 0.5rem 0;
+        ">
+            <div style="color:#e8c9a8; font-size:0.75rem; text-transform:uppercase;">🏆 Más vendido esta semana</div>
+            <div style="color:white; font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700;">{nombre_top}</div>
+            <div style="color:#c8956c; font-size:0.85rem;">{top['Cantidad']} venta(s)</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("Sin ventas esta semana aún")
+
+    if not ventas_semana.empty:
+        st.markdown("")
+        st.markdown("**📊 Ventas por día:**")
+        dias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        cols = st.columns(7)
+        for i, dia in enumerate(dias):
+            fecha_dia = inicio_semana + pd.Timedelta(days=i)
+            ventas_dia = ventas_semana[ventas_semana["Fecha"].dt.date == fecha_dia.date()]
+            total_dia = ventas_dia["Precio_Cobrado"].sum()
+            es_hoy = fecha_dia.date() == hoy.date()
+            with cols[i]:
+                color = "#c8956c" if es_hoy else "#a07850"
+                st.markdown(f"""
+                <div style="text-align:center; padding:0.5rem 0.2rem;">
+                    <div style="color:{color}; font-size:0.7rem; font-weight:600;">{dia}</div>
+                    <div style="color:#2c1a0e; font-size:0.8rem; font-weight:700;">{len(ventas_dia)}</div>
+                    <div style="color:#a07850; font-size:0.65rem;">S/{fmt_precio(total_dia)}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.markdown("#### 📆 Comparar meses")
+
+    meses_disponibles = sorted(
+        df_ventas["Fecha"].dropna()
+        .dt.to_period("M")
+        .unique()
+        .tolist()
+    )
+    opciones_meses = [str(m) for m in meses_disponibles]
+
+    if len(opciones_meses) < 1:
+        st.info("No hay suficientes datos para comparar")
+        return
+
+    col1, col2 = st.columns(2)
+    with col1:
+        mes1 = st.selectbox("📅 Mes 1", opciones_meses,
+            index=len(opciones_meses)-1, key="mes1_comp")
+    with col2:
+        mes2 = st.selectbox("📅 Mes 2", opciones_meses,
+            index=max(0, len(opciones_meses)-2), key="mes2_comp")
+
+    def stats_mes(mes_str):
+        periodo = pd.Period(mes_str, freq="M")
+        df_mes = df_ventas[df_ventas["Fecha"].dt.to_period("M") == periodo]
+        total = df_mes["Precio_Cobrado"].sum()
+        num = len(df_mes)
+        prom = total / num if num > 0 else 0
+        return total, num, prom
+
+    total_m1, num_m1, prom_m1 = stats_mes(mes1)
+    total_m2, num_m2, prom_m2 = stats_mes(mes2)
+
+    st.markdown("")
+    col1, col2 = st.columns(2)
+
+    def col_mes(col, nombre_mes, total, num, prom):
+        with col:
+            st.markdown(f"**{nombre_mes}**")
+            st.markdown(_metrica_card("Ventas", num), unsafe_allow_html=True)
+            st.markdown("")
+            st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total)}"), unsafe_allow_html=True)
+            st.markdown("")
+            st.markdown(_metrica_card("Promedio", f"S/ {fmt_precio(prom)}"), unsafe_allow_html=True)
+
+    col_mes(col1, mes1, total_m1, num_m1, prom_m1)
+    col_mes(col2, mes2, total_m2, num_m2, prom_m2)
+
+    if total_m1 > 0 and total_m2 > 0:
+        st.markdown("")
+        diferencia = total_m2 - total_m1
+        porcentaje = ((total_m2 - total_m1) / total_m1) * 100
+        color = "#2d7a4f" if diferencia >= 0 else "#e53e3e"
+        simbolo = "📈" if diferencia >= 0 else "📉"
+        st.markdown(f"""
+        <div style="
+            background: white;
+            border-radius: 12px; padding: 1rem;
+            text-align: center; border: 1px solid #f0e0d0;
+            margin-top: 0.5rem;
+        ">
+            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">Diferencia</div>
+            <div style="color:{color}; font-size:1.5rem; font-weight:700;">
+                {simbolo} S/ {fmt_precio(abs(diferencia))} ({porcentaje:+.1f}%)
+            </div>
+            <div style="color:#a07850; font-size:0.8rem;">{mes2} vs {mes1}</div>
+        </div>
+        """, unsafe_allow_html=True)

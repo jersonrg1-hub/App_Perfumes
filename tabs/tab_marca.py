@@ -13,35 +13,32 @@ def mostrar_tab_marca(df):
         df_filtrado = df[df["Marca"] == marca_seleccionada]
         columna = PRECIOS_COLUMNAS[tamanio]
 
-        st.markdown("---")
-        st.markdown(f"**✨ {len(df_filtrado)} perfume(s) — precios para {tamanio}**")
-        st.markdown("")
-
         tiene_notas = "Notas" in df.columns
         tiene_perfil = "Perfil_Olfativo" in df.columns
+
+        # ── Sin línea divisora y sin espacio extra ────────
+        st.markdown(f"<div style='margin-top:0.8rem; margin-bottom:0.5rem; color:#a07850; font-size:0.85rem;'>✨ {len(df_filtrado)} perfume(s) — precios para {tamanio}</div>", unsafe_allow_html=True)
 
         for _, row in df_filtrado.iterrows():
             precio = row[columna]
             notas = str(row.get('Notas', '')) if tiene_notas else ''
             perfil = str(row.get('Perfil_Olfativo', '')) if tiene_perfil else ''
 
-            # ── Tarjeta ───────────────────────────────────
             st.markdown(f"""
             <div style="
                 background: white;
                 border-left: 4px solid #c8956c;
                 border-radius: 12px;
                 padding: 1rem 1.5rem;
-                margin-bottom: 0.8rem;
+                margin-bottom: 0.6rem;
                 box-shadow: 0 2px 8px rgba(160, 120, 80, 0.1);
-                transition: all 0.25s ease;
             ">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div>
                         <div style="font-family:'Playfair Display',serif; font-size:1.1rem; color:#2c1a0e; font-weight:600;">
                             🌸 {row['Nombre']}
                         </div>
-                        {"<div style='color:#a07850; font-size:0.85rem; margin-top:0.3rem;'>🎵 " + notas + "</div>" if notas and notas != 'nan' else ""}
+                        {"<div style='color:#a07850; font-size:0.85rem; margin-top:0.2rem;'>🎵 " + notas + "</div>" if notas and notas != 'nan' else ""}
                         {"<div style='color:#c8956c; font-size:0.85rem; margin-top:0.1rem;'>✨ " + perfil + "</div>" if perfil and perfil != 'nan' else ""}
                     </div>
                     <div style="

@@ -25,9 +25,10 @@ def mostrar_perfume_card(marca, nombre, url_imagen=""):
     """, unsafe_allow_html=True)
 
     if url_imagen:
-        imagen_path = BASE_DIR / url_imagen
+        imagen_path = Path(__file__).parent / url_imagen
         if imagen_path.exists():
-            st.image(str(imagen_path), width=200)
+            with open(imagen_path, "rb") as f:
+                st.image(f.read(), width=200)
         else:
             st.caption("📷 Imagen no disponible")
 

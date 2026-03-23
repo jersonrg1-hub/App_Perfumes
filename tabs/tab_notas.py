@@ -1,6 +1,9 @@
+import html
 import streamlit as st
 from config import PRECIOS_COLUMNAS, fmt_precio
 
+
+@st.cache_data
 def _extraer_valores(df, columna):
     """Extrae valores únicos de una columna con valores separados por comas"""
     valores = set()
@@ -11,12 +14,14 @@ def _extraer_valores(df, columna):
                 valores.add(v_limpio)
     return sorted(valores)
 
+
 def _tiene_todos(valor_str, seleccionados):
     """Verifica si el string contiene todos los valores seleccionados"""
     if not valor_str:
         return False
     valores = [v.strip().lower().capitalize() for v in str(valor_str).split(",")]
     return all(s in valores for s in seleccionados)
+
 
 def mostrar_tab_notas(df):
     st.markdown("### 🎵 Buscar por Nota y Perfil")
@@ -69,7 +74,7 @@ def mostrar_tab_notas(df):
         return
 
     # ── Aplicar filtros ───────────────────────────────────
-    df_filtrado = df.copy()
+    df_filtrado = df
 
     if notas_seleccionadas:
         df_filtrado = df_filtrado[
@@ -99,9 +104,14 @@ def mostrar_tab_notas(df):
     st.markdown(f"**✨ {len(df_filtrado)} perfume(s) encontrado(s):**")
     st.markdown("")
 
-    for _, row in df_filtrado.iterrows():
+    for row in df_filtrado.to_dict('records'):
         notas_txt = row.get('Notas', '') if tiene_notas else ''
         perfil_txt = row.get('Perfil_Olfativo', '') if tiene_perfil else ''
+
+        marca = html.escape(str(row.get('Marca', '')))
+        nombre = html.escape(str(row.get('Nombre', '')))
+        notas_txt = html.escape(str(notas_txt)) if notas_txt else ''
+        perfil_txt = html.escape(str(perfil_txt)) if perfil_txt else ''
 
         st.markdown(f"""
         <div style="
@@ -112,10 +122,10 @@ def mostrar_tab_notas(df):
             margin: 0.5rem 0;
             box-shadow: 0 2px 8px rgba(160, 120, 80, 0.1);
         ">
-            <div style="font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; color:#a07850; font-weight:600;">{row.get('Marca','')}</div>
-            <div style="font-family:'Playfair Display',serif; font-size:1.2rem; color:#2c1a0e; font-weight:600; margin:0.2rem 0;">{row.get('Nombre','')}</div>
-            {"<div style='font-size:0.8rem; color:#a07850; margin-top:0.2rem;'>🎵 " + str(notas_txt) + "</div>" if notas_txt else ""}
-            {"<div style='font-size:0.8rem; color:#c8956c; margin-top:0.1rem;'>✨ " + str(perfil_txt) + "</div>" if perfil_txt else ""}
+            <div style="font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; color:#a07850; font-weight:600;">{marca}</div>
+            <div style="font-family:'Playfair Display',serif; font-size:1.2rem; color:#2c1a0e; font-weight:600; margin:0.2rem 0;">{nombre}</div>
+            {"<div style='font-size:0.8rem; color:#a07850; margin-top:0.2rem;'>🎵 " + notas_txt + "</div>" if notas_txt else ""}
+            {"<div style='font-size:0.8rem; color:#c8956c; margin-top:0.1rem;'>✨ " + perfil_txt + "</div>" if perfil_txt else ""}
         </div>
         """, unsafe_allow_html=True)
 
@@ -123,7 +133,7 @@ def mostrar_tab_notas(df):
         for i, (tamanio, columna) in enumerate(PRECIOS_COLUMNAS.items()):
             precio = row.get(columna, "")
             with cols[i]:
-                if precio:
+                if precio not in (0, "", None):
                     st.markdown(f"""
                     <div style="
                         background: linear-gradient(135deg, #2c1a0e, #5c3a1e);

@@ -1,5 +1,5 @@
 import streamlit as st
-from data import cargar_ventas, limpiar_cache_catalogo
+from data import cargar_ventas, limpiar_cache_ventas, limpiar_cache_catalogo
 from estadisticas import (
     mostrar_estadisticas,
     mostrar_ventas_pendientes,
@@ -7,16 +7,20 @@ from estadisticas import (
     mostrar_tamanios_populares
 )
 
+
 def mostrar_tab_estadisticas(df):
     st.markdown("### 📊 Estadísticas de Ventas")
 
     if st.button("🔄 Recargar datos", key="reload"):
+        limpiar_cache_ventas()
         limpiar_cache_catalogo()
         st.rerun()
 
     st.markdown("---")
     try:
-        df_ventas = cargar_ventas()
+        with st.spinner("Cargando ventas..."):
+            df_ventas = cargar_ventas()
+
         subtab1, subtab2, subtab3, subtab4 = st.tabs([
             "📊 Estadísticas",
             "📦 Pendientes",
@@ -31,6 +35,7 @@ def mostrar_tab_estadisticas(df):
             mostrar_tamanios_populares(df_ventas)
         with subtab4:
             mostrar_resumen_semanal(df_ventas, df)
+
     except Exception as e:
         st.error(f"❌ Error cargando ventas: {e}")
         if st.session_state.get("error_log"):

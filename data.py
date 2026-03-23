@@ -82,7 +82,7 @@ def cargar_ventas():
             for col in cols_numericas:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-
+                    df["fila_sheet"] = range(2, len(df) + 2)
         return df
     except Exception as e:
         log_error("cargar_ventas", e)

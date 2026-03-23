@@ -1,5 +1,5 @@
 import streamlit as st
-from config import COL_ESTADO_NUM, fmt_precio
+from config import COL_ESTADO_NUM, fmt_precio, fmt_fecha
 from data import marcar_pedido_entregado_batch
 
 
@@ -41,7 +41,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         with st.expander(f"📦 {id_compra} — {primera.get('Comprador', '')} | S/ {fmt_precio(total_compra)}"):
             col1, col2 = st.columns(2)
             with col1:
-                st.write(f"📅 **Fecha:** {primera.get('Fecha', '')}")
+                st.write(f"📅 **Fecha:** {fmt_fecha(primera.get('Fecha', ''))}")
                 st.write(f"📱 **Celular:** {primera.get('Celular', '')}")
                 st.write(f"🚚 **Envío:** {primera.get('Tipo_Envio', '')}")
             with col2:

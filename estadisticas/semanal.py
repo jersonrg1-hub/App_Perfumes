@@ -1,14 +1,14 @@
 import html
 import streamlit as st
 import pandas as pd
-from datetime import date
-from config import fmt_precio
+from config import fmt_precio, hoy_peru
 from estadisticas.resumen import _metrica_card
 
 
 def _stats_mes(df_ventas, mes_str):
     periodo = pd.Period(mes_str, freq="M")
-    df_mes = df_ventas[df_ventas["Fecha"].dt.to_period("M") == periodo]
+    fecha_valida = df_ventas["Fecha"].notna()
+    df_mes = df_ventas[fecha_valida & (df_ventas.loc[fecha_valida, "Fecha"].dt.to_period("M") == periodo)]
     total = df_mes["Precio_Cobrado"].sum()
     num = len(df_mes)
     prom = total / num if num > 0 else 0
@@ -31,15 +31,16 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
         return
 
     df_ventas = df_ventas.copy()
-    df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"], errors="coerce")
+    if df_ventas["Fecha"].dtype == object:
+        df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"].astype(str).str.strip(), errors="coerce")
 
-    hoy = pd.Timestamp(date.today())
+    hoy = pd.Timestamp(hoy_peru()).normalize()
     inicio_semana = hoy - pd.Timedelta(days=hoy.weekday())
     fin_semana = inicio_semana + pd.Timedelta(days=6)
 
     ventas_semana = df_ventas[
-        (df_ventas["Fecha"].dt.date >= inicio_semana.date()) &
-        (df_ventas["Fecha"].dt.date <= fin_semana.date())
+        (df_ventas["Fecha"].dt.normalize() >= inicio_semana.normalize()) &
+        (df_ventas["Fecha"].dt.normalize() <= fin_semana.normalize())
     ]
 
     st.markdown("#### 📅 Resumen de esta semana")
@@ -95,9 +96,9 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
         cols = st.columns(7)
         for i, dia in enumerate(dias):
             fecha_dia = inicio_semana + pd.Timedelta(days=i)
-            ventas_dia = ventas_semana[ventas_semana["Fecha"].dt.date == fecha_dia.date()]
+            ventas_dia = ventas_semana[ventas_semana["Fecha"].dt.normalize() == fecha_dia.normalize()]
             total_dia = ventas_dia["Precio_Cobrado"].sum()
-            es_hoy = fecha_dia.date() == hoy.date()
+            es_hoy = fecha_dia.normalize() == hoy
             with cols[i]:
                 color = "#c8956c" if es_hoy else "#a07850"
                 st.markdown(f"""

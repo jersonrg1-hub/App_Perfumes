@@ -68,10 +68,12 @@ def cargar_catalogo():
 
 
 def limpiar_cache_catalogo():
-    st.cache_data.clear()  # Limpia todo el caché de datos de la app
+    # Limpiamos todo si de verdad queremos un reseteo duro
+    st.cache_data.clear()
 
 
 # ── Ventas ─────────────────────────────────────────────────
+@st.cache_data(ttl=600)  # CORRECCIÓN: ESTO FALTABA PARA QUE "limpiar_cache_ventas" FUNCIONARA
 def cargar_ventas():
     """Carga ventas asegurando que los IDs se traten correctamente"""
     try:
@@ -85,25 +87,26 @@ def cargar_ventas():
         return pd.DataFrame()
 
 
-def guardar_venta(lista_datos):
+def limpiar_cache_ventas():
+    """Limpia SOLO el caché de las ventas, manteniendo el catálogo intacto en memoria"""
+    cargar_ventas.clear()
+
+
+def guardar_venta(filas):
+    """
+    CAMBIO CRÍTICO: Recibe una lista de listas (todas las ventas de la cesta)
+    y las guarda en una sola petición.
+    """
     try:
-        if not lista_datos:  # Validación de seguridad
-            return
-
         hoja = get_hoja(WORKSHEET_VENTAS)
+        # append_rows es 10 veces más rápido para múltiples registros que append_row
+        hoja.append_rows(filas, value_input_option='USER_ENTERED')
 
-        # Verificamos si es una lista de listas (múltiples filas)
-        es_multifila = any(isinstance(i, list) for i in lista_datos)
-
-        if not es_multifila:
-            # noinspection PyTypeChecker
-            hoja.append_rows(lista_datos, value_input_option='USER_ENTERED')
-        else:
-            # noinspection PyTypeChecker
-            hoja.append_rows(lista_datos, value_input_option='USER_ENTERED')
+        # CORRECCIÓN: Limpiamos SOLO las ventas, para no destruir la velocidad del catálogo
+        limpiar_cache_ventas()
 
     except Exception as e:
-        log_error("guardar_venta", e)
+        log_error("guardar_venta_batch", e)
         raise
 
 
@@ -117,13 +120,14 @@ def obtener_proximo_id():
         return "V001"
 
     try:
-        # Extraemos solo los números de los IDs tipo 'V001'
-        ids_numericos = df_ventas['ID_Compra'].str.extract(r'(\+d)').dropna().astype(int)
+        # CORRECCIÓN de error de tipeo en Regex r'(\+d)' -> r'(\d+)'
+        ids_numericos = df_ventas['ID_Compra'].str.extract(r'(\d+)').dropna().astype(int)
         if ids_numericos.empty:
             return "V001"
         max_id = int(ids_numericos.max())
         return f"V{max_id + 1:03d}"
-    except:
+    except Exception as e:
+        log_error("obtener_proximo_id", e)
         return "V001"
 
 
@@ -140,27 +144,36 @@ def actualizar_stock_perfume(nombre_perfume, ml_restados):
         valor_actual = float(hoja.cell(celda.row, col_ml).value)
         nuevo_valor = max(0, valor_actual - ml_restados)
         hoja.update_cell(celda.row, col_ml, nuevo_valor)
+
         limpiar_cache_catalogo()  # Forzamos recarga para ver el stock actualizado
     except Exception as e:
         log_error("actualizar_stock", e)
 
 
-def marcar_entregado(fila_num, col_estado):
+def marcar_pedido_entregado_batch(lista_filas, col_estado):
     """
-    Marca una venta como entregada en Google Sheets.
-    fila_num: El número de fila en la hoja (empezando en 1).
-    col_estado: El número de la columna donde guardas el estado (Entregado/Pendiente).
+    Actualiza TODAS las filas de un pedido en una sola llamada a Google.
+    Evita el bucle de conexiones lentas.
     """
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)
-        # Actualizamos la celda específica
-        hoja.update_cell(fila_num, col_estado, "Entregado")
 
-        # MEJORA: Limpiamos el caché de cargar_ventas para que la
-        # interfaz muestre el cambio inmediatamente sin esperar los 5-10 min de TTL
-        st.cache_data.clear()
+        # Preparamos el paquete de datos para Google
+        peticiones = []
+        for fila in lista_filas:
+            # Convierte fila=2, col=11 a formato "K2"
+            letra_col = gspread.utils.rowcol_to_a1(fila, col_estado)
+            peticiones.append({
+                'range': letra_col,
+                'values': [['Entregado']]
+            })
+
+        # Ejecuta TODAS las actualizaciones de un solo golpe (tarda ~1 segundo)
+        hoja.batch_update(peticiones)
+
+        # CRÍTICO: Limpiamos solo el caché de ventas
+        limpiar_cache_ventas()
 
     except Exception as e:
-        log_error(f"marcar_entregado (Fila: {fila_num})", e)
-        st.error("No se pudo actualizar el estado de la venta.")
+        log_error("marcar_entregado_batch", e)
         raise

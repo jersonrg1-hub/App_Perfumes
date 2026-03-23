@@ -1,54 +1,46 @@
 import streamlit as st
 from config import PRECIOS_COLUMNAS, ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio
+# IMPORTANTE: Asegúrate de que guardar_venta en data.py acepte una LISTA de filas
 from data import guardar_venta, obtener_proximo_id
 from components import generar_url_whatsapp
 
+
 def mostrar_tab_venta(df):
     st.markdown("### 📝 Registrar Nueva Venta")
-    st.markdown("---")
 
+    # --- PUNTO 1: Inicialización de Cesta en Session State ---
     if "cesta" not in st.session_state:
         st.session_state.cesta = []
 
     # ── Datos del comprador ───────────────────────────────
-    st.markdown("#### 👤 Datos del Comprador")
+    with st.container(border=True):
+        st.markdown("#### 👤 Datos del Comprador")
+        col_fecha, col_envio = st.columns(2)
+        with col_fecha:
+            fecha = st.date_input("📅 Fecha", key="fecha_venta")
+        with col_envio:
+            tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO)
 
-    col_fecha, col_envio = st.columns(2)
-    with col_fecha:
-        fecha = st.date_input("📅 Fecha", key="fecha_venta")
-    with col_envio:
-        tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="tipo_envio")
+        col_comp, col_cel = st.columns(2)
+        with col_comp:
+            comprador = st.text_input("👤 Nombre", placeholder="Comprador", key="comp_in")
+        with col_cel:
+            celular = st.text_input("📱 Celular", max_chars=9, key="cel_in")
 
-    col_comp, col_cel = st.columns(2)
-    with col_comp:
-        comprador = st.text_input("👤 Comprador",
-            placeholder="Nombre del comprador",
-            key="comprador_input")
-    with col_cel:
-        celular = st.text_input("📱 Celular",
-            placeholder="Ej: 999888777",
-            max_chars=9,
-            key="celular_input")
-
-    direccion = st.text_input("📍 Dirección",
-        placeholder="Ej: Av. Lima 123, Miraflores",
-        key="direccion_input")
-
-    st.markdown("---")
+        direccion = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key="dir_in")
 
     # ── Agregar perfume ───────────────────────────────────
     st.markdown("#### 🛒 Agregar Perfume")
-
+    # Usamos el DF de la sesión si lo implementaste en app.py
     nombres_opciones = ["— Elige un perfume —"] + sorted(df["Nombre"].unique().tolist())
-    perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, key="perfume_venta")
+    perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, key="perf_sel")
 
     col_ml, col_pago = st.columns(2)
     with col_ml:
-        ml_vendido = st.selectbox("📏 ML", ML_OPCIONES, key="ml_venta")
+        ml_vendido = st.selectbox("📏 Tamaño", ML_OPCIONES)
     with col_pago:
-        metodo_pago = st.selectbox("💳 Método de Pago", METODOS_PAGO, key="metodo_venta")
+        metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO)
 
-    # ── Precio automático ─────────────────────────────────
     if perfume_venta != "— Elige un perfume —":
         perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]
         id_perfume = perfume_row["ID_Perfume"]
@@ -56,139 +48,72 @@ def mostrar_tab_venta(df):
         precio_item = perfume_row.get(columna_precio, 0)
 
         if precio_item:
-            st.markdown(f"""
-            <div style="
-                background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-                border-radius: 10px; padding: 0.8rem;
-                text-align: center; margin: 0.5rem 0;
-            ">
-                <div style="color:#e8c9a8; font-size:0.75rem; text-transform:uppercase;">Precio</div>
-                <div style="color:white; font-size:1.5rem; font-weight:700;">S/ {fmt_precio(precio_item)}</div>
-                <div style="color:#c8956c; font-size:0.75rem;">{perfume_venta} — {ml_vendido}ml</div>
-            </div>
-            """, unsafe_allow_html=True)
+            # UI de precio simplificada para fluidez
+            st.success(f"Precio detectado: **S/ {fmt_precio(precio_item)}**")
+
+            if st.button("➕ Agregar a la cesta", use_container_width=True):
+                if not comprador or len(celular) != 9:
+                    st.error("⚠️ Completa los datos del comprador (Nombre y Celular 9 dígitos)")
+                else:
+                    st.session_state.cesta.append({
+                        "perfume": perfume_venta, "id_perfume": id_perfume,
+                        "ml": ml_vendido, "precio": precio_item, "metodo": metodo_pago
+                    })
+                    st.toast(f"Agregado: {perfume_venta}", icon="✅")
+                    # No usamos rerun aquí para que sea más fluido,
+                    # Streamlit actualizará la lista abajo automáticamente
         else:
-            st.warning(f"⚠️ Sin precio para {ml_vendido}ml")
+            st.warning("⚠️ Sin precio configurado")
 
-        if st.button("➕ Agregar a cesta", use_container_width=True, disabled=not precio_item):
-            if not comprador:
-                st.error("❌ Ingresa el nombre del comprador primero")
-            elif len(celular) != 9 or not celular.isdigit():
-                st.error("❌ El celular debe tener exactamente 9 números")
-            else:
-                st.session_state.cesta.append({
-                    "perfume": perfume_venta,
-                    "id_perfume": id_perfume,
-                    "ml": ml_vendido,
-                    "precio": precio_item,
-                    "metodo": metodo_pago
-                })
-                st.success(f"✅ {perfume_venta} agregado a la cesta")
-    else:
-        st.info("👆 Elige un perfume para ver el precio")
-
-    # ── Cesta actual ──────────────────────────────────────
+    # ── Cesta y Guardado (PUNTO 3: Operación en Bloque) ─────────────────
     if st.session_state.cesta:
-        st.markdown("---")
-        st.markdown("#### 🛍️ Cesta actual")
+        st.divider()
+        st.markdown("#### 🛍️ Resumen de Cesta")
 
         for i, item in enumerate(st.session_state.cesta):
-            col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-            with col1:
-                st.markdown(f"🌸 **{item['perfume']}**")
-            with col2:
-                st.markdown(f"{item['ml']}ml")
-            with col3:
-                st.markdown(f"**S/ {fmt_precio(item['precio'])}**")
-            with col4:
-                if st.button("🗑️", key=f"del_{i}"):
-                    st.session_state.cesta.pop(i)
-                    st.rerun()
+            c1, c2, c3 = st.columns([3, 1, 0.5])
+            c1.write(f"🌸 {item['perfume']} ({item['ml']}ml)")
+            c2.write(f"**S/ {fmt_precio(item['precio'])}**")
+            if c3.button("🗑️", key=f"del_{i}"):
+                st.session_state.cesta.pop(i)
+                st.rerun()
 
         total = sum(float(i['precio']) for i in st.session_state.cesta)
+        st.subheader(f"Total: S/ {fmt_precio(total)}")
 
-        st.markdown("---")
-        st.markdown(f"""
-        <div style="
-            background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-            border-radius: 12px; padding: 1rem;
-            text-align: center; margin: 0.5rem 0;
-        ">
-            <div style="color:#e8c9a8; font-size:0.8rem; text-transform:uppercase;">Total a cobrar</div>
-            <div style="color:white; font-family:'Playfair Display',serif; font-size:2.5rem; font-weight:700;">S/ {fmt_precio(total)}</div>
-            <div style="color:#c8956c; font-size:0.8rem;">{len(st.session_state.cesta)} item(s)</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("")
-
-        # ── Estilo botón guardar ──────────────────────────
-        st.markdown("""
-        <style>
-        .btn-guardar button {
-            background: linear-gradient(135deg, #c8956c, #a07850) !important;
-            color: white !important;
-            font-size: 1.1rem !important;
-            font-weight: 700 !important;
-            width: 100% !important;
-            padding: 0.9rem !important;
-            border-radius: 12px !important;
-            border: none !important;
-            box-shadow: 0 4px 15px rgba(160, 120, 80, 0.5) !important;
-            cursor: pointer !important;
-            letter-spacing: 0.05em !important;
-            transition: all 0.2s ease !important;
-        }
-        .btn-guardar button:hover {
-            background: linear-gradient(135deg, #a07850, #2c1a0e) !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(44, 26, 14, 0.5) !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<div class="btn-guardar">', unsafe_allow_html=True)
-        guardar = st.button("✅ Guardar Venta Completa", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-        if guardar:
-            if not comprador:
-                st.error("❌ El nombre del comprador es obligatorio")
-            elif len(celular) != 9 or not celular.isdigit():
-                st.error("❌ El celular debe tener exactamente 9 números")
-            else:
-                try:
+        if st.button("✅ GUARDAR VENTA COMPLETA", type="primary", use_container_width=True):
+            try:
+                # 1. Bloqueo visual de carga
+                with st.status("🚀 Procesando venta...", expanded=True) as status:
                     id_compra = obtener_proximo_id()
+
+                    # 2. Preparamos TODAS las filas primero (Punto 3)
+                    filas_para_google = []
                     for item in st.session_state.cesta:
-                        guardar_venta([
+                        filas_para_google.append([
                             id_compra, str(fecha), comprador, celular,
                             str(item["id_perfume"]), str(item["ml"]),
                             fmt_precio(item["precio"]), item["metodo"],
                             tipo_envio, direccion, "Pendiente"
                         ])
 
-                    url_whatsapp = generar_url_whatsapp(
-                        id_compra, comprador, celular,
-                        direccion, tipo_envio,
-                        st.session_state.cesta, total
-                    )
+                    # 3. UNA SOLA LLAMADA a la base de datos (Súper rápido)
+                    guardar_venta(filas_para_google)
 
-                    st.success(f"✅ Venta **{id_compra}** guardada — {len(st.session_state.cesta)} item(s) para {comprador}")
-                    st.markdown(f"""
-                    <a href="{url_whatsapp}" target="_blank" style="
-                        display: block;
-                        background: linear-gradient(135deg, #25D366, #128C7E);
-                        color: white; text-align: center;
-                        padding: 0.9rem; border-radius: 12px;
-                        text-decoration: none; font-weight: 700;
-                        font-size: 1rem; margin-top: 0.8rem;
-                        box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
-                    ">📲 Compartir por WhatsApp</a>
-                    """, unsafe_allow_html=True)
-                    st.balloons()
-                    st.session_state.cesta = []
-                except Exception as e:
-                    st.error(f"❌ No se pudo guardar: {e}")
-    else:
-        st.markdown("")
-        st.info("🛒 La cesta está vacía — agrega perfumes arriba")
+                    status.update(label="✅ ¡Venta guardada con éxito!", state="complete", expanded=False)
+
+                # Generar link de WhatsApp
+                url_wa = generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio,
+                                              st.session_state.cesta, total)
+
+                st.balloons()
+                st.markdown(f"""<a href="{url_wa}" target="_blank" style="text-decoration:none;">
+                    <div style="background-color:#25D366; color:white; padding:15px; border-radius:10px; text-align:center; font-weight:bold;">
+                        📲 Enviar Comprobante por WhatsApp
+                    </div></a>""", unsafe_allow_html=True)
+
+                # Limpiar cesta después de éxito
+                st.session_state.cesta = []
+
+            except Exception as e:
+                st.error(f"Error al guardar: {e}")

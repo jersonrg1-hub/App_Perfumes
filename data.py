@@ -97,10 +97,10 @@ def guardar_venta(lista_datos):
 
         if not es_multifila:
             # noinspection PyTypeChecker
-            hoja.append_row(lista_datos, value_input_option='USER_ENTERED')
+            hoja.append_rows(lista_datos, value_input_option='USER_ENTERED')
         else:
             # noinspection PyTypeChecker
-            hoja.append_row(lista_datos, value_input_option='USER_ENTERED')
+            hoja.append_rows(lista_datos, value_input_option='USER_ENTERED')
 
     except Exception as e:
         log_error("guardar_venta", e)

@@ -121,7 +121,37 @@ def mostrar_tab_venta(df):
         """, unsafe_allow_html=True)
 
         st.markdown("")
-        if st.button("✅ Guardar Venta Completa", use_container_width=True, type="primary"):
+
+        # ── Estilo botón guardar ──────────────────────────
+        st.markdown("""
+        <style>
+        .btn-guardar button {
+            background: linear-gradient(135deg, #c8956c, #a07850) !important;
+            color: white !important;
+            font-size: 1.1rem !important;
+            font-weight: 700 !important;
+            width: 100% !important;
+            padding: 0.9rem !important;
+            border-radius: 12px !important;
+            border: none !important;
+            box-shadow: 0 4px 15px rgba(160, 120, 80, 0.5) !important;
+            cursor: pointer !important;
+            letter-spacing: 0.05em !important;
+            transition: all 0.2s ease !important;
+        }
+        .btn-guardar button:hover {
+            background: linear-gradient(135deg, #a07850, #2c1a0e) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(44, 26, 14, 0.5) !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="btn-guardar">', unsafe_allow_html=True)
+        guardar = st.button("✅ Guardar Venta Completa", use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+        if guardar:
             if not comprador:
                 st.error("❌ El nombre del comprador es obligatorio")
             elif len(celular) != 9 or not celular.isdigit():
@@ -146,11 +176,13 @@ def mostrar_tab_venta(df):
                     st.success(f"✅ Venta **{id_compra}** guardada — {len(st.session_state.cesta)} item(s) para {comprador}")
                     st.markdown(f"""
                     <a href="{url_whatsapp}" target="_blank" style="
-                        display: block; background: #25D366;
+                        display: block;
+                        background: linear-gradient(135deg, #25D366, #128C7E);
                         color: white; text-align: center;
-                        padding: 0.8rem; border-radius: 10px;
+                        padding: 0.9rem; border-radius: 12px;
                         text-decoration: none; font-weight: 700;
-                        margin-top: 0.5rem;
+                        font-size: 1rem; margin-top: 0.8rem;
+                        box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
                     ">📲 Compartir por WhatsApp</a>
                     """, unsafe_allow_html=True)
                     st.balloons()

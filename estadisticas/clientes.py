@@ -31,18 +31,27 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
         .sort_values("Total_Gastado", ascending=False)
     )
 
-    st.markdown("#### 👥 Resumen de clientes")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total clientes", len(resumen))
-    with col2:
-        top = resumen.iloc[0] if not resumen.empty else None
-        st.metric("Cliente top", top["Nombre"] if top is not None else "—")
-    with col3:
-        prom = resumen["Total_Gastado"].mean() if not resumen.empty else 0
-        st.metric("Gasto promedio", f"S/ {fmt_precio(prom)}")
+    top = resumen.iloc[0] if not resumen.empty else None
+    prom = resumen["Total_Gastado"].mean() if not resumen.empty else 0
+    top_nombre = top["Nombre"] if top is not None else "—"
 
-    st.markdown("---")
+    st.markdown(f"""
+    <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.5rem;">
+        <div style="background:#f5ede6; border-radius:10px; padding:0.6rem 1rem; flex:1; min-width:120px; text-align:center;">
+            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase; font-weight:600;">Total clientes</div>
+            <div style="color:#2c1a0e; font-size:1.4rem; font-weight:700;">{len(resumen)}</div>
+        </div>
+        <div style="background:#f5ede6; border-radius:10px; padding:0.6rem 1rem; flex:2; min-width:160px; text-align:center;">
+            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase; font-weight:600;">Cliente top</div>
+            <div style="color:#2c1a0e; font-size:1.4rem; font-weight:700;">{top_nombre}</div>
+        </div>
+        <div style="background:#f5ede6; border-radius:10px; padding:0.6rem 1rem; flex:1; min-width:140px; text-align:center;">
+            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase; font-weight:600;">Gasto promedio</div>
+            <div style="color:#2c1a0e; font-size:1.4rem; font-weight:700;">S/ {fmt_precio(prom)}</div>
+        </div>
+    </div>
+    <hr style="margin:0.4rem 0 0.5rem 0; border-color:#f0e0d0;">
+    """, unsafe_allow_html=True)
 
     buscar = st.text_input(
         "🔍 Buscar cliente", placeholder="Nombre o celular...", key="cli_buscar"

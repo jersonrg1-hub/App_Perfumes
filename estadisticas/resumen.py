@@ -72,12 +72,12 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         for row in mas_vendidos.to_dict('records'):
             col1, col2, col3 = st.columns([4, 2, 1])
             with col1:
-                st.markdown(f"🌸 **{row.get('Nombre', 'Desconocido')}**")
+                st.markdown(f"<span style='font-size:1.05rem; font-weight:700; color:#2c1a0e;'>🌸 {row.get('Nombre', 'Desconocido')}</span>", unsafe_allow_html=True)
             with col2:
-                st.caption(str(row.get('Marca', '')))
+                st.markdown(f"<span style='font-size:0.95rem; color:#a07850;'>{row.get('Marca', '')}</span>", unsafe_allow_html=True)
             with col3:
-                st.markdown(f"**{row['Cantidad']}x**")
-            st.divider()
+                st.markdown(f"<span style='font-size:1.05rem; font-weight:700; color:#c8956c;'>{row['Cantidad']}x</span>", unsafe_allow_html=True)
+            st.markdown("<hr style='margin:0.3rem 0; border-color:#f0e0d0;'>", unsafe_allow_html=True)
 
     st.markdown("#### 📋 Historial completo")
     with st.expander("Ver todas las ventas"):

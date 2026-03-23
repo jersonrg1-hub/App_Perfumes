@@ -1,4 +1,7 @@
 MOBILE = """
+    /* CORRECCIÓN #4: unificar breakpoint a 768px (más estándar)
+       eliminado el breakpoint de 640px de styles/components.py
+       mobile.py es la fuente única de verdad para responsive */
     @media (max-width: 768px) {
 
         /* ── Título ── */
@@ -40,11 +43,13 @@ MOBILE = """
             font-size: 2rem !important;
         }
 
-        div[style*="linear-gradient(135deg, #2c1a0e"] {
+        /* CORRECCIÓN #3: reemplazar selector inline frágil por clase CSS
+           ahora que components.py usa class="precio-card" */
+        .precio-card {
             padding: 0.7rem !important;
         }
 
-        div[style*="linear-gradient(135deg, #2c1a0e"] div:last-child {
+        .precio-card div:last-child {
             font-size: 1.1rem !important;
         }
 
@@ -72,13 +77,13 @@ MOBILE = """
             font-size: 1rem !important;
         }
 
-        /* ── Botones más grandes ── */
+        /* ── Botones más grandes para dedos ── */
         .stButton button {
             min-height: 48px !important;
             font-size: 1rem !important;
         }
 
-        /* ── Más espacio ── */
+        /* ── Más espacio entre elementos ── */
         .stMarkdown {
             margin-bottom: 0.4rem !important;
         }

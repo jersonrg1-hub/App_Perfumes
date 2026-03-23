@@ -44,7 +44,7 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     ]
 
     st.markdown("#### 📅 Resumen de esta semana")
-    st.caption(f"{inicio_semana.strftime('%d/%m/%Y')} — {fin_semana.strftime('%d/%m/%Y')}")
+    st.markdown(f"<span style='font-size:1rem; color:#a07850; font-weight:600;'>{inicio_semana.strftime('%d/%m/%Y')} — {fin_semana.strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
     st.markdown("")
 
     col1, col2, col3 = st.columns(3)

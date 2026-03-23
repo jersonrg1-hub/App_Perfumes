@@ -158,7 +158,7 @@ def marcar_entregado(fila_num, col_estado):
 
         # MEJORA: Limpiamos el caché de cargar_ventas para que la
         # interfaz muestre el cambio inmediatamente sin esperar los 5-10 min de TTL
-        cargar_ventas.clear()
+        st.cache_data.clear()
 
     except Exception as e:
         log_error(f"marcar_entregado (Fila: {fila_num})", e)

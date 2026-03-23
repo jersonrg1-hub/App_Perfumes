@@ -1,16 +1,21 @@
+import html
 import streamlit as st
 import pandas as pd
 from datetime import date
 from config import fmt_precio
 from pdf_generator import exportar_pdf_ventas_hoy
 
+
 def _metrica_card(titulo, valor):
+    titulo_safe = html.escape(str(titulo))
+    valor_safe = html.escape(str(valor))
     return f"""
     <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
-        <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">{titulo}</div>
-        <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">{valor}</div>
+        <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">{titulo_safe}</div>
+        <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">{valor_safe}</div>
     </div>
     """
+
 
 def mostrar_estadisticas(df_ventas, df_catalogo):
     if df_ventas.empty:
@@ -19,7 +24,6 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
 
     df_ventas = df_ventas.copy()
     df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"], errors="coerce")
-    df_ventas["Precio_Cobrado"] = pd.to_numeric(df_ventas["Precio_Cobrado"], errors="coerce")
 
     hoy = pd.Timestamp(date.today())
     ventas_hoy = df_ventas[df_ventas["Fecha"].dt.date == hoy.date()]
@@ -47,22 +51,24 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     st.markdown("#### 🏆 Perfumes más vendidos")
     if "ID_Perfume" in df_ventas.columns:
         df_ventas["ID_Perfume"] = df_ventas["ID_Perfume"].astype(str)
-        df_catalogo = df_catalogo.copy()
-        df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
 
         mas_vendidos = (
             df_ventas.groupby("ID_Perfume")
             .size().reset_index(name="Cantidad")
             .sort_values("Cantidad", ascending=False).head(5)
         )
+
         mas_vendidos = mas_vendidos.merge(
-            df_catalogo[["ID_Perfume", "Nombre", "Marca"]],
+            df_catalogo[["ID_Perfume", "Nombre", "Marca"]].assign(
+                ID_Perfume=df_catalogo["ID_Perfume"].astype(str)
+            ),
             on="ID_Perfume", how="left"
         )
-        for _, row in mas_vendidos.iterrows():
+
+        for row in mas_vendidos.to_dict('records'):
             col1, col2, col3 = st.columns([4, 2, 1])
             with col1:
-                st.markdown(f"🌸 **{row.get('Nombre','Desconocido')}**")
+                st.markdown(f"🌸 **{row.get('Nombre', 'Desconocido')}**")
             with col2:
                 st.caption(str(row.get('Marca', '')))
             with col3:

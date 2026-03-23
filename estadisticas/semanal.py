@@ -1,8 +1,29 @@
+import html
 import streamlit as st
 import pandas as pd
 from datetime import date
 from config import fmt_precio
 from estadisticas.resumen import _metrica_card
+
+
+def _stats_mes(df_ventas, mes_str):
+    periodo = pd.Period(mes_str, freq="M")
+    df_mes = df_ventas[df_ventas["Fecha"].dt.to_period("M") == periodo]
+    total = df_mes["Precio_Cobrado"].sum()
+    num = len(df_mes)
+    prom = total / num if num > 0 else 0
+    return total, num, prom
+
+
+def _col_mes(col, nombre_mes, total, num, prom):
+    with col:
+        st.markdown(f"**{nombre_mes}**")
+        st.markdown(_metrica_card("Ventas", num), unsafe_allow_html=True)
+        st.markdown("")
+        st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total)}"), unsafe_allow_html=True)
+        st.markdown("")
+        st.markdown(_metrica_card("Promedio", f"S/ {fmt_precio(prom)}"), unsafe_allow_html=True)
+
 
 def mostrar_resumen_semanal(df_ventas, df_catalogo):
     if df_ventas.empty:
@@ -11,7 +32,6 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
 
     df_ventas = df_ventas.copy()
     df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"], errors="coerce")
-    df_ventas["Precio_Cobrado"] = pd.to_numeric(df_ventas["Precio_Cobrado"], errors="coerce")
 
     hoy = pd.Timestamp(date.today())
     inicio_semana = hoy - pd.Timedelta(days=hoy.weekday())
@@ -40,19 +60,19 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
 
     if not ventas_semana.empty and "ID_Perfume" in ventas_semana.columns:
         st.markdown("")
-        df_catalogo = df_catalogo.copy()
-        df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
-        ventas_semana = ventas_semana.copy()
-        ventas_semana["ID_Perfume"] = ventas_semana["ID_Perfume"].astype(str)
 
         top = (
-            ventas_semana.groupby("ID_Perfume")
+            ventas_semana.assign(ID_Perfume=ventas_semana["ID_Perfume"].astype(str))
+            .groupby("ID_Perfume")
             .size().reset_index(name="Cantidad")
             .sort_values("Cantidad", ascending=False)
             .iloc[0]
         )
-        match = df_catalogo[df_catalogo["ID_Perfume"] == top["ID_Perfume"]]
+
+        match = df_catalogo[df_catalogo["ID_Perfume"].astype(str) == top["ID_Perfume"]]
         nombre_top = match.iloc[0]["Nombre"] if not match.empty else top["ID_Perfume"]
+
+        nombre_top = html.escape(str(nombre_top))
 
         st.markdown(f"""
         <div style="
@@ -99,43 +119,25 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     )
     opciones_meses = [str(m) for m in meses_disponibles]
 
-    if len(opciones_meses) < 1:
-        st.info("No hay suficientes datos para comparar")
+    if len(opciones_meses) < 2:
+        st.info("Se necesitan al menos 2 meses de datos para comparar")
         return
 
     col1, col2 = st.columns(2)
     with col1:
         mes1 = st.selectbox("📅 Mes 1", opciones_meses,
-            index=len(opciones_meses)-1, key="mes1_comp")
+            index=len(opciones_meses) - 1, key="mes1_comp")
     with col2:
         mes2 = st.selectbox("📅 Mes 2", opciones_meses,
-            index=max(0, len(opciones_meses)-2), key="mes2_comp")
+            index=max(0, len(opciones_meses) - 2), key="mes2_comp")
 
-    def stats_mes(mes_str):
-        periodo = pd.Period(mes_str, freq="M")
-        df_mes = df_ventas[df_ventas["Fecha"].dt.to_period("M") == periodo]
-        total = df_mes["Precio_Cobrado"].sum()
-        num = len(df_mes)
-        prom = total / num if num > 0 else 0
-        return total, num, prom
-
-    total_m1, num_m1, prom_m1 = stats_mes(mes1)
-    total_m2, num_m2, prom_m2 = stats_mes(mes2)
+    total_m1, num_m1, prom_m1 = _stats_mes(df_ventas, mes1)
+    total_m2, num_m2, prom_m2 = _stats_mes(df_ventas, mes2)
 
     st.markdown("")
     col1, col2 = st.columns(2)
-
-    def col_mes(col, nombre_mes, total, num, prom):
-        with col:
-            st.markdown(f"**{nombre_mes}**")
-            st.markdown(_metrica_card("Ventas", num), unsafe_allow_html=True)
-            st.markdown("")
-            st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total)}"), unsafe_allow_html=True)
-            st.markdown("")
-            st.markdown(_metrica_card("Promedio", f"S/ {fmt_precio(prom)}"), unsafe_allow_html=True)
-
-    col_mes(col1, mes1, total_m1, num_m1, prom_m1)
-    col_mes(col2, mes2, total_m2, num_m2, prom_m2)
+    _col_mes(col1, mes1, total_m1, num_m1, prom_m1)
+    _col_mes(col2, mes2, total_m2, num_m2, prom_m2)
 
     if total_m1 > 0 and total_m2 > 0:
         st.markdown("")

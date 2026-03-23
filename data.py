@@ -13,7 +13,6 @@ def log_error(contexto, error):
     """Registra errores con contexto y nivel de severidad"""
     print(f"[ERROR] {contexto}: {str(error)}")
     log = st.session_state.setdefault("error_log", [])
-    # Añadimos timestamp para saber CUÁNDO falló
     from datetime import datetime
     now = datetime.now().strftime("%H:%M:%S")
     log.append(f"[{now}] [{contexto}] {str(error)}")
@@ -46,17 +45,16 @@ def get_hoja(worksheet_name):
 
 
 # ── Catálogo ───────────────────────────────────────────────
-@st.cache_data(ttl=600)  # Subimos a 10 min, el catálogo no cambia cada segundo
+@st.cache_data(ttl=600)  # TTL de 10 min
 def cargar_catalogo():
     """Carga el catálogo y asegura tipos de datos numéricos"""
     try:
         hoja = get_hoja(WORKSHEET_CATALOGO)
-        datos = hoja.get_all_records()
+        # value_render_option='UNFORMATTED_VALUE' ignora colores/formatos y vuela
+        datos = hoja.get_all_records(value_render_option='UNFORMATTED_VALUE')
         df = pd.DataFrame(datos)
 
-        # --- MEJORA: Limpieza de datos automática ---
         if not df.empty:
-            # Aseguramos que columnas de precios/stock sean numéricas
             cols_numericas = ['precio', 'costo', 'ml_disponibles', 'stock']
             for col in cols_numericas:
                 if col in df.columns:
@@ -68,17 +66,16 @@ def cargar_catalogo():
 
 
 def limpiar_cache_catalogo():
-    # Limpiamos todo si de verdad queremos un reseteo duro
     st.cache_data.clear()
 
 
 # ── Ventas ─────────────────────────────────────────────────
-@st.cache_data(ttl=600)  # CORRECCIÓN: ESTO FALTABA PARA QUE "limpiar_cache_ventas" FUNCIONARA
+@st.cache_data(ttl=600)
 def cargar_ventas():
     """Carga ventas asegurando que los IDs se traten correctamente"""
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)
-        datos = hoja.get_all_records()
+        datos = hoja.get_all_records(value_render_option='UNFORMATTED_VALUE')
         if not datos:
             return pd.DataFrame()
         return pd.DataFrame(datos)
@@ -94,25 +91,24 @@ def limpiar_cache_ventas():
 
 def guardar_venta(filas):
     """
-    CAMBIO CRÍTICO: Recibe una lista de listas (todas las ventas de la cesta)
+    Recibe una lista de listas (todas las ventas de la cesta)
     y las guarda en una sola petición.
     """
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)
-        # append_rows es 10 veces más rápido para múltiples registros que append_row
         hoja.append_rows(filas, value_input_option='USER_ENTERED')
 
-        # CORRECCIÓN: Limpiamos SOLO las ventas, para no destruir la velocidad del catálogo
+        # Limpiamos SOLO las ventas para no destruir la velocidad del catálogo
         limpiar_cache_ventas()
 
     except Exception as e:
-        log_error("guardar_venta_batch", e)
+        log_error("guardar_venta", e)
         raise
 
 
 def obtener_proximo_id():
     """
-    MEJORA: Calcula el ID basándose en los datos ya cargados
+    Calcula el ID basándose en los datos ya cargados
     para evitar una consulta extra a la API.
     """
     df_ventas = cargar_ventas()
@@ -120,7 +116,7 @@ def obtener_proximo_id():
         return "V001"
 
     try:
-        # CORRECCIÓN de error de tipeo en Regex r'(\+d)' -> r'(\d+)'
+        # Regex corregido para capturar números correctamente
         ids_numericos = df_ventas['ID_Compra'].str.extract(r'(\d+)').dropna().astype(int)
         if ids_numericos.empty:
             return "V001"
@@ -131,49 +127,44 @@ def obtener_proximo_id():
         return "V001"
 
 
-def actualizar_stock_perfume(nombre_perfume, ml_restados):
-    """
-    NUEVA FUNCIÓN: Es vital para que el negocio de tu hermana sea automático.
-    Busca el perfume y resta los ML vendidos.
-    """
-    try:
-        hoja = get_hoja(WORKSHEET_CATALOGO)
-        celda = hoja.find(nombre_perfume)  # Busca el nombre
-        # Asumiendo que ML está en la columna 4 (ajustar según tu Excel)
-        col_ml = 4
-        valor_actual = float(hoja.cell(celda.row, col_ml).value)
-        nuevo_valor = max(0, valor_actual - ml_restados)
-        hoja.update_cell(celda.row, col_ml, nuevo_valor)
-
-        limpiar_cache_catalogo()  # Forzamos recarga para ver el stock actualizado
-    except Exception as e:
-        log_error("actualizar_stock", e)
-
-
 def marcar_pedido_entregado_batch(lista_filas, col_estado):
     """
     Actualiza TODAS las filas de un pedido en una sola llamada a Google.
-    Evita el bucle de conexiones lentas.
+    Ideal para agrupar múltiples perfumes en una sola actualización.
     """
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)
 
-        # Preparamos el paquete de datos para Google
         peticiones = []
         for fila in lista_filas:
-            # Convierte fila=2, col=11 a formato "K2"
             letra_col = gspread.utils.rowcol_to_a1(fila, col_estado)
             peticiones.append({
                 'range': letra_col,
                 'values': [['Entregado']]
             })
 
-        # Ejecuta TODAS las actualizaciones de un solo golpe (tarda ~1 segundo)
         hoja.batch_update(peticiones)
-
-        # CRÍTICO: Limpiamos solo el caché de ventas
         limpiar_cache_ventas()
 
     except Exception as e:
         log_error("marcar_entregado_batch", e)
         raise
+
+
+def actualizar_stock_perfume(nombre_perfume, ml_restados):
+    """
+    Busca el perfume y resta los ML vendidos en el Excel del catálogo.
+    """
+    try:
+        hoja = get_hoja(WORKSHEET_CATALOGO)
+        celda = hoja.find(nombre_perfume)
+
+        # OJO: Asegúrate que el stock esté en la columna 4 de tu Excel.
+        col_ml = 4
+        valor_actual = float(hoja.cell(celda.row, col_ml).value)
+        nuevo_valor = max(0, valor_actual - ml_restados)
+        hoja.update_cell(celda.row, col_ml, nuevo_valor)
+
+        limpiar_cache_catalogo()
+    except Exception as e:
+        log_error("actualizar_stock", e)

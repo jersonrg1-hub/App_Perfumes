@@ -8,7 +8,6 @@ from errores import (
     mostrar_error_columna,
     validar_dataframe
 )
-# Importamos las nuevas funciones de auth
 from auth import inicializar_auth, login_seccion, check_auth, mostrar_boton_logout
 
 from tabs.tab_marca import mostrar_tab_marca
@@ -17,10 +16,8 @@ from tabs.tab_venta import mostrar_tab_venta
 from tabs.tab_estadisticas import mostrar_tab_estadisticas
 from tabs.tab_notas import mostrar_tab_notas
 
-# 1. Configuración de página
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
 
-# 2. Inicializar estado de autenticación
 inicializar_auth()
 
 st.markdown("""
@@ -28,7 +25,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.markdown(get_styles(), unsafe_allow_html=True)
 
-# 3. Encabezado y Botón de Logout Global (en el Sidebar)
 mostrar_encabezado()
 
 try:
@@ -44,7 +40,6 @@ try:
             mostrar_error_columna(col)
         st.stop()
 
-    # Definición de las Tabs
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🏷️ Marca",
         "🔍 Nombre",
@@ -64,26 +59,34 @@ try:
         mostrar_tab_notas(df)
 
     with tab4:
-        # Usamos la nueva función login_seccion que maneja el formulario y el estado
-        if login_seccion(key_suffix="venta"):
+        if check_auth():
             mostrar_tab_venta(df)
+            mostrar_boton_logout()
+        else:
+            login_seccion(key_suffix="venta")
 
     with tab5:
-        if login_seccion(key_suffix="stats"):
+        if check_auth():
             mostrar_tab_estadisticas(df)
+            mostrar_boton_logout()
+        else:
+            login_seccion(key_suffix="stats")
 
     with tab6:
         if check_auth():
             st.success("### ✅ Sesión Activa")
             st.write("Tienes acceso a las secciones de administración (Ventas y Estadísticas).")
-            # Botón adicional por si no mira el sidebar
             mostrar_boton_logout()
         else:
             st.info("### 🔒 Modo Invitado")
             st.write("Ingresa la contraseña para gestionar ventas e inventario.")
             login_seccion(key_suffix="tab_final")
 
-except Exception as e:
+except ConnectionError as e:
     mostrar_error_conexion()
+    with st.expander("🔍 Ver detalle del error"):
+        st.code(str(e))
+except Exception as e:
+    st.error("❌ Error inesperado en la aplicación")
     with st.expander("🔍 Ver detalle del error"):
         st.code(str(e))

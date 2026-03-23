@@ -1,10 +1,13 @@
+import html
+import pandas as pd
 import streamlit as st
 from config import PRECIOS_COLUMNAS, fmt_precio
+
 
 def mostrar_tab_marca(df):
     col_marca, col_tamanio = st.columns(2)
     with col_marca:
-        marcas = ["— Elige una marca —"] + sorted(df["Marca"].unique().tolist())
+        marcas = ["— Elige una marca —"] + sorted(df["Marca"].dropna().unique().tolist())
         marca_seleccionada = st.selectbox("Marca", marcas, key="marca")
     with col_tamanio:
         tamanio = st.selectbox("Tamaño", list(PRECIOS_COLUMNAS.keys()), key="tamanio1")
@@ -16,13 +19,21 @@ def mostrar_tab_marca(df):
         tiene_notas = "Notas" in df.columns
         tiene_perfil = "Perfil_Olfativo" in df.columns
 
-        # ── Sin línea divisora y sin espacio extra ────────
-        st.markdown(f"<div style='margin-top:0.8rem; margin-bottom:0.5rem; color:#a07850; font-size:0.85rem;'>✨ {len(df_filtrado)} perfume(s) — precios para {tamanio}</div>", unsafe_allow_html=True)
+        st.markdown(
+            f"<div style='margin-top:0.8rem; margin-bottom:0.5rem; color:#a07850; font-size:0.85rem;'>"
+            f"✨ {len(df_filtrado)} perfume(s) — precios para {tamanio}</div>",
+            unsafe_allow_html=True
+        )
 
-        for _, row in df_filtrado.iterrows():
-            precio = row[columna]
-            notas = str(row.get('Notas', '')) if tiene_notas else ''
-            perfil = str(row.get('Perfil_Olfativo', '')) if tiene_perfil else ''
+        for row in df_filtrado.to_dict('records'):
+            precio = row.get(columna, "")
+
+            notas  = html.escape(str(row.get('Notas', ''))) if tiene_notas and pd.notna(row.get('Notas')) else ''
+            perfil = html.escape(str(row.get('Perfil_Olfativo', ''))) if tiene_perfil and pd.notna(row.get('Perfil_Olfativo')) else ''
+
+            nombre = html.escape(str(row.get('Nombre', '')))
+
+            precio_html = f"S/ {fmt_precio(precio)}" if precio not in (0, "", None) else "—"
 
             st.markdown(f"""
             <div style="
@@ -36,10 +47,10 @@ def mostrar_tab_marca(df):
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div>
                         <div style="font-family:'Playfair Display',serif; font-size:1.1rem; color:#2c1a0e; font-weight:600;">
-                            🌸 {row['Nombre']}
+                            🌸 {nombre}
                         </div>
-                        {"<div style='color:#a07850; font-size:0.85rem; margin-top:0.2rem;'>🎵 " + notas + "</div>" if notas and notas != 'nan' else ""}
-                        {"<div style='color:#c8956c; font-size:0.85rem; margin-top:0.1rem;'>✨ " + perfil + "</div>" if perfil and perfil != 'nan' else ""}
+                        {"<div style='color:#a07850; font-size:0.85rem; margin-top:0.2rem;'>🎵 " + notas + "</div>" if notas else ""}
+                        {"<div style='color:#c8956c; font-size:0.85rem; margin-top:0.1rem;'>✨ " + perfil + "</div>" if perfil else ""}
                     </div>
                     <div style="
                         background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
@@ -52,7 +63,7 @@ def mostrar_tab_marca(df):
                     ">
                         <div style="color:#e8c9a8; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em;">{tamanio}</div>
                         <div style="color:white; font-family:'Playfair Display',serif; font-size:1.2rem; font-weight:700;">
-                            {"S/ " + fmt_precio(precio) if precio else "—"}
+                            {precio_html}
                         </div>
                     </div>
                 </div>

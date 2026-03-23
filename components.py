@@ -15,16 +15,9 @@ def mostrar_perfume_card(marca, nombre, url_imagen=""):
     nombre_safe = html_lib.escape(str(nombre))
 
     st.markdown(f"""
-    <div style="
-        background: white;
-        border-left: 4px solid #c8956c;
-        border-radius: 12px;
-        padding: 1.2rem 1.5rem;
-        margin: 1rem 0;
-        box-shadow: 0 2px 12px rgba(160, 120, 80, 0.12);
-    ">
-        <div style="font-size:0.8rem; letter-spacing:0.12em; text-transform:uppercase; color:#a07850; font-weight:600; margin-bottom:0.2rem;">{marca_safe}</div>
-        <div style="font-family:'Playfair Display',serif; font-size:1.4rem; color:#2c1a0e; font-weight:600;">{nombre_safe}</div>
+    <div class="perfume-card">
+        <div class="marca">{marca_safe}</div>
+        <div class="nombre">{nombre_safe}</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -46,20 +39,18 @@ def mostrar_todos_precios(perfume, precios_columnas):
 
     for i, (tamanio, columna) in enumerate(precios_columnas.items()):
         precio = perfume.get(columna, "")
-
         tamanio_safe = html_lib.escape(str(tamanio))
 
         with cols[i]:
             if precio not in (0, "", None):
                 st.markdown(f"""
-                <div style="
+                <div class="precio-card" style="
                     background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
                     border-radius: 12px;
                     padding: 1.2rem 0.8rem;
                     text-align: center;
                     box-shadow: 0 3px 12px rgba(44,26,14,0.25);
                     margin-bottom: 0.5rem;
-                    transition: transform 0.2s ease;
                 ">
                     <div style="color:#e8c9a8; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.3rem;">{tamanio_safe}</div>
                     <div style="color:white; font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; line-height:1;">S/ {fmt_precio(precio)}</div>
@@ -76,7 +67,7 @@ def mostrar_todos_precios(perfume, precios_columnas):
                     margin-bottom: 0.5rem;
                 ">
                     <div style="color:#c8956c; font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase;">{tamanio_safe}</div>
-                    <div style="color:#bbb; font-size:0.85rem; font-style:italic;">Sin precio</div>
+                    <div class="sin-precio">Sin precio</div>
                 </div>
                 """, unsafe_allow_html=True)
 

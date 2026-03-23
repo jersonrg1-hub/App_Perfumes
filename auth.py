@@ -19,11 +19,11 @@ def login_seccion(key_suffix="default"):
     st.info("### 🔒 Acceso Restringido")
     st.caption("Esta sección contiene información sensible de costos o inventario.")
 
-    MAX_INTENTOS = 3  # ⚠️ Se resetea si el usuario recarga la página (F5)
+    MAX_INTENTOS = 3
 
     if st.session_state.intentos_login >= MAX_INTENTOS:
         st.error(f"🚫 Acceso bloqueado tras {MAX_INTENTOS} intentos fallidos.")
-        if st.button("🔄 Reintentar"):
+        if st.button("🔄 Reintentar", key="reintentar_login"):
             st.session_state.intentos_login = 0
             st.rerun()
         return False
@@ -56,11 +56,11 @@ def check_auth():
     return st.session_state.get("autenticado", False)
 
 
-def mostrar_boton_logout():
+def mostrar_boton_logout(key_suffix="default"):
     if st.session_state.get("autenticado"):
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("🔒 Cerrar Sesión de Admin", use_container_width=True):
+            if st.button("🔒 Cerrar Sesión de Admin", key=f"cerrar_sesion_{key_suffix}", use_container_width=True):
                 st.session_state.autenticado = False
                 st.session_state.intentos_login = 0
                 st.rerun()

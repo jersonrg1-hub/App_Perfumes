@@ -1,8 +1,9 @@
 import html
+from datetime import date
+
 import streamlit as st
 import pandas as pd
-from datetime import date
-from config import fmt_precio
+from config import fmt_precio, hoy_peru
 from pdf_generator import exportar_pdf_ventas_hoy
 
 
@@ -23,10 +24,13 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         return
 
     df_ventas = df_ventas.copy()
-    df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"], errors="coerce")
+    if df_ventas["Fecha"].dtype == object:
+        df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"].astype(str).str.strip(), errors="coerce")
 
-    hoy = pd.Timestamp(date.today())
-    ventas_hoy = df_ventas[df_ventas["Fecha"].dt.date == hoy.date()]
+    hoy = pd.Timestamp(hoy_peru())
+    ventas_hoy = df_ventas[
+        df_ventas["Fecha"].dt.normalize() == hoy.normalize()
+    ]
     ventas_mes = df_ventas[
         (df_ventas["Fecha"].dt.month == hoy.month) &
         (df_ventas["Fecha"].dt.year == hoy.year)
@@ -84,7 +88,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
 
     st.markdown("---")
     st.markdown("#### 📄 Exportar ventas del día")
-    if st.button("⬇️ Generar PDF del día", use_container_width=True):
+    if st.button("⬇️ Generar PDF del día", key="generar_pdf", use_container_width=True):
         pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
         if pdf_bytes:
             st.download_button(

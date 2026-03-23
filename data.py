@@ -62,6 +62,7 @@ def cargar_catalogo():
         return pd.DataFrame()
 
 
+# CORRECCIÓN #1: antes usaba st.cache_data.clear() que borraba TODO el caché
 def limpiar_cache_catalogo():
     cargar_catalogo.clear()
 
@@ -71,18 +72,23 @@ def limpiar_cache_catalogo():
 def cargar_ventas():
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)
-        datos = hoja.get_all_records(value_render_option='UNFORMATTED_VALUE')
+        datos = hoja.get_all_records(value_render_option='FORMATTED_VALUE')
         if not datos:
             return pd.DataFrame()
 
         df = pd.DataFrame(datos)
 
         if not df.empty:
-            cols_numericas = ['precio', 'cantidad', 'total', 'ml']
+            if "Fecha" in df.columns:
+                df["Fecha"] = pd.to_datetime(df["Fecha"].astype(str).str.strip(), dayfirst=False, errors="coerce")
+
+            cols_numericas = ['Precio_Cobrado', 'Ml_Vendido', 'precio', 'cantidad', 'total', 'ml']
             for col in cols_numericas:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-                    df["fila_sheet"] = range(2, len(df) + 2)
+
+            df["fila_sheet"] = range(2, len(df) + 2)
+
         return df
     except Exception as e:
         log_error("cargar_ventas", e)
@@ -104,15 +110,21 @@ def guardar_venta(filas):
 
 
 def obtener_proximo_id():
-    limpiar_cache_ventas()
-    df_ventas = cargar_ventas()
-
-    if df_ventas.empty or 'ID_Compra' not in df_ventas.columns:
-        return "V001"
-
     try:
+        hoja = get_hoja(WORKSHEET_VENTAS)
+        datos = hoja.get_all_records(value_render_option='UNFORMATTED_VALUE')
+
+        if not datos:
+            return "V001"
+
+        df_ventas = pd.DataFrame(datos)
+
+        if 'ID_Compra' not in df_ventas.columns or df_ventas.empty:
+            return "V001"
+
         ids_numericos = (
             df_ventas['ID_Compra']
+            .astype(str)
             .str.extract(r'(\d+)')[0]
             .dropna()
             .astype(int)

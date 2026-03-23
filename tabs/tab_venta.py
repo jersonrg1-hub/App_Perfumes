@@ -1,5 +1,5 @@
 import streamlit as st
-from config import PRECIOS_COLUMNAS, ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio
+from config import PRECIOS_COLUMNAS, ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru
 from data import guardar_venta, obtener_proximo_id
 from components import generar_url_whatsapp
 
@@ -38,7 +38,7 @@ def mostrar_tab_venta(df):
         st.markdown("#### 👤 Datos del Comprador")
         col_fecha, col_envio = st.columns(2)
         with col_fecha:
-            fecha = st.date_input("📅 Fecha", key="fecha_venta")
+            fecha = st.date_input("📅 Fecha", value=hoy_peru(), format="DD/MM/YYYY", key="fecha_venta")
         with col_envio:
             tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="envio_sel")
 
@@ -70,7 +70,7 @@ def mostrar_tab_venta(df):
         if precio_item not in (0, "", None):
             st.success(f"Precio detectado: **S/ {fmt_precio(precio_item)}**")
 
-            if st.button("➕ Agregar a la cesta", use_container_width=True):
+            if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", use_container_width=True):
                 if not comprador or len(celular) != 9:
                     st.error("⚠️ Completa Nombre y Celular (9 dígitos)")
                 else:
@@ -98,7 +98,7 @@ def mostrar_tab_venta(df):
         total = sum(float(i['precio']) for i in st.session_state.cesta)
         st.subheader(f"Total: S/ {fmt_precio(total)}")
 
-        if st.button("✅ GUARDAR VENTA COMPLETA", type="primary", use_container_width=True):
+        if st.button("✅ GUARDAR VENTA COMPLETA", key="guardar_venta", type="primary", use_container_width=True):
 
             # CORRECCIÓN #5: validar también al guardar, no solo al agregar
             if not comprador or len(celular) != 9:
@@ -112,7 +112,7 @@ def mostrar_tab_venta(df):
                     filas_para_google = []
                     for item in st.session_state.cesta:
                         filas_para_google.append([
-                            id_compra, str(fecha), comprador, celular,
+                            id_compra, fecha.strftime("%Y-%m-%d"), comprador, celular,
                             str(item["id_perfume"]), str(item["ml"]),
                             round(float(item["precio"]), 2),  # CORRECCIÓN #4: número, no string
                             item["metodo"], tipo_envio, direccion, "Pendiente"
@@ -136,7 +136,7 @@ def mostrar_tab_venta(df):
 
                 # CORRECCIÓN #2: usar flag en lugar de botón dentro del try
                 st.session_state.venta_guardada = True
-                if st.button("🆕 Registrar otra venta"):
+                if st.button("🆕 Registrar otra venta", key="nueva_venta"):
                     resetear_formulario()
                     st.rerun()
 

@@ -61,14 +61,14 @@ try:
     with tab4:
         if check_auth():
             mostrar_tab_venta(df)
-            mostrar_boton_logout()
+            mostrar_boton_logout(key_suffix="tab4")
         else:
             login_seccion(key_suffix="venta")
 
     with tab5:
         if check_auth():
             mostrar_tab_estadisticas(df)
-            mostrar_boton_logout()
+            mostrar_boton_logout(key_suffix="tab5")
         else:
             login_seccion(key_suffix="stats")
 
@@ -76,7 +76,7 @@ try:
         if check_auth():
             st.success("### ✅ Sesión Activa")
             st.write("Tienes acceso a las secciones de administración (Ventas y Estadísticas).")
-            mostrar_boton_logout()
+            mostrar_boton_logout(key_suffix="tab6")
         else:
             st.info("### 🔒 Modo Invitado")
             st.write("Ingresa la contraseña para gestionar ventas e inventario.")

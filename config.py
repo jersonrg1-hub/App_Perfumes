@@ -47,10 +47,6 @@ def hoy_peru():
     from datetime import datetime
     return datetime.now(TZ_PERU).date()
 
-def ahora_peru():
-    """Devuelve datetime actual en hora peruana."""
-    from datetime import datetime
-    return datetime.now(TZ_PERU)
 
 # ── Formato de fechas ──────────────────────────────────────
 def fmt_fecha(fecha):

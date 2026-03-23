@@ -1,6 +1,6 @@
 import streamlit as st
 from config import PRECIOS_COLUMNAS, ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio
-from data import guardar_venta, obtener_ultimo_id_compra
+from data import guardar_venta, obtener_proximo_id
 from components import generar_url_whatsapp
 
 def mostrar_tab_venta(df):
@@ -158,7 +158,7 @@ def mostrar_tab_venta(df):
                 st.error("❌ El celular debe tener exactamente 9 números")
             else:
                 try:
-                    id_compra = obtener_ultimo_id_compra()
+                    id_compra = obtener_proximo_id()
                     for item in st.session_state.cesta:
                         guardar_venta([
                             id_compra, str(fecha), comprador, celular,

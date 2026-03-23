@@ -1,53 +1,75 @@
 import streamlit as st
 
-def check_password():
+
+def inicializar_auth():
+    """Asegura que las variables de sesión existan al arrancar la app"""
     if "autenticado" not in st.session_state:
         st.session_state.autenticado = False
-    return st.session_state.autenticado
-
-def mostrar_login(key="login"):
-    st.markdown("---")
-    st.markdown("### 🔒 Área Privada")
-    st.markdown("Esta sección requiere contraseña")
-
-    # ── Inicializar contador de intentos ──────────────────
     if "intentos_login" not in st.session_state:
         st.session_state.intentos_login = 0
 
-    # ── Bloquear si demasiados intentos ───────────────────
-    if st.session_state.intentos_login >= 3:
-        st.error("🚫 Demasiados intentos fallidos. Recarga la página para intentar de nuevo.")
-        return
 
-    with st.form(f"form_login_{key}"):
-        password = st.text_input(
-            "Contraseña",
-            type="password",
-            placeholder="Ingresa la contraseña"
-        )
-        submitted = st.form_submit_button("🔓 Ingresar", use_container_width=True)
+def login_seccion(key_suffix="default"):
+    """
+    Muestra la interfaz de login.
+    Retorna True si el usuario acaba de autenticarse con éxito.
+    """
+    inicializar_auth()
 
-        if submitted:
-            APP_PASSWORD = st.secrets.get("APP_PASSWORD", None)
+    # Si ya está autenticado, no mostramos nada
+    if st.session_state.autenticado:
+        return True
 
-            if not APP_PASSWORD:
-                st.error("⚠️ Contraseña no configurada. Contacta al administrador.")
-                return
+    st.markdown("---")
+    st.info("### 🔒 Acceso Restringido")
+    st.caption("Esta sección contiene información sensible de costos o inventario.")
 
-            if password == APP_PASSWORD:
+    # Lógica de bloqueo por intentos
+    MAX_INTENTOS = 3
+    if st.session_state.intentos_login >= MAX_INTENTOS:
+        st.error(f"🚫 Acceso bloqueado tras {MAX_INTENTOS} intentos fallidos.")
+        if st.button("🔄 Reintentar"):
+            st.session_state.intentos_login = 0
+            st.rerun()
+        return False
+
+    # Formulario de login
+    with st.form(key=f"login_form_{key_suffix}"):
+        password = st.text_input("Contraseña de Administrador", type="password")
+        submit = st.form_submit_button("🔓 Desbloquear Sección", use_container_width=True)
+
+        if submit:
+            # Obtenemos la clave de los secrets de Streamlit
+            app_password = st.secrets.get("APP_PASSWORD")
+
+            if not app_password:
+                st.warning("⚠️ Configuración incompleta: falta 'APP_PASSWORD' en secrets.")
+                return False
+
+            if password == app_password:
                 st.session_state.autenticado = True
                 st.session_state.intentos_login = 0
+                st.success("✅ Acceso concedido")
                 st.rerun()
             else:
                 st.session_state.intentos_login += 1
-                intentos_restantes = 3 - st.session_state.intentos_login
-                if intentos_restantes > 0:
-                    st.error(f"❌ Contraseña incorrecta. {intentos_restantes} intento(s) restante(s)")
-                else:
-                    st.error("🚫 Has agotado todos los intentos. Recarga la página.")
+                intentos_restantes = MAX_INTENTOS - st.session_state.intentos_login
+                st.error(f"❌ Incorrecto. Intentos restantes: {intentos_restantes}")
 
-def cerrar_sesion(key="logout"):
-    if st.button("🔒 Cerrar sesión", key=key):
-        st.session_state.autenticado = False
-        st.session_state.intentos_login = 0
-        st.rerun()
+    return False
+
+
+def check_auth():
+    """Función rápida para verificar si hay permiso"""
+    return st.session_state.get("autenticado", False)
+
+
+def mostrar_boton_logout():
+    """Muestra un botón de logout sencillo y centrado"""
+    if st.session_state.get("autenticado"):
+        # Usamos columnas para que el botón no ocupe todo el ancho de la pantalla
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("🔒 Cerrar Sesión de Admin", use_container_width=True):
+                st.session_state.autenticado = False
+                st.rerun()

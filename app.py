@@ -8,18 +8,27 @@ from errores import (
     mostrar_error_columna,
     validar_dataframe
 )
-from auth import check_password, mostrar_login, cerrar_sesion
+# Importamos las nuevas funciones de auth
+from auth import inicializar_auth, login_seccion, check_auth, mostrar_boton_logout
+
 from tabs.tab_marca import mostrar_tab_marca
 from tabs.tab_nombre import mostrar_tab_nombre
 from tabs.tab_venta import mostrar_tab_venta
 from tabs.tab_estadisticas import mostrar_tab_estadisticas
 from tabs.tab_notas import mostrar_tab_notas
 
+# 1. Configuración de página
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
+
+# 2. Inicializar estado de autenticación
+inicializar_auth()
+
 st.markdown("""
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 """, unsafe_allow_html=True)
 st.markdown(get_styles(), unsafe_allow_html=True)
+
+# 3. Encabezado y Botón de Logout Global (en el Sidebar)
 mostrar_encabezado()
 
 try:
@@ -35,13 +44,14 @@ try:
             mostrar_error_columna(col)
         st.stop()
 
+    # Definición de las Tabs
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🏷️  Por Marca",
-        "🔍  Por Nombre",
-        "🎵  Por Nota",
-        "📝  Nueva Venta",
-        "📊  Estadísticas",
-        "🔒  Sesión"
+        "🏷️ Marca",
+        "🔍 Nombre",
+        "🎵 Notas",
+        "📝 Venta",
+        "📊 Estadísticas",
+        "🔐 Sesión"
     ])
 
     with tab1:
@@ -54,25 +64,24 @@ try:
         mostrar_tab_notas(df)
 
     with tab4:
-        if check_password():
+        # Usamos la nueva función login_seccion que maneja el formulario y el estado
+        if login_seccion(key_suffix="venta"):
             mostrar_tab_venta(df)
-        else:
-            mostrar_login(key="tab4")
 
     with tab5:
-        if check_password():
-            cerrar_sesion(key="logout_tab5")
+        if login_seccion(key_suffix="stats"):
             mostrar_tab_estadisticas(df)
-        else:
-            mostrar_login(key="tab5")
 
     with tab6:
-        if check_password():
-            st.markdown("### 🔓 Sesión activa")
-            st.success("✅ Estás autenticada")
-            cerrar_sesion(key="logout_tab6")
+        if check_auth():
+            st.success("### ✅ Sesión Activa")
+            st.write("Tienes acceso a las secciones de administración (Ventas y Estadísticas).")
+            # Botón adicional por si no mira el sidebar
+            mostrar_boton_logout()
         else:
-            mostrar_login(key="tab6")
+            st.info("### 🔒 Modo Invitado")
+            st.write("Ingresa la contraseña para gestionar ventas e inventario.")
+            login_seccion(key_suffix="tab_final")
 
 except Exception as e:
     mostrar_error_conexion()

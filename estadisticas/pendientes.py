@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 from config import COL_ESTADO_NUM, fmt_precio
 from data import marcar_pedido_entregado_batch
 
@@ -13,20 +12,22 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         st.warning("⚠️ Agrega la columna Estado en tu Sheets")
         return
 
+    cols_requeridas = ["ID_Compra", "Precio_Cobrado", "ID_Perfume"]
+    cols_faltantes = [c for c in cols_requeridas if c not in df_ventas.columns]
+    if cols_faltantes:
+        st.error(f"❌ Faltan columnas en la hoja de ventas: {', '.join(cols_faltantes)}")
+        return
+
     pendientes = df_ventas[df_ventas["Estado"] != "Entregado"]
 
     if pendientes.empty:
         st.success("✅ No hay ventas pendientes")
         return
 
-    if df_catalogo is not None:
-        df_catalogo = df_catalogo.copy()
-        df_catalogo["ID_Perfume"] = df_catalogo["ID_Perfume"].astype(str)
-
     def get_nombre_perfume(id_perfume):
         if df_catalogo is None:
             return f"ID: {id_perfume}"
-        match = df_catalogo[df_catalogo["ID_Perfume"] == str(id_perfume)]
+        match = df_catalogo[df_catalogo["ID_Perfume"].astype(str) == str(id_perfume)]
         return match.iloc[0]["Nombre"] if not match.empty else f"ID: {id_perfume}"
 
     grupos = pendientes.groupby("ID_Compra")
@@ -34,7 +35,8 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
 
     for id_compra, grupo in grupos:
         primera = grupo.iloc[0]
-        total_compra = pd.to_numeric(grupo["Precio_Cobrado"], errors="coerce").sum()
+
+        total_compra = grupo["Precio_Cobrado"].sum()
 
         with st.expander(f"📦 {id_compra} — {primera.get('Comprador', '')} | S/ {fmt_precio(total_compra)}"):
             col1, col2 = st.columns(2)
@@ -48,8 +50,6 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
 
             st.markdown("**🛍️ Productos:**")
 
-            # --- CORRECCIÓN CLAVE ---
-            # Mostramos los productos en un bucle for separado
             for _, item in grupo.iterrows():
                 nombre = get_nombre_perfume(item.get('ID_Perfume', ''))
                 st.markdown(
@@ -58,22 +58,17 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                     f"| S/ {fmt_precio(item.get('Precio_Cobrado', 0))}"
                 )
 
-            # ESTE BOTÓN AHORA ESTÁ FUERA DEL BUCLE "FOR" DE PRODUCTOS
-            # Solo se dibuja una vez por compra ("id_compra"), no una por producto
             if st.button("✅ Marcar como entregado", key=f"entregar_{id_compra}"):
-
-                # 1. UI Optimista: Feedback visual inmediato
                 mensaje_estado = st.empty()
                 mensaje_estado.info("🚀 Procesando entrega de inmediato...")
 
                 try:
-                    # 2. Obtenemos los números de fila del Excel (índice + 2)
-                    filas_a_actualizar = [idx + 2 for idx in grupo.index]
+                    if "fila_sheet" in grupo.columns:
+                        filas_a_actualizar = grupo["fila_sheet"].tolist()
+                    else:
+                        filas_a_actualizar = [idx + 2 for idx in grupo.index]
 
-                    # 3. Llamada ultra rápida a la API (1 sola conexión)
                     marcar_pedido_entregado_batch(filas_a_actualizar, COL_ESTADO_NUM)
-
-                    # 4. Éxito y recarga
                     mensaje_estado.success("✅ ¡Listo! Sincronizado correctamente.")
                     st.rerun()
 

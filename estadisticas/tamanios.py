@@ -1,6 +1,7 @@
+import html
 import streamlit as st
-import pandas as pd
 from config import fmt_precio
+
 
 def mostrar_tamanios_populares(df_ventas):
     if df_ventas.empty:
@@ -10,9 +11,6 @@ def mostrar_tamanios_populares(df_ventas):
     if "Ml_Vendido" not in df_ventas.columns:
         st.warning("⚠️ No se encontró la columna Ml_Vendido")
         return
-
-    df_ventas = df_ventas.copy()
-    df_ventas["Precio_Cobrado"] = pd.to_numeric(df_ventas["Precio_Cobrado"], errors="coerce")
 
     conteo = (
         df_ventas.groupby("Ml_Vendido")
@@ -26,11 +24,13 @@ def mostrar_tamanios_populares(df_ventas):
     st.markdown("#### 📏 Tamaños más vendidos")
     st.markdown("")
 
-    for _, row in conteo.iterrows():
+    for row in conteo.to_dict('records'):
         ml = row["Ml_Vendido"]
         cantidad = row["Cantidad"]
         total = row["Total"]
         porcentaje = (cantidad / total_ventas * 100) if total_ventas > 0 else 0
+
+        ml_safe = html.escape(str(ml))
 
         st.markdown(f"""
         <div style="
@@ -40,7 +40,7 @@ def mostrar_tamanios_populares(df_ventas):
         ">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
                 <div style="font-family:'Playfair Display',serif; font-size:1.1rem; color:#2c1a0e; font-weight:700;">
-                    📦 {ml}ml
+                    📦 {ml_safe}ml
                 </div>
                 <div style="color:#a07850; font-size:0.9rem;">
                     {cantidad} venta(s) — S/ {fmt_precio(total)}

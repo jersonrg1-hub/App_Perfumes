@@ -185,23 +185,24 @@ COMPONENTS = """
         transform: translateY(-1px) !important;
     }
 
-    /* CORRECCIÓN #4: usar data-testid estable en lugar de summary frágil */
+    /* Expander header: fondo cálido claro con texto oscuro */
     [data-testid="stExpanderHeader"] {
-        background: #2c1a0e !important;
+        background: #f5e6d8 !important;
         border-radius: 10px !important;
-        color: white !important;
+        color: #2c1a0e !important;
         font-family: 'Lato', sans-serif !important;
         font-weight: 600 !important;
         transition: background 0.2s ease !important;
     }
 
     [data-testid="stExpanderHeader"]:hover {
-        background: #5c3a1e !important;
+        background: #ead5c0 !important;
     }
 
     [data-testid="stExpanderHeader"] p,
-    [data-testid="stExpanderHeader"] span {
-        color: white !important;
+    [data-testid="stExpanderHeader"] span,
+    [data-testid="stExpanderHeader"] div {
+        color: #2c1a0e !important;
     }
 
     [data-testid="stExpanderDetails"] {
@@ -276,19 +277,19 @@ COMPONENTS = """
         font-size: 0.95rem !important;
     }
 
+    /* Success: fondo verde más oscuro con texto bien visible */
     .stSuccess {
-        background: linear-gradient(135deg, #f0fff4, #c6f6d5) !important;
-        border-left: 4px solid #38a169 !important;
+        background: linear-gradient(135deg, #d4edda, #a8d5b5) !important;
+        border-left: 4px solid #276749 !important;
     }
 
-    /* FIX: texto oscuro en success para que sea legible sobre fondo verde */
     .stSuccess p,
     .stSuccess strong,
     .stSuccess span,
     [data-testid="stNotification"] p {
-        color: #1a4731 !important;
+        color: #0f3d22 !important;
         font-size: 0.95rem !important;
-        font-weight: 600 !important;
+        font-weight: 700 !important;
     }
 
     .stError {

@@ -5,7 +5,6 @@ from config import PRECIOS_COLUMNAS, fmt_precio
 
 @st.cache_data
 def _extraer_valores(df, columna):
-    """Extrae valores únicos de una columna con valores separados por comas"""
     valores = set()
     for item in df[columna].dropna():
         for v in str(item).split(","):
@@ -16,7 +15,6 @@ def _extraer_valores(df, columna):
 
 
 def _tiene_todos(valor_str, seleccionados):
-    """Verifica si el string contiene todos los valores seleccionados"""
     if not valor_str:
         return False
     valores = [v.strip().lower().capitalize() for v in str(valor_str).split(",")]
@@ -34,11 +32,9 @@ def mostrar_tab_notas(df):
         st.warning("⚠️ Agrega las columnas **Notas** y **Perfil_Olfativo** en tu Google Sheets")
         return
 
-    # ── Extraer valores únicos ────────────────────────────
     notas_ordenadas = _extraer_valores(df, "Notas") if tiene_notas else []
     perfiles_ordenados = _extraer_valores(df, "Perfil_Olfativo") if tiene_perfil else []
 
-    # ── Filtros ───────────────────────────────────────────
     col1, col2 = st.columns(2)
 
     with col1:
@@ -67,13 +63,11 @@ def mostrar_tab_notas(df):
             perfiles_seleccionados = []
             st.caption("Sin columna Perfil_Olfativo")
 
-    # ── Sin filtros activos ───────────────────────────────
     if not notas_seleccionadas and not perfiles_seleccionados:
         st.markdown("")
         st.info("👆 Selecciona una nota o perfil olfativo para ver los perfumes")
         return
 
-    # ── Aplicar filtros ───────────────────────────────────
     df_filtrado = df
 
     if notas_seleccionadas:
@@ -90,7 +84,7 @@ def mostrar_tab_notas(df):
             )
         ]
 
-    st.markdown("---")
+    st.markdown("")
 
     if df_filtrado.empty:
         msg = []
@@ -98,7 +92,12 @@ def mostrar_tab_notas(df):
             msg.append(f"notas: **{', '.join(notas_seleccionadas)}**")
         if perfiles_seleccionados:
             msg.append(f"perfil: **{', '.join(perfiles_seleccionados)}**")
-        st.warning(f"😔 No hay perfumes con {' y '.join(msg)}")
+        st.markdown(
+            f"""<div style="background:#fff3cd; border-left:4px solid #d69e2e;
+            border-radius:10px; padding:1rem 1.2rem; color:#7d5a00; font-weight:600;">
+            😔 No hay perfumes con {' y '.join(msg)}</div>""",
+            unsafe_allow_html=True
+        )
         return
 
     st.markdown(f"**✨ {len(df_filtrado)} perfume(s) encontrado(s):**")
@@ -122,10 +121,10 @@ def mostrar_tab_notas(df):
             margin: 0.5rem 0;
             box-shadow: 0 2px 8px rgba(160, 120, 80, 0.1);
         ">
-            <div style="font-size:0.75rem; letter-spacing:0.1em; text-transform:uppercase; color:#a07850; font-weight:600;">{marca}</div>
-            <div style="font-family:'Playfair Display',serif; font-size:1.2rem; color:#2c1a0e; font-weight:600; margin:0.2rem 0;">{nombre}</div>
-            {"<div style='font-size:0.8rem; color:#a07850; margin-top:0.2rem;'>🎵 " + notas_txt + "</div>" if notas_txt else ""}
-            {"<div style='font-size:0.8rem; color:#c8956c; margin-top:0.1rem;'>✨ " + perfil_txt + "</div>" if perfil_txt else ""}
+            <div style="font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:#a07850; font-weight:600;">{marca}</div>
+            <div style="font-family:'Playfair Display',serif; font-size:1.35rem; color:#2c1a0e; font-weight:600; margin:0.2rem 0;">{nombre}</div>
+            {"<div style='font-size:0.9rem; color:#a07850; margin-top:0.2rem;'>🎵 " + notas_txt + "</div>" if notas_txt else ""}
+            {"<div style='font-size:0.9rem; color:#c8956c; margin-top:0.1rem;'>✨ " + perfil_txt + "</div>" if perfil_txt else ""}
         </div>
         """, unsafe_allow_html=True)
 
@@ -140,8 +139,8 @@ def mostrar_tab_notas(df):
                         border-radius: 8px; padding: 0.6rem;
                         text-align: center; margin-bottom: 0.3rem;
                     ">
-                        <div style="color:#e8c9a8; font-size:0.7rem; text-transform:uppercase;">{tamanio}</div>
-                        <div style="color:white; font-size:1rem; font-weight:700;">S/ {fmt_precio(precio)}</div>
+                        <div style="color:#e8c9a8; font-size:0.8rem; text-transform:uppercase;">{tamanio}</div>
+                        <div style="color:white; font-size:1.2rem; font-weight:700;">S/ {fmt_precio(precio)}</div>
                     </div>
                     """, unsafe_allow_html=True)
                 else:

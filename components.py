@@ -52,8 +52,8 @@ def mostrar_todos_precios(perfume, precios_columnas):
                     box-shadow: 0 3px 12px rgba(44,26,14,0.25);
                     margin-bottom: 0.5rem;
                 ">
-                    <div style="color:#e8c9a8; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.3rem;">{tamanio_safe}</div>
-                    <div style="color:white; font-family:'Playfair Display',serif; font-size:1.6rem; font-weight:700; line-height:1;">S/ {fmt_precio(precio)}</div>
+                    <div style="color:#e8c9a8; font-size:0.85rem; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.3rem;">{tamanio_safe}</div>
+                    <div style="color:white; font-family:'Playfair Display',serif; font-size:2rem; font-weight:700; line-height:1;">S/ {fmt_precio(precio)}</div>
                 </div>
                 """, unsafe_allow_html=True)
             else:

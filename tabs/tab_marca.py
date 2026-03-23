@@ -61,8 +61,8 @@ def mostrar_tab_marca(df):
                         flex-shrink: 0;
                         margin-left: 1rem;
                     ">
-                        <div style="color:#e8c9a8; font-size:0.65rem; text-transform:uppercase; letter-spacing:0.08em;">{tamanio}</div>
-                        <div style="color:white; font-family:'Playfair Display',serif; font-size:1.2rem; font-weight:700;">
+                        <div style="color:#e8c9a8; font-size:0.8rem; text-transform:uppercase; letter-spacing:0.08em;">{tamanio}</div>
+                        <div style="color:white; font-family:'Playfair Display',serif; font-size:1.5rem; font-weight:700;">
                             {precio_html}
                         </div>
                     </div>

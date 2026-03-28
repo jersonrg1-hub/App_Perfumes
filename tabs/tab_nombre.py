@@ -45,8 +45,7 @@ def mostrar_tab_nombre(df):
             if imagen_path.exists():
                 col_img, _ = st.columns([1, 2])
                 with col_img:
-                    with open(imagen_path, "rb") as f:
-                        st.image(f.read(), width=220)
+                    st.image(str(imagen_path), width=220)
             else:
                 st.caption("📷 Imagen no disponible")
 

@@ -8,7 +8,6 @@ from config import (
 )
 
 
-# ── Logger mejorado ──────────────────────────────────────────
 def log_error(contexto, error):
     print(f"[ERROR] {contexto}: {str(error)}")
     log = st.session_state.setdefault("error_log", [])
@@ -19,7 +18,6 @@ def log_error(contexto, error):
         st.session_state.error_log = log[-50:]
 
 
-# ── Conexión central cacheada ──────────────────────────────
 @st.cache_resource
 def get_cliente():
     try:
@@ -33,18 +31,25 @@ def get_cliente():
         raise
 
 
+@st.cache_resource
+def get_spreadsheet():
+    try:
+        return get_cliente().open(SHEET_NAME)
+    except Exception as e:
+        log_error("get_spreadsheet", e)
+        raise
+
+
 def get_hoja(worksheet_name):
     try:
-        cliente = get_cliente()
-        return cliente.open(SHEET_NAME).worksheet(worksheet_name)
+        return get_spreadsheet().worksheet(worksheet_name)
     except Exception as e:
         log_error(f"get_hoja({worksheet_name})", e)
         st.error(f"No se pudo conectar a la hoja: {worksheet_name}")
         raise
 
 
-# ── Catálogo ───────────────────────────────────────────────
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1800)
 def cargar_catalogo():
     try:
         hoja = get_hoja(WORKSHEET_CATALOGO)
@@ -62,27 +67,33 @@ def cargar_catalogo():
         return pd.DataFrame()
 
 
-# CORRECCIÓN #1: antes usaba st.cache_data.clear() que borraba TODO el caché
 def limpiar_cache_catalogo():
     cargar_catalogo.clear()
 
 
-# ── Ventas ─────────────────────────────────────────────────
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=120)
 def cargar_ventas():
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)
-        datos = hoja.get_all_records(value_render_option='FORMATTED_VALUE')
-        if not datos:
+
+        valores = hoja.get_all_values()
+        if not valores or len(valores) < 2:
             return pd.DataFrame()
 
-        df = pd.DataFrame(datos)
+        headers = valores[0]
+        filas   = valores[1:]
+        df = pd.DataFrame(filas, columns=headers)
 
         if not df.empty:
+            # Parsear fecha
             if "Fecha" in df.columns:
-                df["Fecha"] = pd.to_datetime(df["Fecha"].astype(str).str.strip(), dayfirst=False, errors="coerce")
+                df["Fecha"] = pd.to_datetime(
+                    df["Fecha"].astype(str).str.strip(),
+                    dayfirst=False, errors="coerce"
+                )
 
-            cols_numericas = ['Precio_Cobrado', 'Ml_Vendido', 'precio', 'cantidad', 'total', 'ml']
+            cols_numericas = ['Precio_Cobrado', 'Ml_Vendido', 'precio',
+                              'cantidad', 'total', 'ml']
             for col in cols_numericas:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -112,26 +123,24 @@ def guardar_venta(filas):
 def obtener_proximo_id():
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)
-        datos = hoja.get_all_records(value_render_option='UNFORMATTED_VALUE')
+        ids_col = hoja.col_values(1)
 
-        if not datos:
+        ids_datos = ids_col[1:] if len(ids_col) > 1 else []
+
+        if not ids_datos:
             return "V001"
 
-        df_ventas = pd.DataFrame(datos)
+        ids_numericos = []
+        for id_val in ids_datos:
+            import re
+            match = re.search(r'(\d+)', str(id_val))
+            if match:
+                ids_numericos.append(int(match.group(1)))
 
-        if 'ID_Compra' not in df_ventas.columns or df_ventas.empty:
+        if not ids_numericos:
             return "V001"
 
-        ids_numericos = (
-            df_ventas['ID_Compra']
-            .astype(str)
-            .str.extract(r'(\d+)')[0]
-            .dropna()
-            .astype(int)
-        )
-        if ids_numericos.empty:
-            return "V001"
-        max_id = int(ids_numericos.max())
+        max_id = max(ids_numericos)
         return f"V{max_id + 1:03d}"
     except Exception as e:
         log_error("obtener_proximo_id", e)

@@ -3,6 +3,25 @@ import pandas as pd
 from config import fmt_precio, fmt_fecha
 
 
+@st.cache_data(ttl=120)
+def _calcular_resumen_clientes(df_ventas):
+    """Agrupa ventas por cliente. Cacheado para no recalcular en cada render."""
+    resumen = (
+        df_ventas.groupby("Celular")
+        .agg(
+            Nombre=("Comprador", "first"),
+            Total_Compras=("ID_Compra", "nunique"),
+            Total_Items=("ID_Compra", "count"),
+            Total_Gastado=("Precio_Cobrado", "sum"),
+            Primera_Compra=("Fecha", "min"),
+            Ultima_Compra=("Fecha", "max"),
+        )
+        .reset_index()
+        .sort_values("Total_Gastado", ascending=False)
+    )
+    return resumen
+
+
 def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
     if df_ventas.empty:
         st.info("📭 No hay ventas registradas todavía")
@@ -17,19 +36,7 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
     if df["Fecha"].dtype == object:
         df["Fecha"] = pd.to_datetime(df["Fecha"].astype(str).str.strip(), errors="coerce")
 
-    resumen = (
-        df.groupby("Celular")
-        .agg(
-            Nombre=("Comprador", "first"),
-            Total_Compras=("ID_Compra", "nunique"),
-            Total_Items=("ID_Compra", "count"),
-            Total_Gastado=("Precio_Cobrado", "sum"),
-            Primera_Compra=("Fecha", "min"),
-            Ultima_Compra=("Fecha", "max"),
-        )
-        .reset_index()
-        .sort_values("Total_Gastado", ascending=False)
-    )
+    resumen = _calcular_resumen_clientes(df)
 
     top = resumen.iloc[0] if not resumen.empty else None
     prom = resumen["Total_Gastado"].mean() if not resumen.empty else 0
@@ -71,6 +78,15 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
     st.markdown(f"**{len(df_mostrar)} cliente(s) encontrado(s)**")
     st.markdown("")
 
+    catalogo_dict = {}
+    if df_catalogo is not None:
+        catalogo_dict = dict(
+            zip(df_catalogo["ID_Perfume"].astype(str), df_catalogo["Nombre"])
+        )
+
+    def get_nombre_perfume(id_perfume):
+        return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
+
     for _, cliente in df_mostrar.iterrows():
         celular = str(cliente["Celular"])
         nombre = cliente["Nombre"]
@@ -110,8 +126,6 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
             st.markdown("**🧾 Historial de pedidos:**")
 
             pedidos_cliente = df[df["Celular"].astype(str) == celular]
-            grupos = pedidos_cliente.groupby("ID_Compra")
-
             orden = (
                 pedidos_cliente.groupby("ID_Compra")["Fecha"]
                 .max()
@@ -134,7 +148,7 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
                 )
 
                 for _, item in grupo.iterrows():
-                    nombre_perfume = _get_nombre(item.get("ID_Perfume", ""), df_catalogo)
+                    nombre_perfume = get_nombre_perfume(item.get("ID_Perfume", ""))
                     st.markdown(
                         f"&nbsp;&nbsp;&nbsp;&nbsp;🌸 {nombre_perfume} "
                         f"— {item.get('Ml_Vendido', '')}ml "
@@ -152,10 +166,3 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
                 </div></a>""",
                 unsafe_allow_html=True
             )
-
-
-def _get_nombre(id_perfume, df_catalogo):
-    if df_catalogo is None:
-        return f"ID: {id_perfume}"
-    match = df_catalogo[df_catalogo["ID_Perfume"].astype(str) == str(id_perfume)]
-    return match.iloc[0]["Nombre"] if not match.empty else f"ID: {id_perfume}"

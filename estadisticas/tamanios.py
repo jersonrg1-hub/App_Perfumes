@@ -1,6 +1,17 @@
 import html
 import streamlit as st
+import pandas as pd
 from config import fmt_precio
+
+
+@st.cache_data(ttl=120)
+def _calcular_conteo_tamanios(df_ventas):
+    return (
+        df_ventas.groupby("Ml_Vendido")
+        .agg(Cantidad=("Ml_Vendido", "count"), Total=("Precio_Cobrado", "sum"))
+        .reset_index()
+        .sort_values("Cantidad", ascending=False)
+    )
 
 
 def mostrar_tamanios_populares(df_ventas):
@@ -12,12 +23,7 @@ def mostrar_tamanios_populares(df_ventas):
         st.warning("⚠️ No se encontró la columna Ml_Vendido")
         return
 
-    conteo = (
-        df_ventas.groupby("Ml_Vendido")
-        .agg(Cantidad=("Ml_Vendido", "count"), Total=("Precio_Cobrado", "sum"))
-        .reset_index()
-        .sort_values("Cantidad", ascending=False)
-    )
+    conteo = _calcular_conteo_tamanios(df_ventas)
 
     total_ventas = conteo["Cantidad"].sum()
 

@@ -136,11 +136,18 @@ def mostrar_seccion_cotizacion(df):
 
             with col_limpiar:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("🗑️ Limpiar", key="limpiar_cotizacion", use_container_width=True):
-                    st.session_state.cesta_cotizacion = []
-                    st.session_state.cotizacion_enviada = False
-                    st.session_state.url_wa_guardada = None
-                    st.rerun()
+                if not st.session_state.cotizacion_enviada:
+                    if st.button("🗑️ Limpiar", key="limpiar_cotizacion", use_container_width=True):
+                        st.session_state.cesta_cotizacion = []
+                        st.session_state.cotizacion_enviada = False
+                        st.session_state.url_wa_guardada = None
+                        st.rerun()
+                else:
+                    if st.button("🆕 Nueva cotización", key="nueva_cotizacion", use_container_width=True):
+                        st.session_state.cesta_cotizacion = []
+                        st.session_state.cotizacion_enviada = False
+                        st.session_state.url_wa_guardada = None
+                        st.rerun()
 
         else:
             st.caption("Agrega perfumes para armar la cotización")

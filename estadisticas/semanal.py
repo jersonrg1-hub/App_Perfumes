@@ -5,6 +5,7 @@ from config import fmt_precio, hoy_peru
 from estadisticas.resumen import _metrica_card
 
 
+@st.cache_data(ttl=120)
 def _stats_mes(df_ventas, mes_str):
     periodo = pd.Period(mes_str, freq="M")
     fecha_valida = df_ventas["Fecha"].notna()
@@ -112,13 +113,16 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     st.markdown("---")
     st.markdown("#### 📆 Comparar meses")
 
-    meses_disponibles = sorted(
-        df_ventas["Fecha"].dropna()
-        .dt.to_period("M")
-        .unique()
-        .tolist()
-    )
-    opciones_meses = [str(m) for m in meses_disponibles]
+    cache_key = "meses_disponibles"
+    if cache_key not in st.session_state:
+        meses_disponibles = sorted(
+            df_ventas["Fecha"].dropna()
+            .dt.to_period("M")
+            .unique()
+            .tolist()
+        )
+        st.session_state[cache_key] = [str(m) for m in meses_disponibles]
+    opciones_meses = st.session_state[cache_key]
 
     if len(opciones_meses) < 2:
         st.info("Se necesitan al menos 2 meses de datos para comparar")

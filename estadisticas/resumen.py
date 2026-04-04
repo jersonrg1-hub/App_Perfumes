@@ -18,6 +18,26 @@ def _metrica_card(titulo, valor):
     """
 
 
+@st.cache_data(ttl=120)
+def _calcular_mas_vendidos(df_ventas, df_catalogo):
+    """Top 5 perfumes más vendidos. Cacheado para no recalcular en cada render."""
+    if "ID_Perfume" not in df_ventas.columns:
+        return pd.DataFrame()
+    df = df_ventas.copy()
+    df["ID_Perfume"] = df["ID_Perfume"].astype(str)
+    mas_vendidos = (
+        df.groupby("ID_Perfume")
+        .size().reset_index(name="Cantidad")
+        .sort_values("Cantidad", ascending=False).head(5)
+    )
+    return mas_vendidos.merge(
+        df_catalogo[["ID_Perfume", "Nombre", "Marca"]].assign(
+            ID_Perfume=df_catalogo["ID_Perfume"].astype(str)
+        ),
+        on="ID_Perfume", how="left"
+    )
+
+
 def mostrar_estadisticas(df_ventas, df_catalogo):
     if df_ventas.empty:
         st.info("📭 No hay ventas registradas todavía")
@@ -54,20 +74,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
 
     st.markdown("#### 🏆 Perfumes más vendidos")
     if "ID_Perfume" in df_ventas.columns:
-        df_ventas["ID_Perfume"] = df_ventas["ID_Perfume"].astype(str)
-
-        mas_vendidos = (
-            df_ventas.groupby("ID_Perfume")
-            .size().reset_index(name="Cantidad")
-            .sort_values("Cantidad", ascending=False).head(5)
-        )
-
-        mas_vendidos = mas_vendidos.merge(
-            df_catalogo[["ID_Perfume", "Nombre", "Marca"]].assign(
-                ID_Perfume=df_catalogo["ID_Perfume"].astype(str)
-            ),
-            on="ID_Perfume", how="left"
-        )
+        mas_vendidos = _calcular_mas_vendidos(df_ventas, df_catalogo)
 
         for row in mas_vendidos.to_dict('records'):
             col1, col2, col3 = st.columns([4, 2, 1])

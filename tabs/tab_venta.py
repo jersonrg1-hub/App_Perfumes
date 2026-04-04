@@ -2,20 +2,19 @@ import streamlit as st
 from config import PRECIOS_COLUMNAS, ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru
 from data import guardar_venta, obtener_proximo_id
 from components import generar_url_whatsapp
+from tabs.tab_cotizacion import mostrar_seccion_cotizacion
 
 
 def mostrar_tab_venta(df):
+    mostrar_seccion_cotizacion(df)
+
     st.markdown("### 📝 Registrar Nueva Venta")
 
-    # --- Inicialización de Cesta y Formulario ---
     if "cesta" not in st.session_state:
         st.session_state.cesta = []
 
-    # CORRECCIÓN #6: calcular opciones una sola vez, no en cada render
     nombres_opciones = ["— Elige un perfume —"] + sorted(df["Nombre"].dropna().unique().tolist())
 
-    # CORRECCIÓN #1: resetear TODOS los campos del formulario
-    # Definida antes de cualquier uso para evitar NameError
     def resetear_formulario():
         st.session_state.cesta = []
         st.session_state.comp_in = ""
@@ -26,14 +25,11 @@ def mostrar_tab_venta(df):
         st.session_state.pago_sel = METODOS_PAGO[0]
         st.session_state.envio_sel = TIPOS_ENVIO[0]
 
-    # CORRECCIÓN #2: flag para controlar el reseteo fuera del try
-    # Va después de definir resetear_formulario() para no causar NameError
     if st.session_state.get("venta_guardada"):
         st.session_state.venta_guardada = False
         resetear_formulario()
         st.rerun()
 
-    # ── Datos del comprador ───────────────────────────────
     with st.container(border=True):
         st.markdown("#### 👤 Datos del Comprador")
         col_fecha, col_envio = st.columns(2)
@@ -51,7 +47,6 @@ def mostrar_tab_venta(df):
 
         direccion = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key="dir_in")
 
-    # ── Agregar perfume ───────────────────────────────────
     st.markdown("#### 🛒 Agregar Perfume")
     perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, key="perf_sel")
 
@@ -67,7 +62,6 @@ def mostrar_tab_venta(df):
         columna_precio = f"Precio_{ml_vendido}ml"
         precio_item = perfume_row.get(columna_precio, 0)
 
-        # CORRECCIÓN #3: verificar explícitamente vs 0, "" y None
         if precio_item not in (0, "", None):
             st.success(f"Precio detectado: **S/ {fmt_precio(precio_item)}**")
 
@@ -83,7 +77,6 @@ def mostrar_tab_venta(df):
         else:
             st.warning("⚠️ Sin precio configurado")
 
-    # ── Cesta y Guardado ──────────────────────────────────
     if st.session_state.cesta:
         st.divider()
         st.markdown("#### 🛍️ Resumen de Cesta")
@@ -101,7 +94,6 @@ def mostrar_tab_venta(df):
 
         if st.button("✅ GUARDAR VENTA COMPLETA", key="guardar_venta", type="primary", use_container_width=True):
 
-            # CORRECCIÓN #5: validar también al guardar, no solo al agregar
             if not comprador or len(celular) != 9:
                 st.error("⚠️ Completa Nombre y Celular (9 dígitos) antes de guardar")
                 st.stop()
@@ -122,7 +114,6 @@ def mostrar_tab_venta(df):
                     guardar_venta(filas_para_google)
                     status.update(label="✅ ¡Venta guardada!", state="complete")
 
-                # Generar link de WhatsApp
                 url_wa = generar_url_whatsapp(
                     id_compra, comprador, celular, direccion,
                     tipo_envio, st.session_state.cesta, total
@@ -135,7 +126,6 @@ def mostrar_tab_venta(df):
                         📲 Enviar Comprobante por WhatsApp
                     </div></a>""", unsafe_allow_html=True)
 
-                # CORRECCIÓN #2: usar flag en lugar de botón dentro del try
                 st.session_state.venta_guardada = True
                 if st.button("🆕 Registrar otra venta", key="nueva_venta"):
                     resetear_formulario()

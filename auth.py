@@ -30,7 +30,7 @@ def login_seccion(key_suffix="default"):
 
     with st.form(key=f"login_form_{key_suffix}"):
         password = st.text_input("Contraseña de Administrador", type="password")
-        submit = st.form_submit_button("🔓 Desbloquear Sección", use_container_width=True)
+        submit = st.form_submit_button("🔓 Desbloquear Sección", width='stretch')
 
         if submit:
             try:
@@ -60,7 +60,7 @@ def mostrar_boton_logout(key_suffix="default"):
     if st.session_state.get("autenticado"):
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("🔒 Cerrar Sesión de Admin", key=f"cerrar_sesion_{key_suffix}", use_container_width=True):
+            if st.button("🔒 Cerrar Sesión de Admin", key=f"cerrar_sesion_{key_suffix}", width='stretch'):
                 st.session_state.autenticado = False
                 st.session_state.intentos_login = 0
                 st.rerun()

@@ -20,7 +20,6 @@ def _metrica_card(titulo, valor):
 
 @st.cache_data(ttl=120)
 def _calcular_mas_vendidos(df_ventas, df_catalogo):
-    """Top 5 perfumes más vendidos. Cacheado para no recalcular en cada render."""
     if "ID_Perfume" not in df_ventas.columns:
         return pd.DataFrame()
     df = df_ventas.copy()
@@ -90,12 +89,12 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     with st.expander("Ver todas las ventas"):
         st.dataframe(
             df_ventas.sort_values("Fecha", ascending=False),
-            use_container_width=True, hide_index=True
+            width='stretch', hide_index=True
         )
 
     st.markdown("---")
     st.markdown("#### 📄 Exportar ventas del día")
-    if st.button("⬇️ Generar PDF del día", key="generar_pdf", use_container_width=True):
+    if st.button("⬇️ Generar PDF del día", key="generar_pdf", width='stretch'):
         pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
         if pdf_bytes:
             st.download_button(
@@ -103,7 +102,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
                 data=pdf_bytes,
                 file_name=f"ventas_{date.today()}.pdf",
                 mime="application/pdf",
-                use_container_width=True
+                width='stretch'
             )
         else:
             st.warning("⚠️ No hay ventas hoy para exportar")

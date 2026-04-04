@@ -59,7 +59,7 @@ def mostrar_seccion_cotizacion(df):
                 st.success(f"S/ {fmt_precio(precio_cot)}")
                 with col_add:
                     st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("➕ Agregar", key=f"add_cot_{perfume_cot}_{ml_cot}", use_container_width=True):
+                    if st.button("➕ Agregar", key=f"add_cot_{perfume_cot}_{ml_cot}", width='stretch'):
                         st.session_state.cesta_cotizacion.append({
                             "perfume": perfume_cot,
                             "ml": ml_cot,
@@ -99,7 +99,7 @@ def mostrar_seccion_cotizacion(df):
                             "💾 Guardar cotización",
                             key="enviar_cotizacion",
                             type="primary",
-                            use_container_width=True
+                            width='stretch'
                         ):
                             try:
                                 id_cot = guardar_cotizacion(
@@ -137,13 +137,13 @@ def mostrar_seccion_cotizacion(df):
             with col_limpiar:
                 st.markdown("<br>", unsafe_allow_html=True)
                 if not st.session_state.cotizacion_enviada:
-                    if st.button("🗑️ Limpiar", key="limpiar_cotizacion", use_container_width=True):
+                    if st.button("🗑️ Limpiar", key="limpiar_cotizacion", width='stretch'):
                         st.session_state.cesta_cotizacion = []
                         st.session_state.cotizacion_enviada = False
                         st.session_state.url_wa_guardada = None
                         st.rerun()
                 else:
-                    if st.button("🆕 Nueva cotización", key="nueva_cotizacion", use_container_width=True):
+                    if st.button("🆕 Nueva cotización", key="nueva_cotizacion", width='stretch'):
                         st.session_state.cesta_cotizacion = []
                         st.session_state.cotizacion_enviada = False
                         st.session_state.url_wa_guardada = None

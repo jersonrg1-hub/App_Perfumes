@@ -8,11 +8,12 @@ SCOPES = [
 SHEET_NAME = "PERFUMES PYTHON"
 WORKSHEET_CATALOGO = "Catalogo"
 WORKSHEET_VENTAS = "Ventas_Pendientes"
+WORKSHEET_COTIZACIONES = "Cotizaciones"
 
 # ── Tamaños y columnas de precios ──────────────────────────
 PRECIOS_COLUMNAS = {
-    "2 ml":  "Precio_2ml",
-    "5 ml":  "Precio_5ml",
+    "2 ml": "Precio_2ml",
+    "5 ml": "Precio_5ml",
     "10 ml": "Precio_10ml"
 }
 
@@ -40,7 +41,9 @@ COL_ESTADO_NUM = COLUMNAS_VENTAS.index("Estado") + 1
 
 # ── Zona horaria Perú (UTC-5) ──────────────────────────────
 import pytz
+
 TZ_PERU = pytz.timezone("America/Lima")
+
 
 def hoy_peru():
     """Devuelve la fecha de hoy en hora peruana, no del servidor."""
@@ -58,6 +61,7 @@ def fmt_fecha(fecha):
         return fecha.strftime("%d/%m/%Y")
     except:
         return str(fecha)
+
 
 # ── Formato de precios ─────────────────────────────────────
 def fmt_precio(valor):

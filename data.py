@@ -4,7 +4,7 @@ import pandas as pd
 from google.oauth2.service_account import Credentials
 from config import (
     SCOPES, SHEET_NAME,
-    WORKSHEET_CATALOGO, WORKSHEET_VENTAS
+    WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES
 )
 
 
@@ -85,7 +85,6 @@ def cargar_ventas():
         df = pd.DataFrame(filas, columns=headers)
 
         if not df.empty:
-            # Parsear fecha
             if "Fecha" in df.columns:
                 df["Fecha"] = pd.to_datetime(
                     df["Fecha"].astype(str).str.strip(),
@@ -164,6 +163,60 @@ def marcar_pedido_entregado_batch(lista_filas, col_estado):
 
     except Exception as e:
         log_error("marcar_entregado_batch", e)
+        raise
+
+
+def _obtener_proximo_id_cotizacion():
+    try:
+        hoja = get_hoja(WORKSHEET_COTIZACIONES)
+        ids_col = hoja.col_values(1)
+        ids_datos = ids_col[1:] if len(ids_col) > 1 else []
+
+        if not ids_datos:
+            return "C001"
+
+        import re
+        ids_numericos = []
+        for id_val in ids_datos:
+            match = re.search(r'(\d+)', str(id_val))
+            if match:
+                ids_numericos.append(int(match.group(1)))
+
+        if not ids_numericos:
+            return "C001"
+
+        return f"C{max(ids_numericos) + 1:03d}"
+    except Exception as e:
+        log_error("_obtener_proximo_id_cotizacion", e)
+        return "C001"
+
+
+def guardar_cotizacion(celular, cesta, total):
+    try:
+        from config import hoy_peru, fmt_precio
+        hoja = get_hoja(WORKSHEET_COTIZACIONES)
+
+        id_cotizacion = _obtener_proximo_id_cotizacion()
+
+        items_txt = " | ".join([
+            f"{i['perfume']} {i['ml']}ml S/{fmt_precio(i['precio'])}"
+            for i in cesta
+        ])
+
+        fila = [
+            id_cotizacion,           # ID_Cotizacion
+            str(hoy_peru()),         # Fecha
+            celular,                 # Celular
+            items_txt,               # Perfumes cotizados
+            round(float(total), 2),  # Total
+            "Enviado"                # Estado
+        ]
+
+        hoja.append_rows([fila], value_input_option='USER_ENTERED')
+        return id_cotizacion
+
+    except Exception as e:
+        log_error("guardar_cotizacion", e)
         raise
 
 

@@ -135,13 +135,10 @@ def mostrar_tab_notas(df):
             with cols[i]:
                 if precio not in (0, "", None):
                     st.markdown(f"""
-                    <div style="
-                        background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-                        border-radius: 8px; padding: 0.6rem;
-                        text-align: center; margin-bottom: 0.3rem;
-                    ">
-                        <div style="color:#e8c9a8; font-size:0.8rem; text-transform:uppercase;">{tamanio}</div>
-                        <div style="color:white; font-size:1.2rem; font-weight:700;">S/ {fmt_precio(precio)}</div>
+                    <div style="background:#1a0f08;border-radius:14px;padding:0.9rem 0.5rem 0.8rem;text-align:center;box-shadow:0 4px 14px rgba(26,15,8,0.28);margin-bottom:0.4rem;border-top:2px solid #c8956c;">
+                        <div style="color:#c8956c;font-size:0.78rem;letter-spacing:0.18em;text-transform:uppercase;font-weight:500;margin-bottom:0.35rem;">{tamanio}</div>
+                        <div style="width:20px;height:1px;background:#c8956c;opacity:0.4;margin:0 auto 0.35rem;"></div>
+                        <div style="color:#f5e6d8;font-family:'Playfair Display',serif;font-size:1.3rem;font-weight:700;letter-spacing:-0.02em;">S/ {fmt_precio(precio)}</div>
                     </div>
                     """, unsafe_allow_html=True)
                 else:

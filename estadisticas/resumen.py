@@ -3,9 +3,10 @@ from datetime import date
 
 import streamlit as st
 import pandas as pd
+
+from components import separador
 from config import fmt_precio, hoy_peru
 from pdf_generator import exportar_pdf_ventas_hoy
-
 
 def _metrica_card(titulo, valor):
     titulo_safe = html.escape(str(titulo))
@@ -17,9 +18,9 @@ def _metrica_card(titulo, valor):
     </div>
     """
 
-
 @st.cache_data(ttl=120)
 def _calcular_mas_vendidos(df_ventas, df_catalogo):
+    """Top 5 perfumes más vendidos. Cacheado para no recalcular en cada render."""
     if "ID_Perfume" not in df_ventas.columns:
         return pd.DataFrame()
     df = df_ventas.copy()
@@ -35,7 +36,6 @@ def _calcular_mas_vendidos(df_ventas, df_catalogo):
         ),
         on="ID_Perfume", how="left"
     )
-
 
 def mostrar_estadisticas(df_ventas, df_catalogo):
     if df_ventas.empty:
@@ -92,7 +92,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             width='stretch', hide_index=True
         )
 
-    st.markdown("---")
+    separador()
     st.markdown("#### 📄 Exportar ventas del día")
     if st.button("⬇️ Generar PDF del día", key="generar_pdf", width='stretch'):
         pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)

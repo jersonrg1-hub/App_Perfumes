@@ -1,7 +1,8 @@
 import html
 import streamlit as st
-from config import PRECIOS_COLUMNAS, fmt_precio
 
+from components import separador
+from config import PRECIOS_COLUMNAS, fmt_precio
 
 @st.cache_data
 def _extraer_valores(df, columna):
@@ -13,17 +14,15 @@ def _extraer_valores(df, columna):
                 valores.add(v_limpio)
     return sorted(valores)
 
-
 def _tiene_todos(valor_str, seleccionados):
     if not valor_str:
         return False
     valores = [v.strip().lower().capitalize() for v in str(valor_str).split(",")]
     return all(s in valores for s in seleccionados)
 
-
 def mostrar_tab_notas(df):
     st.markdown("### 🎵 Buscar por Nota y Perfil")
-    st.markdown("---")
+    separador()
 
     tiene_notas = "Notas" in df.columns
     tiene_perfil = "Perfil_Olfativo" in df.columns
@@ -94,7 +93,7 @@ def mostrar_tab_notas(df):
             msg.append(f"perfil: **{', '.join(perfiles_seleccionados)}**")
         st.markdown(
             f"""<div style="background:#fff3cd; border-left:4px solid #d69e2e;
-            border-radius:10px; padding:1rem 1.2rem; color:#7d5a00; font-weight:600;">
+            border-radius:10px; padding:1rem 1.2rem; color:
             😔 No hay perfumes con {' y '.join(msg)}</div>""",
             unsafe_allow_html=True
         )
@@ -114,9 +113,9 @@ def mostrar_tab_notas(df):
 
         st.markdown(f"""
         <div style="
-            background: #fffdf9;
+            background:
             border: none;
-            border-top: 2px solid #c8956c;
+            border-top: 2px solid
             border-radius: 0 0 14px 14px;
             padding: 1.1rem 1.6rem 1.3rem;
             margin: 0.7rem 0;
@@ -144,9 +143,9 @@ def mostrar_tab_notas(df):
                 else:
                     st.markdown(f"""
                     <div style="
-                        background: #f5ede6;
+                        background:
                         border-radius: 8px; padding: 0.6rem;
-                        text-align: center; border: 1px dashed #e0c9b4;
+                        text-align: center; border: 1px dashed
                         margin-bottom: 0.3rem;
                     ">
                         <div style="color:#c8956c; font-size:0.7rem; text-transform:uppercase;">{tamanio}</div>

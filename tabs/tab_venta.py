@@ -3,6 +3,7 @@ from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru,
 from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfume
 from components import generar_url_whatsapp
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
+from components import separador
 
 @st.cache_data(ttl=120)
 def _buscar_cliente(df_ventas, celular):
@@ -137,7 +138,7 @@ def _paso_2_perfumes(df):
             st.warning("⚠️ Sin precio configurado")
 
     if st.session_state.cesta:
-        st.markdown("---")
+        separador()
         st.markdown(f"**🛍️ Cesta ({len(st.session_state.cesta)} item(s)):**")
         for i, item in enumerate(st.session_state.cesta):
             c1, c2, c3 = st.columns([3, 1, 0.5])
@@ -300,51 +301,35 @@ def mostrar_tab_venta(df):
             for i in cesta
         ])
 
-        st.markdown(f"""
-        <div style="background:white; border:1px solid #f0e0d0; border-radius:14px;
-            padding:1.2rem 1.4rem; margin-bottom:1rem;">
+        fecha_str = st.session_state.wiz_fecha.strftime('%d/%m/%Y') if hasattr(st.session_state.get('wiz_fecha', ''), 'strftime') else str(st.session_state.get('wiz_fecha', ''))
 
-            <div style="display:flex; justify-content:space-between; align-items:center;
-                margin-bottom:1rem; padding-bottom:0.8rem; border-bottom:2px solid
+        st.markdown(
+            f'''<div style="background:white;border:1px solid #f0e0d0;border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1rem;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:0.8rem;border-bottom:1px solid #f0e0d0;">
                 <div>
-                    <div style="font-size:0.75rem; color:#a07850; text-transform:uppercase;
-                        font-weight:600; letter-spacing:0.05em;">Compra</div>
-                    <div style="font-family:'Playfair Display',serif; font-size:1.5rem;
-                        font-weight:700; color:
+                    <div style="font-size:0.72rem;color:#a07850;text-transform:uppercase;font-weight:600;letter-spacing:0.1em;margin-bottom:2px;">Compra</div>
+                    <div style="font-family:Playfair Display,serif;font-size:1.5rem;font-weight:700;color:#2c1a0e;">{id_compra}</div>
                 </div>
                 <div style="text-align:right;">
-                    <div style="font-size:0.75rem; color:#a07850; text-transform:uppercase;
-                        font-weight:600;">Total</div>
-                    <div style="font-family:'Playfair Display',serif; font-size:1.5rem;
-                        font-weight:700; color:
+                    <div style="font-size:0.72rem;color:#a07850;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Total</div>
+                    <div style="font-family:Playfair Display,serif;font-size:1.5rem;font-weight:700;color:#c8956c;">S/ {fmt_precio(total)}</div>
                 </div>
             </div>
-
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;
-                margin-bottom:1rem; font-size:0.88rem;">
-                <div><span style="color:#a07850;">👤 Comprador</span><br>
-                    <strong style="color:#2c1a0e;">{comprador}</strong></div>
-                <div><span style="color:#a07850;">📱 Celular</span><br>
-                    <strong style="color:#2c1a0e;">{celular}</strong></div>
-                <div><span style="color:#a07850;">📅 Fecha</span><br>
-                    <strong style="color:#2c1a0e;">{fecha_str}</strong></div>
-                <div><span style="color:#a07850;">🚚 Envío</span><br>
-                    <strong style="color:#2c1a0e;">{tipo_envio}</strong></div>
-                <div style="grid-column:1/-1;"><span style="color:#a07850;">📍 Dirección</span><br>
-                    <strong style="color:#2c1a0e;">{direccion}</strong></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;font-size:0.88rem;">
+                <div><span style="color:#a07850;">👤 Comprador</span><br><strong style="color:#2c1a0e;">{comprador}</strong></div>
+                <div><span style="color:#a07850;">📱 Celular</span><br><strong style="color:#2c1a0e;">{celular}</strong></div>
+                <div><span style="color:#a07850;">📅 Fecha</span><br><strong style="color:#2c1a0e;">{fecha_str}</strong></div>
+                <div><span style="color:#a07850;">🚚 Envío</span><br><strong style="color:#2c1a0e;">{tipo_envio}</strong></div>
+                <div style="grid-column:1/-1;"><span style="color:#a07850;">📍 Dirección</span><br><strong style="color:#2c1a0e;">{direccion}</strong></div>
             </div>
-
-            <div style="font-size:0.75rem; color:#a07850; text-transform:uppercase;
-                font-weight:600; margin-bottom:0.4rem;">Perfumes</div>
+            <div style="font-size:0.72rem;color:#a07850;text-transform:uppercase;font-weight:600;margin-bottom:0.4rem;">Perfumes</div>
             {items_html}
-
-            <div style="display:flex; justify-content:space-between; margin-top:0.7rem;
-                font-size:1rem; font-weight:700; color:
-                <span>Total</span>
-                <span style="color:#c8956c;">S/ {fmt_precio(total)}</span>
+            <div style="display:flex;justify-content:space-between;margin-top:0.7rem;padding-top:0.5rem;border-top:1px solid #f0e0d0;font-size:1rem;font-weight:700;color:#2c1a0e;">
+                <span>Total</span><span style="color:#c8956c;">S/ {fmt_precio(total)}</span>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            </div>''',
+            unsafe_allow_html=True
+        )
 
         url_wa = st.session_state.get("wiz_url_wa", "")
         if url_wa:

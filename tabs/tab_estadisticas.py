@@ -9,6 +9,7 @@ from estadisticas import (
 from estadisticas.historial import mostrar_historial_ventas
 from estadisticas.clientes import mostrar_clientes_frecuentes
 from estadisticas.stock import mostrar_panel_stock
+from estadisticas.graficos import mostrar_graficos
 
 
 def mostrar_tab_estadisticas(df):
@@ -24,11 +25,12 @@ def mostrar_tab_estadisticas(df):
         with st.spinner("Cargando ventas..."):
             df_ventas = cargar_ventas()
 
-        subtab1, subtab2, subtab3, subtab4, subtab5, subtab6, subtab7 = st.tabs([
+        subtab1, subtab2, subtab3, subtab4, subtab5, subtab6, subtab7, subtab8 = st.tabs([
             "📊 Estadísticas",
             "📦 Pendientes",
             "📋 Historial",
             "👥 Clientes",
+            "📈 Gráficos",
             "🧪 Stock",
             "📏 Tamaños",
             "📅 Semanal & Meses"
@@ -42,10 +44,12 @@ def mostrar_tab_estadisticas(df):
         with subtab4:
             mostrar_clientes_frecuentes(df_ventas, df)
         with subtab5:
-            mostrar_panel_stock(df)
+            mostrar_graficos(df_ventas)
         with subtab6:
-            mostrar_tamanios_populares(df_ventas)
+            mostrar_panel_stock(df)
         with subtab7:
+            mostrar_tamanios_populares(df_ventas)
+        with subtab8:
             mostrar_resumen_semanal(df_ventas, df)
 
     except Exception as e:

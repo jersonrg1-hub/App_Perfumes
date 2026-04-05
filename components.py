@@ -102,3 +102,17 @@ def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, c
         f"💰 *Total: S/ {fmt_precio(total)}*"
     )
     return f"https://wa.me/?text={quote(mensaje)}"
+
+def separador(simbolo="✦", texto=""):
+    contenido = f"{simbolo} {texto} {simbolo}" if texto else f"{simbolo} &nbsp; {simbolo} &nbsp; {simbolo}"
+    linea_izq = "flex:1;height:0.5px;background:linear-gradient(to right,transparent,#c8956c);"
+    linea_der = "flex:1;height:0.5px;background:linear-gradient(to left,transparent,#c8956c);"
+    span_style = "color:#c8956c;font-size:0.75rem;letter-spacing:0.18em;font-family:Lato,sans-serif;font-weight:400;white-space:nowrap;"
+    html = (
+        f'<div style="display:flex;align-items:center;gap:12px;margin:1.2rem 0;opacity:0.7;">'
+        f'<div style="{linea_izq}"></div>'
+        f'<span style="{span_style}">{contenido}</span>'
+        f'<div style="{linea_der}"></div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)

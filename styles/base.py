@@ -1,197 +1,186 @@
 BASE = """
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Lato:wght@300;400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;600&display=swap');
 
-    /* ── FONDO Y TEXTO BASE ── */
-    .stApp {
-        background-color: #fdf6f0 !important;
-    }
+html, body, .stApp {
+    font-family: 'Lato', sans-serif;
+    color: #2c1a0e;
+    font-size: 16px;
+    line-height: 1.7;
+}
 
-    .main { background-color: #fdf6f0; }
+.stApp {
+    background-color: #fdf6f0 !important;
+}
 
-    section[data-testid="stSidebar"] {
-        background-color: #f5e6d8 !important;
-    }
+.main { background-color: #fdf6f0; }
 
-    /* CORRECCIÓN #1: reemplazar [class*="css"] por selectores estables */
-    html, body, .stApp {
-        font-family: 'Lato', sans-serif;
-        color: #2c1a0e;
-    }
+section[data-testid="stSidebar"] {
+    background-color: #f5e6d8 !important;
+}
 
-    /* ── FORZAR TEXTO OSCURO ── */
-    .stMarkdown p,
-    .stMarkdown strong,
-    .stMarkdown span,
-    [data-testid="column"] p,
-    [data-testid="column"] strong,
-    [data-testid="stText"] {
-        color: #2c1a0e !important;
-    }
+.stMarkdown p,
+.stMarkdown strong,
+.stMarkdown span,
+[data-testid="column"] p,
+[data-testid="column"] strong,
+[data-testid="stText"] {
+    color: #2c1a0e !important;
+    line-height: 1.7;
+}
 
-    .stCaptionContainer p {
-        color: #a07850 !important;
-    }
+.stCaptionContainer p {
+    color: #a07850 !important;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+}
 
-    h1, h2, h3 {
-        font-family: 'Playfair Display', serif !important;
-        color: #2c1a0e !important;
-    }
+h1, h2, h3, h4 {
+    font-family: 'Playfair Display', serif !important;
+    color: #2c1a0e !important;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+}
 
-    /* ── TÍTULOS ── */
-    .titulo-app {
-        font-family: 'Playfair Display', serif;
-        font-size: 2.8rem;
-        font-weight: 700;
-        color: #2c1a0e;
-        text-align: center;
-        margin-bottom: 0.2rem;
-    }
+h1 { font-size: 2.2rem !important; margin-bottom: 1rem !important; }
+h2 { font-size: 1.8rem !important; margin-bottom: 0.8rem !important; }
+h3 { font-size: 1.4rem !important; margin-bottom: 0.6rem !important; }
+h4 { font-size: 1.15rem !important; margin-bottom: 0.5rem !important; }
 
-    .subtitulo-app {
-        text-align: center;
-        color: #a07850;
-        font-size: 0.95rem;
-        letter-spacing: 0.15em;
-        text-transform: uppercase;
-        margin-bottom: 2rem;
-        font-weight: 300;
-    }
+.titulo-app {
+    font-family: 'Playfair Display', serif;
+    font-size: 3rem;
+    font-weight: 700;
+    color: #2c1a0e;
+    text-align: center;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.3rem;
+    line-height: 1.1;
+}
 
-    /* MEJORA #2: TABS ── */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #f5e6d8;
-        border-radius: 12px;
-        padding: 4px;
-        gap: 4px;
-        border-bottom: none !important;
-    }
+.subtitulo-app {
+    text-align: center;
+    color: #a07850;
+    font-size: 0.8rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-bottom: 2.5rem;
+    font-weight: 300;
+}
 
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        color: #a07850;
-        font-family: 'Lato', sans-serif;
-        font-weight: 600;
-        font-size: 0.85rem;
-        padding: 0.4rem 0.8rem;
-        border: none !important;
-        transition: background 0.2s ease, color 0.2s ease;
-    }
+.stButton > button {
+    border-radius: 10px !important;
+    font-family: 'Lato', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    letter-spacing: 0.02em !important;
+    padding: 0.55rem 1.2rem !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+}
 
-    .stTabs [aria-selected="true"] {
-        background-color: #2c1a0e !important;
-        color: white !important;
-    }
+.stButton > button[kind="primary"] {
+    background: linear-gradient(135deg, #2c1a0e, #5c3a1e) !important;
+    color: white !important;
+    border: none !important;
+}
 
-    .stTabs [data-baseweb="tab"]:hover:not([aria-selected="true"]) {
-        background-color: #e8d5c4;
-        color: #2c1a0e;
-    }
+.stButton > button[kind="primary"]:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(44, 26, 14, 0.28) !important;
+}
 
-    /* MEJORA #3: BOTONES ── */
-    .stButton > button {
-        border-radius: 10px !important;
-        font-family: 'Lato', sans-serif !important;
-        font-weight: 600 !important;
-        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-    }
+.stButton > button[kind="primary"] p,
+.stButton > button[kind="primary"] span,
+.stButton > button[kind="primary"] div {
+    color: white !important;
+    font-weight: 600 !important;
+}
 
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #2c1a0e, #5c3a1e) !important;
-        color: white !important;
-        border: none !important;
-    }
+.stButton > button[kind="secondary"] {
+    border-color: #c8956c !important;
+    color: #2c1a0e !important;
+}
 
-    .stButton > button[kind="primary"]:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 6px 20px rgba(44, 26, 14, 0.3) !important;
-    }
+.stButton > button[kind="secondary"]:hover {
+    background-color: #f5e6d8 !important;
+    transform: translateY(-1px) !important;
+}
 
-    .stButton > button[kind="secondary"] {
-        border-color: #c8956c !important;
-        color: #2c1a0e !important;
-    }
+.stButton > button:active {
+    transform: scale(0.97) !important;
+}
 
-    .stButton > button[kind="secondary"]:hover {
-        background-color: #f5e6d8 !important;
-        transform: translateY(-1px) !important;
-    }
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: #e0c9b4 !important;
+    border-radius: 14px !important;
+    background: #fffaf7 !important;
+    padding: 0.8rem !important;
+}
 
-    /* MEJORA #4: INPUTS Y SELECTS ── */
-    .stTextInput > div > div > input {
-        border-radius: 8px !important;
-        border-color: #e0c9b4 !important;
-        font-family: 'Lato', sans-serif !important;
-        background-color: #fffaf7 !important;
-        color: #2c1a0e !important;
-    }
+div[data-testid="stAlert"] {
+    border-radius: 12px !important;
+    border: none !important;
+    padding: 0.9rem 1.1rem !important;
+}
 
-    .stTextInput > div > div > input:focus {
-        border-color: #c8956c !important;
-        box-shadow: 0 0 0 2px rgba(200, 149, 108, 0.2) !important;
-    }
+.stSuccess {
+    background: linear-gradient(135deg, #d4edda, #a8d5b5) !important;
+    border-left: 4px solid #276749 !important;
+}
 
-    .stSelectbox > div > div {
-        border-radius: 8px !important;
-        border-color: #e0c9b4 !important;
-        font-family: 'Lato', sans-serif !important;
-        background-color: #fffaf7 !important;
-    }
+.stSuccess p, .stSuccess strong, .stSuccess span {
+    color: #0f3d22 !important;
+    font-weight: 700 !important;
+}
 
-    .stSelectbox > div > div:focus-within {
-        border-color: #c8956c !important;
-        box-shadow: 0 0 0 2px rgba(200, 149, 108, 0.2) !important;
-    }
+.stWarning {
+    background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+    border-left: 4px solid #d69e2e !important;
+}
 
-    .stMultiSelect > div > div {
-        border-radius: 8px !important;
-        border-color: #e0c9b4 !important;
-        background-color: #fffaf7 !important;
-    }
+.stWarning p, .stWarning strong {
+    color: #744210 !important;
+}
 
-    /* ── DATE INPUT ── */
-    .stDateInput > div > div > input {
-        border-radius: 8px !important;
-        border-color: #e0c9b4 !important;
-        font-family: 'Lato', sans-serif !important;
-    }
+.stInfo {
+    background: linear-gradient(135deg, #ebf8ff, #bee3f8) !important;
+    border-left: 4px solid #3182ce !important;
+}
 
-    /* ── EXPANDERS ── */
-    .streamlit-expanderHeader {
-        background-color: #f5e6d8 !important;
-        border-radius: 10px !important;
-        font-family: 'Lato', sans-serif !important;
-        font-weight: 600 !important;
-        color: #2c1a0e !important;
-        border: none !important;
-    }
+.stInfo p { color: #2c5282 !important; }
 
-    .streamlit-expanderHeader:hover {
-        background-color: #ead5c0 !important;
-    }
+.stError {
+    background: linear-gradient(135deg, #fff5f5, #fed7d7) !important;
+    border-left: 4px solid #e53e3e !important;
+}
 
-    .streamlit-expanderContent {
-        border: 1px solid #f0e0d0 !important;
-        border-top: none !important;
-        border-radius: 0 0 10px 10px !important;
-        background-color: #fffaf7 !important;
-    }
+.stError p { color: #742a2a !important; }
 
-    /* ── DIVIDER ── */
-    hr {
-        border-color: #f0e0d0 !important;
-    }
+hr {
+    border: none !important;
+    border-top: 1px solid #e8d5c4 !important;
+    margin: 1.5rem 0 !important;
+}
 
-    /* ── TOAST ── */
-    .stToast {
-        background-color: #2c1a0e !important;
-        color: white !important;
-        border-radius: 10px !important;
-    }
+.stDataFrame {
+    border: 1px solid #f0e0d0 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+}
 
-    /* ── DATAFRAME ── */
-    .stDataFrame {
-        border: 1px solid #f0e0d0 !important;
-        border-radius: 10px !important;
-        overflow: hidden;
-    }
+.stToast {
+    background-color: #2c1a0e !important;
+    color: white !important;
+    border-radius: 12px !important;
+    font-family: 'Lato', sans-serif !important;
+}
+
+.element-container {
+    margin-bottom: 0.6rem;
+}
+
+[data-testid="stStatusWidget"] {
+    border-radius: 12px !important;
+    border-color: #c8956c !important;
+    background: #fffaf7 !important;
+}
 """

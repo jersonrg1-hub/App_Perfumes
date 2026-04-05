@@ -1,8 +1,7 @@
 import html
 import pandas as pd
 import streamlit as st
-from config import PRECIOS_COLUMNAS, fmt_precio
-
+from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html
 
 def mostrar_tab_marca(df):
     col_marca, col_tamanio = st.columns(2)
@@ -33,22 +32,14 @@ def mostrar_tab_marca(df):
 
             nombre = html.escape(str(row.get('Nombre', '')))
 
-            stock_val = row.get('Stock_ml', None)
-            if stock_val not in (None, '', 0):
-                stock_num = float(stock_val)
-                if stock_num <= 15:
-                    stock_badge = f"<span style='background:#fff3cd; color:#856404; font-size:0.7rem; padding:2px 7px; border-radius:20px; font-weight:600; margin-left:6px;'>⚠️ {stock_num:.0f}ml</span>"
-                else:
-                    stock_badge = f"<span style='background:#d4edda; color:#155724; font-size:0.7rem; padding:2px 7px; border-radius:20px; font-weight:600; margin-left:6px;'>✅ {stock_num:.0f}ml</span>"
-            else:
-                stock_badge = ""
+            stock_badge = stock_badge_html(row.get('Stock_ml', None))
 
             precio_html = f"S/ {fmt_precio(precio)}" if precio not in (0, "", None) else "—"
 
             st.markdown(f"""
             <div style="
                 background: white;
-                border-left: 4px solid #c8956c;
+                border-left: 4px solid
                 border-radius: 12px;
                 padding: 1rem 1.5rem;
                 margin-bottom: 0.6rem;
@@ -63,7 +54,7 @@ def mostrar_tab_marca(df):
                         {"<div style='color:#c8956c; font-size:0.85rem; margin-top:0.1rem;'>✨ " + perfil + "</div>" if perfil else ""}
                     </div>
                     <div style="
-                        background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
+                        background: linear-gradient(135deg,
                         border-radius: 10px;
                         padding: 0.5rem 1rem;
                         text-align: center;

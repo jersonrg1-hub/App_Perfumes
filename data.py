@@ -57,7 +57,7 @@ def cargar_catalogo():
         df = pd.DataFrame(datos)
 
         if not df.empty:
-            cols_numericas = ['precio', 'costo', 'ml_disponibles', 'stock']
+            cols_numericas = ['precio', 'costo', 'ml_disponibles', 'stock', 'Stock_ml']
             for col in cols_numericas:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
@@ -169,7 +169,7 @@ def marcar_pedido_entregado_batch(lista_filas, col_estado):
 def _obtener_proximo_id_cotizacion():
     try:
         hoja = get_hoja(WORKSHEET_COTIZACIONES)
-        ids_col = hoja.col_values(1)
+        ids_col = hoja.col_values(1)  # columna A = ID_Cotizacion
         ids_datos = ids_col[1:] if len(ids_col) > 1 else []
 
         if not ids_datos:
@@ -223,12 +223,23 @@ def guardar_cotizacion(celular, cesta, total):
 def actualizar_stock_perfume(nombre_perfume, ml_restados):
     try:
         hoja = get_hoja(WORKSHEET_CATALOGO)
-        celda = hoja.find(nombre_perfume)
 
-        col_ml = 4
-        valor_actual = float(hoja.cell(celda.row, col_ml).value)
-        nuevo_valor = max(0, valor_actual - ml_restados)
-        hoja.update_cell(celda.row, col_ml, nuevo_valor)
+        headers = hoja.row_values(1)
+        if "Stock_ml" not in headers:
+            log_error("actualizar_stock", "Columna Stock_ml no encontrada en Catalogo")
+            return
+
+        col_stock = headers.index("Stock_ml") + 1  # base 1
+
+        celda = hoja.find(nombre_perfume)
+        if celda is None:
+            log_error("actualizar_stock", f"Perfume no encontrado: {nombre_perfume}")
+            return
+
+        valor_actual = hoja.cell(celda.row, col_stock).value
+        valor_actual = float(valor_actual) if valor_actual else 0.0
+        nuevo_valor = max(0.0, valor_actual - ml_restados)
+        hoja.update_cell(celda.row, col_stock, nuevo_valor)
 
         limpiar_cache_catalogo()
     except Exception as e:

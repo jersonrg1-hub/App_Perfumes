@@ -114,12 +114,13 @@ def mostrar_tab_notas(df):
 
         st.markdown(f"""
         <div style="
-            background: white;
-            border-left: 4px solid #c8956c;
-            border-radius: 12px;
-            padding: 1rem 1.5rem;
-            margin: 0.5rem 0;
-            box-shadow: 0 2px 8px rgba(160, 120, 80, 0.1);
+            background: #fffdf9;
+            border: none;
+            border-top: 2px solid #c8956c;
+            border-radius: 0 0 14px 14px;
+            padding: 1.1rem 1.6rem 1.3rem;
+            margin: 0.7rem 0;
+            box-shadow: 0 2px 12px rgba(160,120,80,0.08);
         ">
             <div style="font-size:0.8rem; letter-spacing:0.1em; text-transform:uppercase; color:#a07850; font-weight:600;">{marca}</div>
             <div style="font-family:'Playfair Display',serif; font-size:1.35rem; color:#2c1a0e; font-weight:600; margin:0.2rem 0;">{nombre}</div>

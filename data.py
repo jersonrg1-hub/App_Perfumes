@@ -7,7 +7,6 @@ from config import (
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES
 )
 
-
 def log_error(contexto, error):
     print(f"[ERROR] {contexto}: {str(error)}")
     log = st.session_state.setdefault("error_log", [])
@@ -16,7 +15,6 @@ def log_error(contexto, error):
     log.append(f"[{now}] [{contexto}] {str(error)}")
     if len(log) > 50:
         st.session_state.error_log = log[-50:]
-
 
 @st.cache_resource
 def get_cliente():
@@ -30,7 +28,6 @@ def get_cliente():
         st.error("Error de autenticación con Google. Verifica st.secrets.")
         raise
 
-
 @st.cache_resource
 def get_spreadsheet():
     try:
@@ -39,7 +36,6 @@ def get_spreadsheet():
         log_error("get_spreadsheet", e)
         raise
 
-
 def get_hoja(worksheet_name):
     try:
         return get_spreadsheet().worksheet(worksheet_name)
@@ -47,7 +43,6 @@ def get_hoja(worksheet_name):
         log_error(f"get_hoja({worksheet_name})", e)
         st.error(f"No se pudo conectar a la hoja: {worksheet_name}")
         raise
-
 
 @st.cache_data(ttl=1800)
 def cargar_catalogo():
@@ -66,10 +61,8 @@ def cargar_catalogo():
         log_error("cargar_catalogo", e)
         return pd.DataFrame()
 
-
 def limpiar_cache_catalogo():
     cargar_catalogo.clear()
-
 
 @st.cache_data(ttl=120)
 def cargar_ventas():
@@ -99,15 +92,17 @@ def cargar_ventas():
 
             df["fila_sheet"] = range(2, len(df) + 2)
 
+            if "Estado" in df.columns:
+                df = df[df["Estado"] != "Anulado"].reset_index(drop=True)
+                df["fila_sheet"] = df["fila_sheet"].astype(int)
+
         return df
     except Exception as e:
         log_error("cargar_ventas", e)
         return pd.DataFrame()
 
-
 def limpiar_cache_ventas():
     cargar_ventas.clear()
-
 
 def guardar_venta(filas):
     try:
@@ -117,7 +112,6 @@ def guardar_venta(filas):
     except Exception as e:
         log_error("guardar_venta", e)
         raise
-
 
 def obtener_proximo_id():
     try:
@@ -145,7 +139,6 @@ def obtener_proximo_id():
         log_error("obtener_proximo_id", e)
         return "V001"
 
-
 def marcar_pedido_entregado_batch(lista_filas, col_estado):
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)
@@ -165,11 +158,11 @@ def marcar_pedido_entregado_batch(lista_filas, col_estado):
         log_error("marcar_entregado_batch", e)
         raise
 
-
 def _obtener_proximo_id_cotizacion():
+    """Lee solo la columna A de Cotizaciones para generar el siguiente ID."""
     try:
         hoja = get_hoja(WORKSHEET_COTIZACIONES)
-        ids_col = hoja.col_values(1)  # columna A = ID_Cotizacion
+        ids_col = hoja.col_values(1)
         ids_datos = ids_col[1:] if len(ids_col) > 1 else []
 
         if not ids_datos:
@@ -190,8 +183,8 @@ def _obtener_proximo_id_cotizacion():
         log_error("_obtener_proximo_id_cotizacion", e)
         return "C001"
 
-
 def guardar_cotizacion(celular, cesta, total):
+    """Guarda la cotización en la hoja Cotizaciones del sheet."""
     try:
         from config import hoy_peru, fmt_precio
         hoja = get_hoja(WORKSHEET_COTIZACIONES)
@@ -204,12 +197,12 @@ def guardar_cotizacion(celular, cesta, total):
         ])
 
         fila = [
-            id_cotizacion,           # ID_Cotizacion
-            str(hoy_peru()),         # Fecha
-            celular,                 # Celular
-            items_txt,               # Perfumes cotizados
-            round(float(total), 2),  # Total
-            "Enviado"                # Estado
+            id_cotizacion,
+            str(hoy_peru()),
+            celular,
+            items_txt,
+            round(float(total), 2),
+            "Enviado"
         ]
 
         hoja.append_rows([fila], value_input_option='USER_ENTERED')
@@ -219,8 +212,8 @@ def guardar_cotizacion(celular, cesta, total):
         log_error("guardar_cotizacion", e)
         raise
 
-
 def actualizar_stock_perfume(nombre_perfume, ml_restados):
+    """Descuenta ml del stock en la columna Stock_ml del catálogo."""
     try:
         hoja = get_hoja(WORKSHEET_CATALOGO)
 
@@ -229,7 +222,7 @@ def actualizar_stock_perfume(nombre_perfume, ml_restados):
             log_error("actualizar_stock", "Columna Stock_ml no encontrada en Catalogo")
             return
 
-        col_stock = headers.index("Stock_ml") + 1  # base 1
+        col_stock = headers.index("Stock_ml") + 1
 
         celda = hoja.find(nombre_perfume)
         if celda is None:
@@ -244,3 +237,26 @@ def actualizar_stock_perfume(nombre_perfume, ml_restados):
         limpiar_cache_catalogo()
     except Exception as e:
         log_error("actualizar_stock", e)
+def actualizar_celda_venta(fila_sheet, col_num, valor):
+    """Actualiza una celda específica en la hoja de ventas."""
+    try:
+        hoja = get_hoja(WORKSHEET_VENTAS)
+        hoja.update_cell(fila_sheet, col_num, valor)
+        limpiar_cache_ventas()
+    except Exception as e:
+        log_error("actualizar_celda_venta", e)
+        raise
+
+
+def actualizar_venta_batch(fila_sheet, cambios):
+    try:
+        hoja = get_hoja(WORKSHEET_VENTAS)
+        peticiones = []
+        for col_num, valor in cambios.items():
+            letra = gspread.utils.rowcol_to_a1(int(fila_sheet), int(col_num))
+            peticiones.append({"range": letra, "values": [[valor]]})
+        hoja.batch_update(peticiones, value_input_option="USER_ENTERED")
+        limpiar_cache_ventas()
+    except Exception as e:
+        log_error("actualizar_venta_batch", e)
+        raise

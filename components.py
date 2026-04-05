@@ -58,25 +58,26 @@ def mostrar_todos_precios(perfume, precios_columnas):
         with cols[i]:
             if precio not in (0, "", None):
                 st.markdown(
-                    f'<div class="precio-card" style="'
-                    f'background:linear-gradient(135deg,#2c1a0e,#5c3a1e);'
-                    f'border-radius:12px;padding:1.2rem 0.8rem;'
-                    f'text-align:center;box-shadow:0 3px 12px rgba(44,26,14,0.25);'
-                    f'margin-bottom:0.5rem;">'
-                    f'<div style="color:#e8c9a8;font-size:0.85rem;letter-spacing:0.12em;'
-                    f'text-transform:uppercase;margin-bottom:0.3rem;">{tamanio_safe}</div>'
-                    f'<div style="color:white;font-family:\'Playfair Display\',serif;'
-                    f'font-size:2rem;font-weight:700;line-height:1;">S/ {fmt_precio(precio)}</div>'
+                    f'<div class="precio-card" style="background:#1a0f08;'
+                    f'border-radius:14px;padding:1.1rem 0.7rem 1rem;'
+                    f'text-align:center;box-shadow:0 4px 16px rgba(26,15,8,0.3);'
+                    f'margin-bottom:0.6rem;border-top:2px solid #c8956c;">'
+                    f'<div style="color:#c8956c;font-size:0.68rem;letter-spacing:0.2em;'
+                    f'text-transform:uppercase;font-weight:500;font-size:0.82rem;margin-bottom:0.45rem;">{tamanio_safe}</div>'
+                    f'<div style="width:24px;height:1px;background:#c8956c;opacity:0.4;margin:0 auto 0.5rem;"></div>'
+                    f'<div style="color:#f5e6d8;font-family:\'Playfair Display\',serif;'
+                    f'font-size:1.9rem;font-weight:700;line-height:1;letter-spacing:-0.02em;">'
+                    f'S/ {fmt_precio(precio)}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
             else:
                 st.markdown(
-                    f'<div style="background:#f5ede6;border-radius:12px;padding:1rem;'
-                    f'text-align:center;border:1px dashed #e0c9b4;margin-bottom:0.5rem;">'
-                    f'<div style="color:#c8956c;font-size:0.75rem;letter-spacing:0.1em;'
-                    f'text-transform:uppercase;">{tamanio_safe}</div>'
-                    f'<div class="sin-precio">Sin precio</div>'
+                    f'<div style="background:#fdf6f0;border-radius:14px;padding:1rem 0.7rem;'
+                    f'text-align:center;border:1px dashed #e0c9b4;margin-bottom:0.6rem;">'
+                    f'<div style="color:#c8956c;font-size:0.68rem;letter-spacing:0.2em;'
+                    f'text-transform:uppercase;margin-bottom:0.3rem;">{tamanio_safe}</div>'
+                    f'<div style="color:#d4b896;font-size:0.8rem;font-style:italic;">sin precio</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )

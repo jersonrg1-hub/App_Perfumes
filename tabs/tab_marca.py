@@ -33,6 +33,16 @@ def mostrar_tab_marca(df):
 
             nombre = html.escape(str(row.get('Nombre', '')))
 
+            stock_val = row.get('Stock_ml', None)
+            if stock_val not in (None, '', 0):
+                stock_num = float(stock_val)
+                if stock_num <= 15:
+                    stock_badge = f"<span style='background:#fff3cd; color:#856404; font-size:0.7rem; padding:2px 7px; border-radius:20px; font-weight:600; margin-left:6px;'>⚠️ {stock_num:.0f}ml</span>"
+                else:
+                    stock_badge = f"<span style='background:#d4edda; color:#155724; font-size:0.7rem; padding:2px 7px; border-radius:20px; font-weight:600; margin-left:6px;'>✅ {stock_num:.0f}ml</span>"
+            else:
+                stock_badge = ""
+
             precio_html = f"S/ {fmt_precio(precio)}" if precio not in (0, "", None) else "—"
 
             st.markdown(f"""
@@ -47,7 +57,7 @@ def mostrar_tab_marca(df):
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div>
                         <div style="font-family:'Playfair Display',serif; font-size:1.1rem; color:#2c1a0e; font-weight:600;">
-                            🌸 {nombre}
+                            🌸 {nombre}{stock_badge}
                         </div>
                         {"<div style='color:#a07850; font-size:0.85rem; margin-top:0.2rem;'>🎵 " + notas + "</div>" if notas else ""}
                         {"<div style='color:#c8956c; font-size:0.85rem; margin-top:0.1rem;'>✨ " + perfil + "</div>" if perfil else ""}

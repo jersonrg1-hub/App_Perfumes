@@ -24,10 +24,21 @@ def mostrar_tab_nombre(df):
         col_info, col_notas = st.columns([1, 1])
 
         with col_info:
+            stock_val = perfume.get("Stock_ml", None)
+            if stock_val not in (None, "", 0):
+                stock_num = float(stock_val)
+                if stock_num <= 15:
+                    stock_html = f"<div style='margin-top:0.5rem;'><span style='background:#fff3cd; color:#856404; font-size:0.8rem; padding:3px 10px; border-radius:20px; font-weight:600;'>⚠️ Stock bajo: {stock_num:.0f}ml</span></div>"
+                else:
+                    stock_html = f"<div style='margin-top:0.5rem;'><span style='background:#d4edda; color:#155724; font-size:0.8rem; padding:3px 10px; border-radius:20px; font-weight:600;'>✅ Disponible: {stock_num:.0f}ml</span></div>"
+            else:
+                stock_html = ""
+
             st.markdown(f"""
             <div class="perfume-card" style="height:100%;">
                 <div class="marca">{marca_safe}</div>
                 <div class="nombre">{nombre_safe}</div>
+                {stock_html}
             </div>
             """, unsafe_allow_html=True)
 

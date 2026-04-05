@@ -1,10 +1,9 @@
 import html
 from pathlib import Path
 import streamlit as st
-from config import PRECIOS_COLUMNAS
+from config import PRECIOS_COLUMNAS, stock_badge_html, stock_barra_html
 from components import mostrar_todos_precios
 from errores import mostrar_sin_precio
-
 
 def mostrar_tab_nombre(df):
     nombres = ["— Elige un perfume —"] + sorted(df["Nombre"].dropna().unique().tolist())
@@ -25,14 +24,9 @@ def mostrar_tab_nombre(df):
 
         with col_info:
             stock_val = perfume.get("Stock_ml", None)
-            if stock_val not in (None, "", 0):
-                stock_num = float(stock_val)
-                if stock_num <= 15:
-                    stock_html = f"<div style='margin-top:0.5rem;'><span style='background:#fff3cd; color:#856404; font-size:0.8rem; padding:3px 10px; border-radius:20px; font-weight:600;'>⚠️ Stock bajo: {stock_num:.0f}ml</span></div>"
-                else:
-                    stock_html = f"<div style='margin-top:0.5rem;'><span style='background:#d4edda; color:#155724; font-size:0.8rem; padding:3px 10px; border-radius:20px; font-weight:600;'>✅ Disponible: {stock_num:.0f}ml</span></div>"
-            else:
-                stock_html = ""
+            badge = stock_badge_html(stock_val, size="lg")
+            barra = stock_barra_html(stock_val)
+            stock_html = f"<div style='margin-top:0.6rem;'>{badge}{barra}</div>" if badge else ""
 
             st.markdown(f"""
             <div class="perfume-card" style="height:100%;">

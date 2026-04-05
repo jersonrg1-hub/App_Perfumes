@@ -1,5 +1,5 @@
 import streamlit as st
-from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru
+from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO
 from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfume
 from components import generar_url_whatsapp
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
@@ -117,13 +117,15 @@ def _paso_2_perfumes(df):
             if stock_val not in (None, "", 0):
                 stock_num = float(stock_val)
                 if stock_num < float(ml_vendido):
-                    st.error(f"❌ Stock insuficiente — quedan {stock_num:.0f}ml")
-                elif stock_num <= 15:
-                    st.warning(f"⚠️ Stock bajo — {stock_num:.0f}ml disponibles · S/ {fmt_precio(precio_item)}")
+                    st.error(f"❌ Stock insuficiente — quedan {stock_num:.0f}ml · necesitas {float(ml_vendido):.0f}ml")
+                elif stock_num <= STOCK_CRITICO:
+                    st.error(f"🔴 Stock crítico — solo {stock_num:.0f}ml · S/ {fmt_precio(precio_item)}")
+                elif stock_num <= STOCK_BAJO:
+                    st.warning(f"🟡 Stock bajo — {stock_num:.0f}ml disponibles · S/ {fmt_precio(precio_item)}")
                 else:
-                    st.success(f"S/ {fmt_precio(precio_item)} · Stock: {stock_num:.0f}ml")
+                    st.success(f"🟢 S/ {fmt_precio(precio_item)} · Stock: {stock_num:.0f}ml")
             else:
-                st.success(f"Precio: **S/ {fmt_precio(precio_item)}**")
+                st.success(f"S/ {fmt_precio(precio_item)}")
 
             if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", width="stretch"):
                 st.session_state.cesta.append({
@@ -303,18 +305,18 @@ def mostrar_tab_venta(df):
             padding:1.2rem 1.4rem; margin-bottom:1rem;">
 
             <div style="display:flex; justify-content:space-between; align-items:center;
-                margin-bottom:1rem; padding-bottom:0.8rem; border-bottom:2px solid #f0e0d0;">
+                margin-bottom:1rem; padding-bottom:0.8rem; border-bottom:2px solid
                 <div>
                     <div style="font-size:0.75rem; color:#a07850; text-transform:uppercase;
                         font-weight:600; letter-spacing:0.05em;">Compra</div>
                     <div style="font-family:'Playfair Display',serif; font-size:1.5rem;
-                        font-weight:700; color:#2c1a0e;">{id_compra}</div>
+                        font-weight:700; color:
                 </div>
                 <div style="text-align:right;">
                     <div style="font-size:0.75rem; color:#a07850; text-transform:uppercase;
                         font-weight:600;">Total</div>
                     <div style="font-family:'Playfair Display',serif; font-size:1.5rem;
-                        font-weight:700; color:#c8956c;">S/ {fmt_precio(total)}</div>
+                        font-weight:700; color:
                 </div>
             </div>
 
@@ -337,7 +339,7 @@ def mostrar_tab_venta(df):
             {items_html}
 
             <div style="display:flex; justify-content:space-between; margin-top:0.7rem;
-                font-size:1rem; font-weight:700; color:#2c1a0e;">
+                font-size:1rem; font-weight:700; color:
                 <span>Total</span>
                 <span style="color:#c8956c;">S/ {fmt_precio(total)}</span>
             </div>

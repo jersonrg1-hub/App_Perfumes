@@ -8,12 +8,12 @@ from estadisticas import (
 )
 from estadisticas.historial import mostrar_historial_ventas
 from estadisticas.clientes import mostrar_clientes_frecuentes
+from estadisticas.stock import mostrar_panel_stock
 
 
 def mostrar_tab_estadisticas(df):
     st.markdown("### 📊 Estadísticas de Ventas")
 
-    # CORRECCIÓN #1: limpiar también caché de ventas, no solo catálogo
     if st.button("🔄 Recargar datos", key="reload"):
         limpiar_cache_ventas()
         limpiar_cache_catalogo()
@@ -21,15 +21,15 @@ def mostrar_tab_estadisticas(df):
 
     st.markdown("---")
     try:
-        # CORRECCIÓN #2: spinner para que el usuario sepa que está cargando
         with st.spinner("Cargando ventas..."):
             df_ventas = cargar_ventas()
 
-        subtab1, subtab2, subtab3, subtab4, subtab5, subtab6 = st.tabs([
+        subtab1, subtab2, subtab3, subtab4, subtab5, subtab6, subtab7 = st.tabs([
             "📊 Estadísticas",
             "📦 Pendientes",
             "📋 Historial",
             "👥 Clientes",
+            "🧪 Stock",
             "📏 Tamaños",
             "📅 Semanal & Meses"
         ])
@@ -42,8 +42,10 @@ def mostrar_tab_estadisticas(df):
         with subtab4:
             mostrar_clientes_frecuentes(df_ventas, df)
         with subtab5:
-            mostrar_tamanios_populares(df_ventas)
+            mostrar_panel_stock(df)
         with subtab6:
+            mostrar_tamanios_populares(df_ventas)
+        with subtab7:
             mostrar_resumen_semanal(df_ventas, df)
 
     except Exception as e:

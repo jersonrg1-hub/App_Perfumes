@@ -1,6 +1,6 @@
 import streamlit as st
 from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru
-from data import guardar_venta, obtener_proximo_id, cargar_ventas
+from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfume
 from components import generar_url_whatsapp
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
 
@@ -12,7 +12,6 @@ def _buscar_cliente(df_ventas, celular):
     coincidencias = df_ventas[df_ventas["Celular"].astype(str) == str(celular)]
     if coincidencias.empty:
         return None
-    # Tomar el registro más reciente
     ultimo = coincidencias.iloc[-1]
     return {
         "nombre": str(ultimo.get("Comprador", "")),
@@ -31,6 +30,8 @@ def mostrar_tab_venta(df):
         st.session_state.cesta = []
     if "autocomplete_aplicado" not in st.session_state:
         st.session_state.autocomplete_aplicado = False
+    if "fecha_venta" not in st.session_state:
+        st.session_state.fecha_venta = hoy_peru()
 
     if st.session_state.get("_autocomplete_pendiente"):
         datos = st.session_state._autocomplete_pendiente
@@ -67,7 +68,7 @@ def mostrar_tab_venta(df):
 
         col_fecha, col_envio = st.columns(2)
         with col_fecha:
-            fecha = st.date_input("📅 Fecha", value=hoy_peru(), format="DD/MM/YYYY", key="fecha_venta")
+            fecha = st.date_input("📅 Fecha", format="DD/MM/YYYY", key="fecha_venta")
         with col_envio:
             tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="envio_sel")
 
@@ -120,7 +121,18 @@ def mostrar_tab_venta(df):
         precio_item = perfume_row.get(columna_precio, 0)
 
         if precio_item not in (0, "", None):
-            st.success(f"Precio detectado: **S/ {fmt_precio(precio_item)}**")
+            stock_actual = perfume_row.get("Stock_ml", None)
+            if stock_actual not in (None, "", 0):
+                stock_num = float(stock_actual)
+                ml_num = float(ml_vendido)
+                if stock_num < ml_num:
+                    st.error(f"❌ Stock insuficiente — quedan {stock_num:.0f}ml y necesitas {ml_num:.0f}ml")
+                elif stock_num <= 15:
+                    st.warning(f"⚠️ Stock bajo — solo quedan {stock_num:.0f}ml disponibles")
+                else:
+                    st.success(f"Precio detectado: **S/ {fmt_precio(precio_item)}** · Stock: {stock_num:.0f}ml")
+            else:
+                st.success(f"Precio detectado: **S/ {fmt_precio(precio_item)}**")
 
             if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", width='stretch'):
                 if not comprador or len(celular) != 9:
@@ -169,6 +181,10 @@ def mostrar_tab_venta(df):
                         ])
 
                     guardar_venta(filas_para_google)
+
+                    for item in st.session_state.cesta:
+                        actualizar_stock_perfume(item["perfume"], float(item["ml"]))
+
                     status.update(label="✅ ¡Venta guardada!", state="complete")
 
                 url_wa = generar_url_whatsapp(

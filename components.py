@@ -6,7 +6,7 @@ from config import fmt_precio
 
 
 def mostrar_encabezado():
-    st.markdown('<div class="titulo-app">🌸 Decants</div>', unsafe_allow_html=True)
+    st.markdown('<div class="titulo-app">🌸 Perfuteca</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitulo-app">Catálogo de Precios</div>', unsafe_allow_html=True)
 
 

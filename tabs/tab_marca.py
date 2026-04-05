@@ -38,16 +38,17 @@ def mostrar_tab_marca(df):
 
             st.markdown(f"""
             <div style="
-                background: white;
-                border-left: 4px solid
-                border-radius: 12px;
-                padding: 1rem 1.5rem;
-                margin-bottom: 0.6rem;
-                box-shadow: 0 2px 8px rgba(160, 120, 80, 0.1);
+                background: #fffdf9;
+                border: none;
+                border-top: 2px solid #c8956c;
+                border-radius: 0 0 14px 14px;
+                padding: 1.1rem 1.6rem 1.3rem;
+                margin-bottom: 0.8rem;
+                box-shadow: 0 2px 12px rgba(160,120,80,0.08);
             ">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                     <div>
-                        <div style="font-family:'Playfair Display',serif; font-size:1.1rem; color:#2c1a0e; font-weight:600;">
+                        <div style="font-family:'Playfair Display',serif; font-size:1.25rem; color:#2c1a0e; font-weight:600; letter-spacing:-0.01em;">
                             🌸 {nombre}{stock_badge}
                         </div>
                         {"<div style='color:#a07850; font-size:0.85rem; margin-top:0.2rem;'>🎵 " + notas + "</div>" if notas else ""}

@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
-from config import fmt_precio, fmt_fecha
 
+from components import separador
+from config import fmt_precio, fmt_fecha
 
 def mostrar_historial_ventas(df_ventas, df_catalogo=None):
     if df_ventas.empty:
@@ -69,7 +70,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
     with col_b:
         st.markdown(f"**Total: S/ {fmt_precio(total_filtrado)}**")
 
-    st.markdown("---")
+    separador()
 
     if grupos is None or grupos.ngroups == 0:
         st.info("😔 No hay ventas que coincidan con los filtros")

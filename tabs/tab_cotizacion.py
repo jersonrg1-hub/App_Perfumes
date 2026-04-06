@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 from urllib.parse import quote
 from config import fmt_precio, ML_OPCIONES
@@ -59,7 +60,7 @@ def mostrar_seccion_cotizacion(df):
                 st.success(f"S/ {fmt_precio(precio_cot)}")
                 with col_add:
                     st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("➕ Agregar", key=f"add_cot_{perfume_cot}_{ml_cot}", width='stretch'):
+                    if st.button("➕ Agregar", key=f"add_cot_{perfume_cot}_{ml_cot}", use_container_width=True):
                         st.session_state.cesta_cotizacion.append({
                             "perfume": perfume_cot,
                             "ml": ml_cot,
@@ -99,7 +100,7 @@ def mostrar_seccion_cotizacion(df):
                             "💾 Guardar cotización",
                             key="enviar_cotizacion",
                             type="primary",
-                            width='stretch'
+                            use_container_width=True
                         ):
                             try:
                                 id_cot = guardar_cotizacion(
@@ -115,7 +116,7 @@ def mostrar_seccion_cotizacion(df):
                                 st.error(f"❌ Error al guardar: {e}")
 
                     if st.session_state.cotizacion_enviada:
-                        id_mostrar = st.session_state.get("ultimo_id_cotizacion", "")
+                        id_mostrar = html.escape(str(st.session_state.get("ultimo_id_cotizacion", "")))
                         url_guardada = st.session_state.get("url_wa_guardada", url_wa)
                         st.markdown(
                             f"<div style='color:#38a169; font-weight:600; margin-bottom:0.5rem;'>"
@@ -137,13 +138,13 @@ def mostrar_seccion_cotizacion(df):
             with col_limpiar:
                 st.markdown("<br>", unsafe_allow_html=True)
                 if not st.session_state.cotizacion_enviada:
-                    if st.button("🗑️ Limpiar", key="limpiar_cotizacion", width='stretch'):
+                    if st.button("🗑️ Limpiar", key="limpiar_cotizacion", use_container_width=True):
                         st.session_state.cesta_cotizacion = []
                         st.session_state.cotizacion_enviada = False
                         st.session_state.url_wa_guardada = None
                         st.rerun()
                 else:
-                    if st.button("🆕 Nueva cotización", key="nueva_cotizacion", width='stretch'):
+                    if st.button("🆕 Nueva cotización", key="nueva_cotizacion", use_container_width=True):
                         st.session_state.cesta_cotizacion = []
                         st.session_state.cotizacion_enviada = False
                         st.session_state.url_wa_guardada = None

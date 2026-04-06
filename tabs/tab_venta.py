@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO
 from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfume
@@ -21,7 +22,6 @@ def _buscar_cliente(df_ventas, celular):
     }
 
 def _barra_progreso(paso_actual):
-    """Barra de progreso usando componentes nativos de Streamlit."""
     pasos = ["👤 Cliente", "🛒 Perfumes", "✅ Confirmar"]
 
     cols = st.columns(3)
@@ -43,7 +43,6 @@ def _barra_progreso(paso_actual):
     st.markdown("")
 
 def _paso_1_cliente(df):
-    """Paso 1: Datos del cliente."""
     st.markdown("#### 👤 Datos del comprador")
 
     col_fecha, col_envio = st.columns(2)
@@ -63,11 +62,13 @@ def _paso_1_cliente(df):
         df_ventas = cargar_ventas()
         cliente = _buscar_cliente(df_ventas, celular)
         if cliente and cliente["nombre"]:
+            nombre_c = html.escape(cliente["nombre"])
+            dir_c = html.escape(cliente["direccion"])
             st.markdown(
                 f"""<div style="background:#f5ede6; border-left:4px solid #c8956c;
                 border-radius:8px; padding:0.6rem 1rem; margin:0.3rem 0; font-size:0.9rem;">
-                👤 Cliente conocido: <strong>{cliente['nombre']}</strong>
-                {' — ' + cliente['direccion'] if cliente['direccion'] else ''}
+                👤 Cliente conocido: <strong>{nombre_c}</strong>
+                {' — ' + dir_c if dir_c else ''}
                 </div>""", unsafe_allow_html=True
             )
             if st.button(f"✨ Autocompletar datos de {cliente['nombre']}", key="btn_autocomplete"):
@@ -82,7 +83,7 @@ def _paso_1_cliente(df):
     st.markdown("")
     col_btn, _ = st.columns([1, 2])
     with col_btn:
-        if st.button("Siguiente →", key="paso1_siguiente", type="primary", width="stretch"):
+        if st.button("Siguiente →", key="paso1_siguiente", type="primary", use_container_width=True):
             if not comprador or len(celular) != 9:
                 st.error("⚠️ Completa Nombre y Celular (9 dígitos)")
             else:
@@ -95,7 +96,6 @@ def _paso_1_cliente(df):
                 st.rerun()
 
 def _paso_2_perfumes(df):
-    """Paso 2: Agregar perfumes a la cesta."""
     st.markdown("#### 🛒 Agregar perfumes")
 
     nombres_opciones = ["— Elige un perfume —"] + sorted(df["Nombre"].dropna().unique().tolist())
@@ -128,7 +128,7 @@ def _paso_2_perfumes(df):
             else:
                 st.success(f"S/ {fmt_precio(precio_item)}")
 
-            if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", width="stretch"):
+            if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", use_container_width=True):
                 st.session_state.cesta.append({
                     "perfume": perfume_venta, "id_perfume": id_perfume,
                     "ml": ml_vendido, "precio": precio_item, "metodo": metodo_pago
@@ -153,11 +153,11 @@ def _paso_2_perfumes(df):
     st.markdown("")
     col_ant, col_sig = st.columns(2)
     with col_ant:
-        if st.button("← Volver", key="paso2_volver", width="stretch"):
+        if st.button("← Volver", key="paso2_volver", use_container_width=True):
             st.session_state.wiz_paso = 1
             st.rerun()
     with col_sig:
-        if st.button("Siguiente →", key="paso2_siguiente", type="primary", width="stretch"):
+        if st.button("Siguiente →", key="paso2_siguiente", type="primary", use_container_width=True):
             if not st.session_state.cesta:
                 st.error("⚠️ Agrega al menos un perfume")
             else:
@@ -165,18 +165,23 @@ def _paso_2_perfumes(df):
                 st.rerun()
 
 def _paso_3_confirmar():
-    """Paso 3: Resumen y confirmación."""
     st.markdown("#### ✅ Confirmar venta")
+
+    comprador  = html.escape(str(st.session_state.wiz_comprador))
+    celular    = html.escape(str(st.session_state.wiz_celular))
+    direccion  = html.escape(str(st.session_state.wiz_direccion or "—"))
+    tipo_envio = html.escape(str(st.session_state.wiz_tipo_envio))
+    fecha_str  = st.session_state.wiz_fecha.strftime("%d/%m/%Y")
 
     st.markdown(f"""
     <div style="background:#f5ede6; border-radius:10px; padding:1rem 1.2rem; margin-bottom:1rem;">
         <div style="font-size:0.75rem; color:#a07850; text-transform:uppercase; font-weight:600; margin-bottom:0.5rem;">Datos del comprador</div>
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem; font-size:0.9rem; color:#2c1a0e;">
-            <div>👤 <strong>{st.session_state.wiz_comprador}</strong></div>
-            <div>📱 {st.session_state.wiz_celular}</div>
-            <div>📍 {st.session_state.wiz_direccion or '—'}</div>
-            <div>🚚 {st.session_state.wiz_tipo_envio}</div>
-            <div>📅 {st.session_state.wiz_fecha.strftime('%d/%m/%Y')}</div>
+            <div>👤 <strong>{comprador}</strong></div>
+            <div>📱 {celular}</div>
+            <div>📍 {direccion}</div>
+            <div>🚚 {tipo_envio}</div>
+            <div>📅 {fecha_str}</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -184,7 +189,7 @@ def _paso_3_confirmar():
     total = sum(float(i['precio']) for i in st.session_state.cesta)
     items_html = "".join([
         f"<div style='display:flex; justify-content:space-between; padding:0.4rem 0; border-bottom:1px solid #f0e0d0;'>"
-        f"<span>🌸 {i['perfume']} ({i['ml']}ml) · {i['metodo']}</span>"
+        f"<span>🌸 {html.escape(str(i['perfume']))} ({html.escape(str(i['ml']))}ml) · {html.escape(str(i['metodo']))}</span>"
         f"<strong>S/ {fmt_precio(i['precio'])}</strong></div>"
         for i in st.session_state.cesta
     ])
@@ -200,11 +205,11 @@ def _paso_3_confirmar():
 
     col_ant, col_guar = st.columns(2)
     with col_ant:
-        if st.button("← Volver", key="paso3_volver", width="stretch"):
+        if st.button("← Volver", key="paso3_volver", use_container_width=True):
             st.session_state.wiz_paso = 2
             st.rerun()
     with col_guar:
-        if st.button("✅ Guardar venta", key="guardar_venta", type="primary", width="stretch"):
+        if st.button("✅ Guardar venta", key="guardar_venta", type="primary", use_container_width=True):
             try:
                 with st.status("🚀 Procesando...", expanded=False) as status:
                     id_compra = obtener_proximo_id()
@@ -283,25 +288,23 @@ def mostrar_tab_venta(df):
     if st.session_state.get("venta_guardada") and st.session_state.wiz_paso == 3:
         st.success("✅ ¡Venta guardada correctamente!")
 
-        id_compra  = st.session_state.get("wiz_id_compra", "")
-        comprador  = st.session_state.get("wiz_comprador", "")
-        celular    = st.session_state.get("wiz_celular", "")
-        direccion  = st.session_state.get("wiz_direccion", "") or "—"
-        tipo_envio = st.session_state.get("wiz_tipo_envio", "")
-        fecha      = st.session_state.get("wiz_fecha")
-        fecha_str  = fecha.strftime("%d/%m/%Y") if fecha else "—"
+        id_compra  = html.escape(str(st.session_state.get("wiz_id_compra", "")))
+        comprador  = html.escape(str(st.session_state.get("wiz_comprador", "")))
+        celular    = html.escape(str(st.session_state.get("wiz_celular", "")))
+        direccion  = html.escape(str(st.session_state.get("wiz_direccion", "") or "—"))
+        tipo_envio = html.escape(str(st.session_state.get("wiz_tipo_envio", "")))
+        wiz_fecha  = st.session_state.get("wiz_fecha")
+        fecha_str  = wiz_fecha.strftime("%d/%m/%Y") if hasattr(wiz_fecha, "strftime") else str(wiz_fecha or "—")
         total      = st.session_state.get("wiz_total", 0)
         cesta      = st.session_state.get("cesta", [])
 
         items_html = "".join([
             f"<div style='display:flex; justify-content:space-between; "
             f"padding:0.4rem 0; border-bottom:1px solid #f0e0d0; font-size:0.9rem;'>"
-            f"<span>🌸 {i['perfume']} &nbsp;·&nbsp; {i['ml']}ml &nbsp;·&nbsp; {i['metodo']}</span>"
+            f"<span>🌸 {html.escape(str(i['perfume']))} &nbsp;·&nbsp; {html.escape(str(i['ml']))}ml &nbsp;·&nbsp; {html.escape(str(i['metodo']))}</span>"
             f"<strong>S/ {fmt_precio(i['precio'])}</strong></div>"
             for i in cesta
         ])
-
-        fecha_str = st.session_state.wiz_fecha.strftime('%d/%m/%Y') if hasattr(st.session_state.get('wiz_fecha', ''), 'strftime') else str(st.session_state.get('wiz_fecha', ''))
 
         st.markdown(
             f'''<div style="background:white;border:1px solid #f0e0d0;border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1rem;">
@@ -341,7 +344,7 @@ def mostrar_tab_venta(df):
                 </div></a>''', unsafe_allow_html=True
             )
 
-        if st.button("🆕 Registrar otra venta", key="nueva_venta", width="stretch"):
+        if st.button("🆕 Registrar otra venta", key="nueva_venta", use_container_width=True):
             _resetear_wizard()
             st.rerun()
         return

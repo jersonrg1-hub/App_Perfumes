@@ -1,6 +1,7 @@
 import html
 import streamlit as st
 import pandas as pd
+from urllib.parse import quote
 from config import fmt_precio, hoy_peru, WORKSHEET_COTIZACIONES
 from data import get_hoja
 from components import separador
@@ -136,7 +137,20 @@ def mostrar_historial_cotizaciones():
 
             st.markdown("")
             wa_celular = str(row.get("Celular", ""))
-            wa_url = f"https://wa.me/51{wa_celular}"
+            items_wa = "\n".join([
+                f"- {item.strip()}"
+                for item in str(row.get("Perfumes", "")).split(" | ")
+                if item.strip()
+            ])
+            mensaje_wa = (
+                f"🌸 *COTIZACIÓN {id_cot}*\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"{items_wa}\n"
+                f"━━━━━━━━━━━━━━━━\n"
+                f"💰 *Total: S/ {fmt_precio(total)}*\n\n"
+                f"¿Te interesa alguno? 😊"
+            )
+            wa_url = f"https://wa.me/51{wa_celular}?text={quote(mensaje_wa)}"
             st.markdown(
                 f'<a href="{wa_url}" target="_blank" style="text-decoration:none;">'
                 f'<div style="background:#25D366;color:white;padding:8px;border-radius:8px;'

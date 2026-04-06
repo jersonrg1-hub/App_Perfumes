@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html
 
+
 def mostrar_tab_marca(df):
     col_marca, col_tamanio = st.columns(2)
     with col_marca:
@@ -19,51 +20,87 @@ def mostrar_tab_marca(df):
         tiene_perfil = "Perfil_Olfativo" in df.columns
 
         st.markdown(
-            f"<div style='margin-top:0.8rem; margin-bottom:0.5rem; color:#a07850; font-size:0.85rem;'>"
-            f"✨ {len(df_filtrado)} perfume(s) — precios para {tamanio}</div>",
+            f"<div style='margin-top:0.8rem; margin-bottom:0.5rem; "
+            f"color:#a07850; font-size:0.85rem;'>"
+            f"{len(df_filtrado)} perfume(s) — {tamanio}</div>",
             unsafe_allow_html=True
         )
 
-        for row in df_filtrado.to_dict('records'):
+        for row in df_filtrado.to_dict("records"):
             precio = row.get(columna, "")
 
-            notas  = html.escape(str(row.get('Notas', ''))) if tiene_notas and pd.notna(row.get('Notas')) else ''
-            perfil = html.escape(str(row.get('Perfil_Olfativo', ''))) if tiene_perfil and pd.notna(row.get('Perfil_Olfativo')) else ''
-
-            nombre = html.escape(str(row.get('Nombre', '')))
-
-            stock_badge = stock_badge_html(row.get('Stock_ml', None))
+            notas = (
+                html.escape(str(row.get("Notas", "")))
+                if tiene_notas and pd.notna(row.get("Notas"))
+                else ""
+            )
+            perfil = (
+                html.escape(str(row.get("Perfil_Olfativo", "")))
+                if tiene_perfil and pd.notna(row.get("Perfil_Olfativo"))
+                else ""
+            )
+            nombre = html.escape(str(row.get("Nombre", "")))
+            marca_safe = html.escape(str(row.get("Marca", "")))
+            stock_badge = stock_badge_html(row.get("Stock_ml", None))
 
             tiene_precio = precio not in (0, "", None)
             precio_display = f"S/ {fmt_precio(precio)}" if tiene_precio else "—"
-            precio_color = "#f5e6d8" if tiene_precio else "#a07850"
-            bg_precio = "#1a0f08" if tiene_precio else "#f5ede6"
-            border_top = "2px solid #c8956c" if tiene_precio else "2px solid #e0c9b4"
+            precio_color = "#2c1a0e" if tiene_precio else "#bbb"
+
+            notas_html = (
+                f"<div style='color:#a07850; font-size:0.82rem; margin-top:0.3rem;'>"
+                f"🎵 {notas}</div>"
+                if notas else ""
+            )
+            perfil_html = (
+                f"<div style='color:#c8956c; font-size:0.82rem; margin-top:0.15rem;'>"
+                f"✨ {perfil}</div>"
+                if perfil else ""
+            )
 
             st.markdown(f"""
-            <div style="background:#fffdf9;border:none;border-top:2px solid #c8956c;
-                border-radius:0 0 14px 14px;padding:1.1rem 1.6rem 1.3rem;
-                margin-bottom:0.8rem;box-shadow:0 2px 12px rgba(160,120,80,0.08);">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div style="flex:1;min-width:0;">
-                        <div style="font-family:'Playfair Display',serif;font-size:1.25rem;
-                            color:#2c1a0e;font-weight:600;letter-spacing:-0.01em;">
-                            🌸 {nombre}{stock_badge}
-                        </div>
-                        {"<div style='color:#a07850;font-size:0.85rem;margin-top:0.2rem;'>🎵 " + notas + "</div>" if notas else ""}
-                        {"<div style='color:#c8956c;font-size:0.85rem;margin-top:0.1rem;'>✨ " + perfil + "</div>" if perfil else ""}
+            <div style="
+                background: #ffffff;
+                border: 1px solid #ede0d4;
+                border-radius: 14px;
+                padding: 1rem 1.4rem;
+                margin-bottom: 0.6rem;
+                transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            ">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="
+                            font-size:0.65rem; letter-spacing:0.2em;
+                            text-transform:uppercase; color:#c8956c;
+                            font-weight:600; margin-bottom:0.25rem;
+                        ">{marca_safe}</div>
+                        <div style="
+                            font-family:'Playfair Display',serif;
+                            font-size:1.1rem; color:#2c1a0e; font-weight:600;
+                        ">{nombre}{stock_badge}</div>
+                        {notas_html}
+                        {perfil_html}
                     </div>
-                    <div style="background:{bg_precio};border-top:{border_top};
-                        border-radius:14px;padding:0.7rem 1.1rem 0.8rem;
-                        text-align:center;min-width:100px;flex-shrink:0;margin-left:1rem;
-                        box-shadow:0 4px 14px rgba(26,15,8,0.25);">
-                        <div style="color:#c8956c;font-size:0.78rem;letter-spacing:0.18em;
-                            text-transform:uppercase;font-weight:400;margin-bottom:0.35rem;">{tamanio}</div>
-                        <div style="width:20px;height:1px;background:#c8956c;opacity:0.4;margin:0 auto 0.35rem;"></div>
-                        <div style="color:{precio_color};font-family:'Playfair Display',serif;
-                            font-size:1.45rem;font-weight:700;letter-spacing:-0.02em;">
-                            {precio_display}
-                        </div>
+                    <div style="
+                        background: #fdf6f0;
+                        border: 1px solid #ede0d4;
+                        border-radius: 10px;
+                        padding: 0.55rem 1rem;
+                        text-align: center;
+                        min-width: 88px;
+                        flex-shrink: 0;
+                    ">
+                        <div style="
+                            color:#a07850; font-size:0.65rem;
+                            text-transform:uppercase; letter-spacing:0.12em;
+                            font-weight:600; margin-bottom:0.2rem;
+                        ">{tamanio}</div>
+                        <div style="
+                            color:{precio_color};
+                            font-family:'Inter','DM Sans',sans-serif;
+                            font-size:1.2rem; font-weight:700;
+                            font-variant-numeric:tabular-nums;
+                        ">{precio_display}</div>
                     </div>
                 </div>
             </div>

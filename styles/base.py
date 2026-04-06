@@ -1,5 +1,5 @@
 BASE = """
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Lato:wght@300;400;600&family=Inter:wght@400;600;700&family=DM+Sans:wght@400;600;700&display=swap');
 
 html, body, .stApp {
     font-family: 'Lato', sans-serif;

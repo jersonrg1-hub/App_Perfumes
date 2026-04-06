@@ -4,7 +4,7 @@ import streamlit as st
 from components import separador
 from config import PRECIOS_COLUMNAS, fmt_precio
 
-@st.cache_data
+@st.cache_data(ttl=120)
 def _extraer_valores(df, columna):
     valores = set()
     for item in df[columna].dropna():
@@ -93,7 +93,7 @@ def mostrar_tab_notas(df):
             msg.append(f"perfil: **{', '.join(perfiles_seleccionados)}**")
         st.markdown(
             f"""<div style="background:#fff3cd; border-left:4px solid #d69e2e;
-            border-radius:10px; padding:1rem 1.2rem; color:
+            border-radius:10px; padding:1rem 1.2rem; color:#856404;">
             😔 No hay perfumes con {' y '.join(msg)}</div>""",
             unsafe_allow_html=True
         )
@@ -113,9 +113,9 @@ def mostrar_tab_notas(df):
 
         st.markdown(f"""
         <div style="
-            background:
+            background: #fffdf9;
             border: none;
-            border-top: 2px solid
+            border-top: 2px solid #c8956c;
             border-radius: 0 0 14px 14px;
             padding: 1.1rem 1.6rem 1.3rem;
             margin: 0.7rem 0;
@@ -143,9 +143,9 @@ def mostrar_tab_notas(df):
                 else:
                     st.markdown(f"""
                     <div style="
-                        background:
+                        background: #f5ede6;
                         border-radius: 8px; padding: 0.6rem;
-                        text-align: center; border: 1px dashed
+                        text-align: center; border: 1px dashed #e0c9b4;
                         margin-bottom: 0.3rem;
                     ">
                         <div style="color:#c8956c; font-size:0.7rem; text-transform:uppercase;">{tamanio}</div>

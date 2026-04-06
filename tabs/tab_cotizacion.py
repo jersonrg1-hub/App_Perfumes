@@ -8,6 +8,8 @@ from data import guardar_cotizacion
 def _generar_mensaje_cotizacion(celular, cesta_cotizacion):
     total = sum(float(i["precio"]) for i in cesta_cotizacion)
     items = "\n".join([
+        f"- {i.get('marca', '')} {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
+        if i.get('marca') else
         f"- {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
         for i in cesta_cotizacion
     ])
@@ -63,6 +65,7 @@ def mostrar_seccion_cotizacion(df):
                     if st.button("➕ Agregar", key=f"add_cot_{perfume_cot}_{ml_cot}", use_container_width=True):
                         st.session_state.cesta_cotizacion.append({
                             "perfume": perfume_cot,
+                            "marca": str(perfume_row.get("Marca", "")),
                             "ml": ml_cot,
                             "precio": precio_cot
                         })

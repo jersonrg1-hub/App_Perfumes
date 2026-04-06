@@ -166,7 +166,9 @@ def _paso_2_perfumes(df):
 
             if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", use_container_width=True):
                 st.session_state.cesta.append({
-                    "perfume": perfume_venta, "id_perfume": id_perfume,
+                    "perfume": perfume_venta,
+                    "marca": str(perfume_row.get("Marca", "")),
+                    "id_perfume": id_perfume,
                     "ml": ml_vendido, "precio": precio_item, "metodo": metodo_pago
                 })
                 st.toast(f"Agregado: {perfume_venta}", icon="✅")

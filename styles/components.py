@@ -1,30 +1,18 @@
 COMPONENTS = """
 .perfume-card {
-    background: #fffdf9;
-    border: none;
-    border-top: 2px solid #c8956c;
-    border-radius: 0 0 16px 16px;
+    background: #ffffff;
+    border: 1px solid #ede0d4;
+    border-radius: 14px;
     padding: 1.4rem 1.8rem 1.6rem;
     margin: 1rem 0;
-    box-shadow: 0 2px 12px rgba(160, 120, 80, 0.08), 0 1px 3px rgba(160,120,80,0.04);
-    transition: transform 0.22s ease, box-shadow 0.22s ease;
-    position: relative;
-}
-
-.perfume-card::before {
-    content: '';
-    position: absolute;
-    top: -2px; left: 50%;
-    transform: translateX(-50%);
-    width: 40px;
-    height: 2px;
-    background: #2c1a0e;
-    border-radius: 0 0 4px 4px;
+    box-shadow: 0 1px 4px rgba(160, 120, 80, 0.06);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .perfume-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 32px rgba(160, 120, 80, 0.16), 0 3px 8px rgba(160,120,80,0.08);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(160, 120, 80, 0.12);
+    border-color: #c8956c;
 }
 
 .perfume-card .marca {
@@ -32,7 +20,7 @@ COMPONENTS = """
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #c8956c;
-    font-weight: 400;
+    font-weight: 600;
     margin-bottom: 0.35rem;
     font-family: 'Lato', sans-serif;
 }
@@ -47,55 +35,57 @@ COMPONENTS = """
 }
 
 .precio-card {
+    background: #ffffff;
+    border: 1px solid #ede0d4;
     border-radius: 12px;
     text-align: center;
     margin-bottom: 0.6rem;
-    transition: transform 0.22s ease, box-shadow 0.22s ease;
-    border: 1px solid rgba(44,26,14,0.08);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .precio-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 12px 30px rgba(44, 26, 14, 0.3) !important;
+    transform: translateY(-3px);
+    border-color: #c8956c;
+    box-shadow: 0 6px 18px rgba(160, 120, 80, 0.12) !important;
 }
 
 .precio-box {
-    background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-    border-radius: 18px;
-    padding: 2rem;
+    background: #fdf6f0;
+    border: 1px solid #ede0d4;
+    border-radius: 14px;
+    padding: 1.6rem;
     text-align: center;
-    margin: 1.5rem 0;
-    box-shadow: 0 8px 28px rgba(44, 26, 14, 0.28);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin: 1.2rem 0;
+    transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .precio-box:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 36px rgba(44, 26, 14, 0.38);
+    transform: translateY(-2px);
+    border-color: #c8956c;
 }
 
 .precio-box .label {
-    color: #e8c9a8;
-    font-size: 0.8rem;
-    letter-spacing: 0.22em;
+    color: #a07850;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    margin-bottom: 0.5rem;
-    font-weight: 300;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
 }
 
 .precio-box .valor {
-    color: #ffffff;
+    color: #2c1a0e;
     font-family: 'Playfair Display', serif;
-    font-size: 3.5rem;
+    font-size: 3rem;
     font-weight: 700;
     line-height: 1;
 }
 
 .precio-box .tamanio {
     color: #c8956c;
-    font-size: 0.9rem;
-    margin-top: 0.6rem;
-    letter-spacing: 0.12em;
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    letter-spacing: 0.1em;
 }
 
 .perfume-item {
@@ -103,19 +93,17 @@ COMPONENTS = """
     justify-content: space-between;
     align-items: center;
     padding: 1rem 1.4rem;
-    border-radius: 14px;
+    border-radius: 12px;
     margin-bottom: 0.5rem;
     background: white;
-    border: 1px solid #f0e0d0;
-    transition: all 0.22s ease;
-    box-shadow: 0 2px 6px rgba(160, 120, 80, 0.06);
+    border: 1px solid #ede0d4;
+    transition: all 0.2s ease;
 }
 
 .perfume-item:hover {
-    background: #fff3eb;
     border-color: #c8956c;
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(160, 120, 80, 0.16);
+    box-shadow: 0 4px 14px rgba(160, 120, 80, 0.1);
 }
 
 .perfume-item .pf-nombre {
@@ -277,7 +265,7 @@ div[data-testid="stAlert"] {
 
 @media (max-width: 640px) {
     .titulo-app { font-size: 2rem; }
-    .precio-box .valor { font-size: 2.5rem; }
+    .precio-box .valor { font-size: 2.2rem; }
     .perfume-card .nombre { font-size: 1.2rem; }
     .perfume-item { padding: 0.7rem 0.9rem; }
 }

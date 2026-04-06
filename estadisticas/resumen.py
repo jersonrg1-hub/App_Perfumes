@@ -8,15 +8,21 @@ from components import separador
 from config import fmt_precio, hoy_peru
 from pdf_generator import exportar_pdf_ventas_hoy
 
+
 def _metrica_card(titulo, valor):
     titulo_safe = html.escape(str(titulo))
     valor_safe = html.escape(str(valor))
-    return f"""
-    <div style="background:white; border-radius:12px; padding:1rem; text-align:center; border:1px solid #f0e0d0;">
-        <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">{titulo_safe}</div>
-        <div style="color:#2c1a0e; font-size:1.8rem; font-weight:700;">{valor_safe}</div>
-    </div>
-    """
+    return (
+        f'<div style="background:white; border-radius:12px; padding:1rem;'
+        f'text-align:center; border:1px solid #ede0d4;">'
+        f'<div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;'
+        f'font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">{titulo_safe}</div>'
+        f'<div style="color:#2c1a0e; font-size:1.7rem; font-weight:700;'
+        f'font-family:\'Inter\',\'DM Sans\',sans-serif;'
+        f'font-variant-numeric:tabular-nums;">{valor_safe}</div>'
+        f'</div>'
+    )
+
 
 @st.cache_data(ttl=120)
 def _calcular_mas_vendidos(df_ventas, df_catalogo):
@@ -37,6 +43,7 @@ def _calcular_mas_vendidos(df_ventas, df_catalogo):
         on="ID_Perfume", how="left"
     )
 
+
 def mostrar_estadisticas(df_ventas, df_catalogo):
     if df_ventas.empty:
         st.info("📭 No hay ventas registradas todavía")
@@ -47,9 +54,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"].astype(str).str.strip(), errors="coerce")
 
     hoy = pd.Timestamp(hoy_peru())
-    ventas_hoy = df_ventas[
-        df_ventas["Fecha"].dt.normalize() == hoy.normalize()
-    ]
+    ventas_hoy = df_ventas[df_ventas["Fecha"].dt.normalize() == hoy.normalize()]
     ventas_mes = df_ventas[
         (df_ventas["Fecha"].dt.month == hoy.month) &
         (df_ventas["Fecha"].dt.year == hoy.year)
@@ -70,23 +75,53 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         st.markdown(_metrica_card("Total mes", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
 
     st.markdown("")
-
     st.markdown("#### 🏆 Perfumes más vendidos")
+
     if "ID_Perfume" in df_ventas.columns:
         mas_vendidos = _calcular_mas_vendidos(df_ventas, df_catalogo)
 
-        for row in mas_vendidos.to_dict('records'):
-            nombre = html.escape(str(row.get('Nombre', 'Desconocido')))
-            marca = html.escape(str(row.get('Marca', '')))
-            col1, col2, col3 = st.columns([4, 2, 1])
-            with col1:
-                st.markdown(f"<span style='font-size:1.05rem; font-weight:700; color:#2c1a0e;'>🌸 {nombre}</span>", unsafe_allow_html=True)
-            with col2:
-                st.markdown(f"<span style='font-size:0.95rem; color:#a07850;'>{marca}</span>", unsafe_allow_html=True)
-            with col3:
-                st.markdown(f"<span style='font-size:1.05rem; font-weight:700; color:#c8956c;'>{row['Cantidad']}x</span>", unsafe_allow_html=True)
-            st.markdown("<hr style='margin:0.3rem 0; border-color:#f0e0d0;'>", unsafe_allow_html=True)
+        for pos, row in enumerate(mas_vendidos.to_dict("records"), 1):
+            nombre = html.escape(str(row.get("Nombre", "Desconocido")))
+            marca  = html.escape(str(row.get("Marca", "")))
+            cant   = int(row["Cantidad"])
 
+            if pos == 1:
+                rank_bg, rank_color = "#2c1a0e", "white"
+            elif pos == 2:
+                rank_bg, rank_color = "#a07850", "white"
+            else:
+                rank_bg, rank_color = "#f5ede6", "#a07850"
+
+            st.markdown(f"""
+            <div style="
+                background:#ffffff; border:1px solid #ede0d4; border-radius:12px;
+                padding:0.7rem 1rem; margin-bottom:0.4rem;
+                display:flex; align-items:center; gap:0.9rem;
+            ">
+                <div style="
+                    width:26px; height:26px; border-radius:50%;
+                    background:{rank_bg}; color:{rank_color};
+                    font-size:0.75rem; font-weight:700;
+                    display:flex; align-items:center; justify-content:center;
+                    flex-shrink:0;
+                ">{pos}</div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:0.95rem; font-weight:600;
+                        color:#2c1a0e; white-space:nowrap; overflow:hidden;
+                        text-overflow:ellipsis;">🌸 {nombre}</div>
+                    <div style="font-size:0.75rem; color:#a07850;">{marca}</div>
+                </div>
+                <div style="
+                    background:#fdf6f0; border:1px solid #ede0d4;
+                    border-radius:8px; padding:0.25rem 0.6rem;
+                    font-family:'Inter','DM Sans',sans-serif;
+                    font-size:0.85rem; font-weight:700; color:#2c1a0e;
+                    flex-shrink:0;
+                ">{cant}x</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("")
     st.markdown("#### 📋 Historial completo")
     with st.expander("Ver todas las ventas"):
         st.dataframe(

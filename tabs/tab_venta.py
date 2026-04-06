@@ -6,6 +6,7 @@ from components import generar_url_whatsapp
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
 from components import separador
 
+
 @st.cache_data(ttl=120)
 def _buscar_cliente(df_ventas, celular):
     if df_ventas.empty or "Celular" not in df_ventas.columns:
@@ -21,26 +22,57 @@ def _buscar_cliente(df_ventas, celular):
         "tipo_envio": str(ultimo.get("Tipo_Envio", "")),
     }
 
+
 def _barra_progreso(paso_actual):
-    pasos = ["👤 Cliente", "🛒 Perfumes", "✅ Confirmar"]
+    pasos = ["Cliente", "Perfumes", "Confirmar"]
+    items_html = ""
+    for i, nombre in enumerate(pasos, 1):
+        if i < paso_actual:
+            circulo_bg = "#2c1a0e"
+            circulo_color = "white"
+            texto_color = "#2c1a0e"
+            contenido = "✓"
+        elif i == paso_actual:
+            circulo_bg = "#c8956c"
+            circulo_color = "white"
+            texto_color = "#2c1a0e"
+            contenido = str(i)
+        else:
+            circulo_bg = "#ede0d4"
+            circulo_color = "#a07850"
+            texto_color = "#a07850"
+            contenido = str(i)
 
-    cols = st.columns(3)
-    for i, (col, nombre) in enumerate(zip(cols, pasos), 1):
-        with col:
-            if i < paso_actual:
-                st.success(f"✓ {nombre}", icon=None)
-            elif i == paso_actual:
-                st.info(f"▶ {nombre}", icon=None)
-            else:
-                st.markdown(
-                    f"<div style='text-align:center; color:#a07850; padding:0.4rem; "
-                    f"border:1px solid #e0c9b4; border-radius:8px; font-size:0.85rem;'>"
-                    f"{nombre}</div>",
-                    unsafe_allow_html=True
-                )
+        conector = (
+            f"<div style='flex:1; height:1px; background:"
+            f"{'#2c1a0e' if i < paso_actual else '#ede0d4'}; margin:0 4px;'></div>"
+            if i < len(pasos) else ""
+        )
 
-    st.progress(paso_actual / len(pasos))
-    st.markdown("")
+        items_html += f"""
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+            <div style="
+                width:28px; height:28px; border-radius:50%;
+                background:{circulo_bg}; color:{circulo_color};
+                display:flex; align-items:center; justify-content:center;
+                font-size:0.8rem; font-weight:700;
+            ">{contenido}</div>
+            <div style="font-size:0.72rem; font-weight:600; color:{texto_color};
+                text-transform:uppercase; letter-spacing:0.08em;">{nombre}</div>
+        </div>
+        {conector}
+        """
+
+    st.markdown(
+        f"""<div style="
+            display:flex; align-items:center;
+            background:#ffffff; border:1px solid #ede0d4;
+            border-radius:12px; padding:0.8rem 1.2rem;
+            margin-bottom:1.2rem;
+        ">{items_html}</div>""",
+        unsafe_allow_html=True
+    )
+
 
 def _paso_1_cliente(df):
     st.markdown("#### 👤 Datos del comprador")
@@ -65,8 +97,9 @@ def _paso_1_cliente(df):
             nombre_c = html.escape(cliente["nombre"])
             dir_c = html.escape(cliente["direccion"])
             st.markdown(
-                f"""<div style="background:#f5ede6; border-left:4px solid #c8956c;
-                border-radius:8px; padding:0.6rem 1rem; margin:0.3rem 0; font-size:0.9rem;">
+                f"""<div style="background:#fdf6f0; border:1px solid #ede0d4;
+                border-left:3px solid #c8956c; border-radius:8px;
+                padding:0.6rem 1rem; margin:0.3rem 0; font-size:0.9rem; color:#2c1a0e;">
                 👤 Cliente conocido: <strong>{nombre_c}</strong>
                 {' — ' + dir_c if dir_c else ''}
                 </div>""", unsafe_allow_html=True
@@ -94,6 +127,7 @@ def _paso_1_cliente(df):
                 st.session_state.wiz_direccion = direccion
                 st.session_state.wiz_tipo_envio = tipo_envio
                 st.rerun()
+
 
 def _paso_2_perfumes(df):
     st.markdown("#### 🛒 Agregar perfumes")
@@ -139,16 +173,58 @@ def _paso_2_perfumes(df):
 
     if st.session_state.cesta:
         separador()
-        st.markdown(f"**🛍️ Cesta ({len(st.session_state.cesta)} item(s)):**")
+        st.markdown(f"**🛍️ Cesta — {len(st.session_state.cesta)} item(s)**")
+        st.markdown("")
+
         for i, item in enumerate(st.session_state.cesta):
-            c1, c2, c3 = st.columns([3, 1, 0.5])
-            c1.write(f"🌸 {item['perfume']} ({item['ml']}ml)")
-            c2.write(f"**S/ {fmt_precio(item['precio'])}**")
-            if c3.button("🗑️", key=f"del_{i}"):
-                st.session_state.cesta.pop(i)
-                st.rerun()
-        total = sum(float(i['precio']) for i in st.session_state.cesta)
-        st.markdown(f"**Total: S/ {fmt_precio(total)}**")
+            nombre_item = html.escape(str(item["perfume"]))
+            metodo_item = html.escape(str(item["metodo"]))
+            col_item, col_del = st.columns([10, 1])
+            with col_item:
+                st.markdown(
+                    f"""<div style="
+                        background:#ffffff; border:1px solid #ede0d4;
+                        border-radius:10px; padding:0.65rem 1rem;
+                        display:flex; justify-content:space-between; align-items:center;
+                    ">
+                        <div>
+                            <div style="font-size:0.9rem; font-weight:600; color:#2c1a0e;">
+                                🌸 {nombre_item} · {item['ml']}ml
+                            </div>
+                            <div style="font-size:0.75rem; color:#a07850; margin-top:2px;">
+                                {metodo_item}
+                            </div>
+                        </div>
+                        <div style="
+                            font-family:'Inter','DM Sans',sans-serif;
+                            font-size:1rem; font-weight:700; color:#2c1a0e;
+                            font-variant-numeric:tabular-nums;
+                        ">S/ {fmt_precio(item['precio'])}</div>
+                    </div>""",
+                    unsafe_allow_html=True
+                )
+            with col_del:
+                st.markdown("<div style='padding-top:4px;'>", unsafe_allow_html=True)
+                if st.button("🗑️", key=f"del_{i}"):
+                    st.session_state.cesta.pop(i)
+                    st.rerun()
+
+        total = sum(float(i["precio"]) for i in st.session_state.cesta)
+        st.markdown(
+            f"""<div style="
+                background:#fdf6f0; border:1px solid #ede0d4;
+                border-radius:10px; padding:0.65rem 1.2rem;
+                display:flex; justify-content:space-between; align-items:center;
+                margin-top:0.3rem;
+            ">
+                <div style="font-size:0.8rem; font-weight:600; color:#a07850;
+                    text-transform:uppercase; letter-spacing:0.08em;">Total</div>
+                <div style="font-family:'Inter','DM Sans',sans-serif;
+                    font-size:1.2rem; font-weight:700; color:#2c1a0e;
+                    font-variant-numeric:tabular-nums;">S/ {fmt_precio(total)}</div>
+            </div>""",
+            unsafe_allow_html=True
+        )
 
     st.markdown("")
     col_ant, col_sig = st.columns(2)
@@ -164,6 +240,7 @@ def _paso_2_perfumes(df):
                 st.session_state.wiz_paso = 3
                 st.rerun()
 
+
 def _paso_3_confirmar():
     st.markdown("#### ✅ Confirmar venta")
 
@@ -174,31 +251,51 @@ def _paso_3_confirmar():
     fecha_str  = st.session_state.wiz_fecha.strftime("%d/%m/%Y")
 
     st.markdown(f"""
-    <div style="background:#f5ede6; border-radius:10px; padding:1rem 1.2rem; margin-bottom:1rem;">
-        <div style="font-size:0.75rem; color:#a07850; text-transform:uppercase; font-weight:600; margin-bottom:0.5rem;">Datos del comprador</div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.3rem; font-size:0.9rem; color:#2c1a0e;">
-            <div>👤 <strong>{comprador}</strong></div>
-            <div>📱 {celular}</div>
-            <div>📍 {direccion}</div>
-            <div>🚚 {tipo_envio}</div>
-            <div>📅 {fecha_str}</div>
+    <div style="background:#ffffff; border:1px solid #ede0d4; border-radius:12px;
+        padding:1rem 1.2rem; margin-bottom:0.8rem;">
+        <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
+            font-weight:600; letter-spacing:0.1em; margin-bottom:0.6rem;">Datos del comprador</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;
+            font-size:0.88rem; color:#2c1a0e;">
+            <div><span style="color:#a07850; font-size:0.75rem;">👤 Nombre</span>
+                <br><strong>{comprador}</strong></div>
+            <div><span style="color:#a07850; font-size:0.75rem;">📱 Celular</span>
+                <br><strong>{celular}</strong></div>
+            <div><span style="color:#a07850; font-size:0.75rem;">📅 Fecha</span>
+                <br><strong>{fecha_str}</strong></div>
+            <div><span style="color:#a07850; font-size:0.75rem;">🚚 Envío</span>
+                <br><strong>{tipo_envio}</strong></div>
+            <div style="grid-column:1/-1;">
+                <span style="color:#a07850; font-size:0.75rem;">📍 Dirección</span>
+                <br><strong>{direccion}</strong></div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    total = sum(float(i['precio']) for i in st.session_state.cesta)
+    total = sum(float(i["precio"]) for i in st.session_state.cesta)
     items_html = "".join([
-        f"<div style='display:flex; justify-content:space-between; padding:0.4rem 0; border-bottom:1px solid #f0e0d0;'>"
-        f"<span>🌸 {html.escape(str(i['perfume']))} ({html.escape(str(i['ml']))}ml) · {html.escape(str(i['metodo']))}</span>"
-        f"<strong>S/ {fmt_precio(i['precio'])}</strong></div>"
+        f"<div style='display:flex; justify-content:space-between; align-items:center;"
+        f"padding:0.45rem 0; border-bottom:1px solid #f5ede6; font-size:0.88rem;'>"
+        f"<div><span style='color:#2c1a0e; font-weight:600;'>🌸 {html.escape(str(i['perfume']))}</span>"
+        f"<span style='color:#a07850; font-size:0.78rem;'> · {html.escape(str(i['ml']))}ml · {html.escape(str(i['metodo']))}</span></div>"
+        f"<span style='font-family:Inter,DM Sans,sans-serif; font-weight:700; color:#2c1a0e;"
+        f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(i['precio'])}</span></div>"
         for i in st.session_state.cesta
     ])
+
     st.markdown(f"""
-    <div style="background:white; border:1px solid #f0e0d0; border-radius:10px; padding:1rem 1.2rem; margin-bottom:0.8rem;">
-        <div style="font-size:0.75rem; color:#a07850; text-transform:uppercase; font-weight:600; margin-bottom:0.5rem;">Perfumes</div>
+    <div style="background:#ffffff; border:1px solid #ede0d4; border-radius:12px;
+        padding:1rem 1.2rem; margin-bottom:0.8rem;">
+        <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
+            font-weight:600; letter-spacing:0.1em; margin-bottom:0.5rem;">Perfumes</div>
         {items_html}
-        <div style="display:flex; justify-content:space-between; margin-top:0.6rem; font-size:1.1rem; font-weight:700; color:#2c1a0e;">
-            <span>Total</span><span>S/ {fmt_precio(total)}</span>
+        <div style="display:flex; justify-content:space-between; align-items:center;
+            margin-top:0.6rem; padding-top:0.5rem; border-top:1px solid #ede0d4;">
+            <span style="font-size:0.8rem; font-weight:600; color:#a07850;
+                text-transform:uppercase; letter-spacing:0.08em;">Total</span>
+            <span style="font-family:'Inter','DM Sans',sans-serif; font-size:1.15rem;
+                font-weight:700; color:#2c1a0e; font-variant-numeric:tabular-nums;">
+                S/ {fmt_precio(total)}</span>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -246,6 +343,7 @@ def _paso_3_confirmar():
             except Exception as e:
                 st.error(f"Error al guardar: {e}")
 
+
 def _resetear_wizard():
     st.session_state.wiz_paso = 1
     st.session_state.cesta = []
@@ -260,6 +358,7 @@ def _resetear_wizard():
     st.session_state.wiz_comprador = ""
     st.session_state.wiz_celular = ""
     st.session_state.wiz_direccion = ""
+
 
 def mostrar_tab_venta(df):
     mostrar_seccion_cotizacion(df)
@@ -299,49 +398,71 @@ def mostrar_tab_venta(df):
         cesta      = st.session_state.get("cesta", [])
 
         items_html = "".join([
-            f"<div style='display:flex; justify-content:space-between; "
-            f"padding:0.4rem 0; border-bottom:1px solid #f0e0d0; font-size:0.9rem;'>"
-            f"<span>🌸 {html.escape(str(i['perfume']))} &nbsp;·&nbsp; {html.escape(str(i['ml']))}ml &nbsp;·&nbsp; {html.escape(str(i['metodo']))}</span>"
-            f"<strong>S/ {fmt_precio(i['precio'])}</strong></div>"
+            f"<div style='display:flex; justify-content:space-between; align-items:center;"
+            f"padding:0.45rem 0; border-bottom:1px solid #f5ede6; font-size:0.88rem;'>"
+            f"<div><span style='color:#2c1a0e; font-weight:600;'>🌸 {html.escape(str(i['perfume']))}</span>"
+            f"<span style='color:#a07850; font-size:0.78rem;'> · {html.escape(str(i['ml']))}ml · {html.escape(str(i['metodo']))}</span></div>"
+            f"<span style='font-family:Inter,DM Sans,sans-serif; font-weight:700; color:#2c1a0e;"
+            f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(i['precio'])}</span></div>"
             for i in cesta
         ])
 
         st.markdown(
-            f'''<div style="background:white;border:1px solid #f0e0d0;border-radius:14px;padding:1.2rem 1.4rem;margin-bottom:1rem;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;padding-bottom:0.8rem;border-bottom:1px solid #f0e0d0;">
-                <div>
-                    <div style="font-size:0.72rem;color:#a07850;text-transform:uppercase;font-weight:600;letter-spacing:0.1em;margin-bottom:2px;">Compra</div>
-                    <div style="font-family:Playfair Display,serif;font-size:1.5rem;font-weight:700;color:#2c1a0e;">{id_compra}</div>
+            f"""<div style="background:white; border:1px solid #ede0d4; border-radius:14px;
+                padding:1.2rem 1.4rem; margin-bottom:1rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center;
+                    margin-bottom:1rem; padding-bottom:0.8rem; border-bottom:1px solid #ede0d4;">
+                    <div>
+                        <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
+                            font-weight:600; letter-spacing:0.1em; margin-bottom:2px;">Compra</div>
+                        <div style="font-family:'Inter','DM Sans',sans-serif; font-size:1.4rem;
+                            font-weight:700; color:#2c1a0e;">{id_compra}</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
+                            font-weight:600; margin-bottom:2px;">Total</div>
+                        <div style="font-family:'Inter','DM Sans',sans-serif; font-size:1.4rem;
+                            font-weight:700; color:#c8956c; font-variant-numeric:tabular-nums;">
+                            S/ {fmt_precio(total)}</div>
+                    </div>
                 </div>
-                <div style="text-align:right;">
-                    <div style="font-size:0.72rem;color:#a07850;text-transform:uppercase;font-weight:600;margin-bottom:2px;">Total</div>
-                    <div style="font-family:Playfair Display,serif;font-size:1.5rem;font-weight:700;color:#c8956c;">S/ {fmt_precio(total)}</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;
+                    margin-bottom:1rem; font-size:0.88rem;">
+                    <div><span style="color:#a07850; font-size:0.75rem;">👤 Comprador</span>
+                        <br><strong style="color:#2c1a0e;">{comprador}</strong></div>
+                    <div><span style="color:#a07850; font-size:0.75rem;">📱 Celular</span>
+                        <br><strong style="color:#2c1a0e;">{celular}</strong></div>
+                    <div><span style="color:#a07850; font-size:0.75rem;">📅 Fecha</span>
+                        <br><strong style="color:#2c1a0e;">{fecha_str}</strong></div>
+                    <div><span style="color:#a07850; font-size:0.75rem;">🚚 Envío</span>
+                        <br><strong style="color:#2c1a0e;">{tipo_envio}</strong></div>
+                    <div style="grid-column:1/-1;">
+                        <span style="color:#a07850; font-size:0.75rem;">📍 Dirección</span>
+                        <br><strong style="color:#2c1a0e;">{direccion}</strong></div>
                 </div>
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:1rem;font-size:0.88rem;">
-                <div><span style="color:#a07850;">👤 Comprador</span><br><strong style="color:#2c1a0e;">{comprador}</strong></div>
-                <div><span style="color:#a07850;">📱 Celular</span><br><strong style="color:#2c1a0e;">{celular}</strong></div>
-                <div><span style="color:#a07850;">📅 Fecha</span><br><strong style="color:#2c1a0e;">{fecha_str}</strong></div>
-                <div><span style="color:#a07850;">🚚 Envío</span><br><strong style="color:#2c1a0e;">{tipo_envio}</strong></div>
-                <div style="grid-column:1/-1;"><span style="color:#a07850;">📍 Dirección</span><br><strong style="color:#2c1a0e;">{direccion}</strong></div>
-            </div>
-            <div style="font-size:0.72rem;color:#a07850;text-transform:uppercase;font-weight:600;margin-bottom:0.4rem;">Perfumes</div>
-            {items_html}
-            <div style="display:flex;justify-content:space-between;margin-top:0.7rem;padding-top:0.5rem;border-top:1px solid #f0e0d0;font-size:1rem;font-weight:700;color:#2c1a0e;">
-                <span>Total</span><span style="color:#c8956c;">S/ {fmt_precio(total)}</span>
-            </div>
-            </div>''',
+                <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
+                    font-weight:600; letter-spacing:0.1em; margin-bottom:0.4rem;">Perfumes</div>
+                {items_html}
+                <div style="display:flex; justify-content:space-between; align-items:center;
+                    margin-top:0.7rem; padding-top:0.5rem; border-top:1px solid #ede0d4;">
+                    <span style="font-size:0.8rem; font-weight:600; color:#a07850;
+                        text-transform:uppercase; letter-spacing:0.08em;">Total</span>
+                    <span style="font-family:'Inter','DM Sans',sans-serif; font-size:1.15rem;
+                        font-weight:700; color:#c8956c; font-variant-numeric:tabular-nums;">
+                        S/ {fmt_precio(total)}</span>
+                </div>
+            </div>""",
             unsafe_allow_html=True
         )
 
         url_wa = st.session_state.get("wiz_url_wa", "")
         if url_wa:
             st.markdown(
-                f'''<a href="{url_wa}" target="_blank" style="text-decoration:none;">
+                f"""<a href="{url_wa}" target="_blank" style="text-decoration:none;">
                 <div style="background:#25D366; color:white; padding:14px; border-radius:10px;
                 text-align:center; font-weight:700; margin-bottom:0.8rem; font-size:1rem;">
                     📲 Enviar Comprobante por WhatsApp
-                </div></a>''', unsafe_allow_html=True
+                </div></a>""", unsafe_allow_html=True
             )
 
         if st.button("🆕 Registrar otra venta", key="nueva_venta", use_container_width=True):

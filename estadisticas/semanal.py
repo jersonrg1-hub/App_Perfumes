@@ -18,7 +18,12 @@ def _stats_mes(df_ventas, mes_str):
 
 def _col_mes(col, nombre_mes, total, num, prom):
     with col:
-        st.markdown(f"**{nombre_mes}**")
+        st.markdown(
+            f"<div style='font-size:0.8rem; font-weight:600; color:#a07850;"
+            f"text-transform:uppercase; letter-spacing:0.08em;"
+            f"margin-bottom:0.5rem;'>{html.escape(str(nombre_mes))}</div>",
+            unsafe_allow_html=True
+        )
         st.markdown(_metrica_card("Ventas", num), unsafe_allow_html=True)
         st.markdown("")
         st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total)}"), unsafe_allow_html=True)
@@ -45,8 +50,11 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     ]
 
     st.markdown("#### 📅 Resumen de esta semana")
-    st.markdown(f"<span style='font-size:1rem; color:#a07850; font-weight:600;'>{inicio_semana.strftime('%d/%m/%Y')} — {fin_semana.strftime('%d/%m/%Y')}</span>", unsafe_allow_html=True)
-    st.markdown("")
+    st.markdown(
+        f"<div style='font-size:0.85rem; color:#a07850; font-weight:600; margin-bottom:0.5rem;'>"
+        f"{inicio_semana.strftime('%d/%m/%Y')} — {fin_semana.strftime('%d/%m/%Y')}</div>",
+        unsafe_allow_html=True
+    )
 
     col1, col2, col3 = st.columns(3)
     total_semana = ventas_semana["Precio_Cobrado"].sum()
@@ -77,13 +85,20 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
 
         st.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #2c1a0e, #5c3a1e);
-            border-radius: 12px; padding: 1rem;
-            text-align: center; margin: 0.5rem 0;
+            background:#ffffff; border:1px solid #ede0d4; border-radius:12px;
+            padding:1rem; text-align:center; margin:0.5rem 0;
         ">
-            <div style="color:#e8c9a8; font-size:0.75rem; text-transform:uppercase;">🏆 Más vendido esta semana</div>
-            <div style="color:white; font-family:'Playfair Display',serif; font-size:1.4rem; font-weight:700;">{nombre_top}</div>
-            <div style="color:#c8956c; font-size:0.85rem;">{top['Cantidad']} venta(s)</div>
+            <div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;
+                font-weight:600; letter-spacing:0.12em; margin-bottom:0.3rem;">
+                🏆 Más vendido esta semana
+            </div>
+            <div style="font-family:'Playfair Display',serif; font-size:1.3rem;
+                font-weight:600; color:#2c1a0e; margin-bottom:0.2rem;">{nombre_top}</div>
+            <div style="
+                display:inline-block; background:#fdf6f0; border:1px solid #ede0d4;
+                border-radius:20px; padding:0.2rem 0.7rem;
+                font-size:0.8rem; color:#a07850; font-weight:600;
+            ">{top['Cantidad']} venta(s)</div>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -99,13 +114,23 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
             ventas_dia = ventas_semana[ventas_semana["Fecha"].dt.normalize() == fecha_dia.normalize()]
             total_dia = ventas_dia["Precio_Cobrado"].sum()
             es_hoy = fecha_dia.normalize() == hoy
+
+            borde = "border:1px solid #c8956c;" if es_hoy else "border:1px solid #ede0d4;"
+            bg = "#fdf6f0" if es_hoy else "#ffffff"
+            color_dia = "#c8956c" if es_hoy else "#a07850"
+
             with cols[i]:
-                color = "#c8956c" if es_hoy else "#a07850"
                 st.markdown(f"""
-                <div style="text-align:center; padding:0.5rem 0.2rem;">
-                    <div style="color:{color}; font-size:0.7rem; font-weight:600;">{dia}</div>
-                    <div style="color:#2c1a0e; font-size:0.8rem; font-weight:700;">{len(ventas_dia)}</div>
-                    <div style="color:#a07850; font-size:0.65rem;">S/{fmt_precio(total_dia)}</div>
+                <div style="text-align:center; padding:0.5rem 0.2rem;
+                    background:{bg}; border-radius:10px; {borde}">
+                    <div style="color:{color_dia}; font-size:0.68rem;
+                        font-weight:600; text-transform:uppercase;">{dia}</div>
+                    <div style="color:#2c1a0e; font-size:0.9rem; font-weight:700;
+                        font-family:'Inter','DM Sans',sans-serif;
+                        font-variant-numeric:tabular-nums;">{len(ventas_dia)}</div>
+                    <div style="color:#a07850; font-size:0.65rem;
+                        font-family:'Inter','DM Sans',sans-serif;">
+                        S/{fmt_precio(total_dia)}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -143,18 +168,24 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
         diferencia = total_m2 - total_m1
         porcentaje = ((total_m2 - total_m1) / total_m1) * 100
         color = "#2d7a4f" if diferencia >= 0 else "#e53e3e"
+        bg = "#f0faf4" if diferencia >= 0 else "#fff5f5"
+        borde = "#b7e4c7" if diferencia >= 0 else "#fed7d7"
         simbolo = "📈" if diferencia >= 0 else "📉"
+
         st.markdown(f"""
         <div style="
-            background: white;
-            border-radius: 12px; padding: 1rem;
-            text-align: center; border: 1px solid #f0e0d0;
-            margin-top: 0.5rem;
+            background:{bg}; border:1px solid {borde};
+            border-radius:12px; padding:1rem;
+            text-align:center; margin-top:0.5rem;
         ">
-            <div style="color:#a07850; font-size:0.75rem; text-transform:uppercase;">Diferencia</div>
-            <div style="color:{color}; font-size:1.5rem; font-weight:700;">
+            <div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;
+                font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">Diferencia</div>
+            <div style="color:{color}; font-size:1.4rem; font-weight:700;
+                font-family:'Inter','DM Sans',sans-serif; font-variant-numeric:tabular-nums;">
                 {simbolo} S/ {fmt_precio(abs(diferencia))} ({porcentaje:+.1f}%)
             </div>
-            <div style="color:#a07850; font-size:0.8rem;">{mes2} vs {mes1}</div>
+            <div style="color:#a07850; font-size:0.8rem; margin-top:0.2rem;">
+                {html.escape(mes2)} vs {html.escape(mes1)}
+            </div>
         </div>
-        """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)g

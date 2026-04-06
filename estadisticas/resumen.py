@@ -12,16 +12,16 @@ from pdf_generator import exportar_pdf_ventas_hoy
 def _metrica_card(titulo, valor):
     titulo_safe = html.escape(str(titulo))
     valor_safe = html.escape(str(valor))
-    return (
-        f'<div style="background:white; border-radius:12px; padding:1rem;'
-        f'text-align:center; border:1px solid #ede0d4;">'
-        f'<div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;'
-        f'font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">{titulo_safe}</div>'
-        f'<div style="color:#2c1a0e; font-size:1.7rem; font-weight:700;'
-        f'font-family:\'Inter\',\'DM Sans\',sans-serif;'
-        f'font-variant-numeric:tabular-nums;">{valor_safe}</div>'
-        f'</div>'
-    )
+    return f"""
+    <div style="background:white; border-radius:12px; padding:1rem;
+        text-align:center; border:1px solid #ede0d4;">
+        <div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;
+            font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">{titulo_safe}</div>
+        <div style="color:#2c1a0e; font-size:1.7rem; font-weight:700;
+            font-family:Inter,sans-serif;
+            font-variant-numeric:tabular-nums;">{valor_safe}</div>
+    </div>
+    """
 
 
 @st.cache_data(ttl=120)

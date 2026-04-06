@@ -188,4 +188,4 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
                 {html.escape(mes2)} vs {html.escape(mes1)}
             </div>
         </div>
-        """, unsafe_allow_html=True)g
+        """, unsafe_allow_html=True)

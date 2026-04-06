@@ -56,7 +56,7 @@ def _preparar_ventas(df_ventas):
 def _grafico_barras_dia(df):
     hoy = pd.Timestamp(hoy_peru())
     inicio = hoy - pd.Timedelta(days=29)
-    df_periodo = df[df["Fecha"].dt.normalize() >= inicio.normalize()].copy()
+    df_periodo = df[df["Fecha"].dt.normalize() >= inicio.normalize()]
 
     if df_periodo.empty:
         st.info("Sin ventas en los últimos 30 días")
@@ -77,9 +77,10 @@ def _grafico_barras_dia(df):
         x=diario["Dia"],
         y=diario["Total"],
         name="Total vendido (S/)",
-        marker_color=COLORES["accent"],
-        marker_line_color=COLORES["primary"],
-        marker_line_width=0.5,
+        marker=dict(
+            color=COLORES["accent"],
+            line=dict(color=COLORES["primary"], width=0.5)
+        ),
         hovertemplate="<b>%{x|%d/%m/%Y}</b><br>Total: S/ %{y:.2f}<br><extra></extra>",
     ))
 
@@ -110,7 +111,7 @@ def _grafico_barras_dia(df):
 
 
 def _grafico_linea_mensual(df):
-    df_valido = df[df["Fecha"].notna()].copy()
+    df_valido = df[df["Fecha"].notna()]
     mensual = (
         df_valido.groupby(df_valido["Fecha"].dt.to_period("M"))
         .agg(Ventas=("Precio_Cobrado", "count"), Total=("Precio_Cobrado", "sum"))

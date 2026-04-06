@@ -1,6 +1,7 @@
+import html
 import streamlit as st
 import pandas as pd
-from config import fmt_precio, WORKSHEET_COTIZACIONES
+from config import fmt_precio, hoy_peru, WORKSHEET_COTIZACIONES
 from data import get_hoja
 from components import separador
 
@@ -39,7 +40,7 @@ def mostrar_historial_cotizaciones():
     total_monto = df["Total"].sum() if "Total" in df.columns else 0
     esta_semana = 0
     if "Fecha" in df.columns:
-        hoy = pd.Timestamp("today").normalize()
+        hoy = pd.Timestamp(hoy_peru()).normalize()
         inicio_semana = hoy - pd.Timedelta(days=hoy.weekday())
         esta_semana = len(df[df["Fecha"].dt.normalize() >= inicio_semana])
 
@@ -69,10 +70,13 @@ def mostrar_historial_cotizaciones():
 
     df_mostrar = df.copy()
     if buscar:
-        df_mostrar = df_mostrar[
-            df_mostrar.get("Celular", pd.Series()).astype(str).str.contains(buscar, na=False) |
-            df_mostrar.get("ID_Cotizacion", pd.Series()).astype(str).str.contains(buscar, na=False)
-        ]
+        mask = pd.Series(False, index=df_mostrar.index)
+        if "Celular" in df_mostrar.columns:
+            mask |= df_mostrar["Celular"].astype(str).str.contains(buscar, na=False)
+        if "ID_Cotizacion" in df_mostrar.columns:
+            mask |= df_mostrar["ID_Cotizacion"].astype(str).str.contains(buscar, na=False)
+        df_mostrar = df_mostrar[mask]
+
     if filtro_estado != "Todos":
         df_mostrar = df_mostrar[df_mostrar["Estado"] == filtro_estado]
 
@@ -83,13 +87,13 @@ def mostrar_historial_cotizaciones():
     st.markdown("")
 
     for row in df_mostrar.to_dict("records"):
-        id_cot = row.get("ID_Cotizacion", "—")
-        celular = str(row.get("Celular", "—"))
+        id_cot = html.escape(str(row.get("ID_Cotizacion", "—")))
+        celular = html.escape(str(row.get("Celular", "—")))
         fecha = row.get("Fecha")
         fecha_str = fecha.strftime("%d/%m/%Y") if pd.notna(fecha) else "—"
         total = row.get("Total", 0)
-        perfumes = str(row.get("Perfumes", "—"))
-        estado = str(row.get("Estado", "—"))
+        perfumes = html.escape(str(row.get("Perfumes", "—")))
+        estado = html.escape(str(row.get("Estado", "—")))
 
         if estado == "Enviado":
             badge_bg, badge_color = "#dcfce7", "#166534"
@@ -131,7 +135,8 @@ def mostrar_historial_cotizaciones():
                 )
 
             st.markdown("")
-            wa_url = f"https://wa.me/51{celular}"
+            wa_celular = str(row.get("Celular", ""))
+            wa_url = f"https://wa.me/51{wa_celular}"
             st.markdown(
                 f'<a href="{wa_url}" target="_blank" style="text-decoration:none;">'
                 f'<div style="background:#25D366;color:white;padding:8px;border-radius:8px;'

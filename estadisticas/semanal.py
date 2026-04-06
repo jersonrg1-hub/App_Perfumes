@@ -73,7 +73,6 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
 
         match = df_catalogo[df_catalogo["ID_Perfume"].astype(str) == top["ID_Perfume"]]
         nombre_top = match.iloc[0]["Nombre"] if not match.empty else top["ID_Perfume"]
-
         nombre_top = html.escape(str(nombre_top))
 
         st.markdown(f"""
@@ -113,16 +112,11 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     st.markdown("---")
     st.markdown("#### 📆 Comparar meses")
 
-    cache_key = "meses_disponibles"
-    if cache_key not in st.session_state:
-        meses_disponibles = sorted(
-            df_ventas["Fecha"].dropna()
-            .dt.to_period("M")
-            .unique()
-            .tolist()
+    opciones_meses = [
+        str(m) for m in sorted(
+            df_ventas["Fecha"].dropna().dt.to_period("M").unique().tolist()
         )
-        st.session_state[cache_key] = [str(m) for m in meses_disponibles]
-    opciones_meses = st.session_state[cache_key]
+    ]
 
     if len(opciones_meses) < 2:
         st.info("Se necesitan al menos 2 meses de datos para comparar")

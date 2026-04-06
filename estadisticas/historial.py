@@ -76,11 +76,14 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
         st.info("😔 No hay ventas que coincidan con los filtros")
         return
 
+    catalogo_dict = {}
+    if df_catalogo is not None:
+        catalogo_dict = dict(
+            zip(df_catalogo["ID_Perfume"].astype(str), df_catalogo["Nombre"])
+        )
+
     def get_nombre_perfume(id_perfume):
-        if df_catalogo is None:
-            return f"ID: {id_perfume}"
-        match = df_catalogo[df_catalogo["ID_Perfume"].astype(str) == str(id_perfume)]
-        return match.iloc[0]["Nombre"] if not match.empty else f"ID: {id_perfume}"
+        return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
 
     orden_ids = (
         df_filtrado.groupby("ID_Compra")["Fecha"]
@@ -110,7 +113,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
                 st.write(f"📦 **Estado:** ✅ Entregado")
 
             st.markdown("**🛍️ Productos:**")
-            for _, item in grupo.iterrows():
+            for item in grupo.to_dict("records"):
                 nombre = get_nombre_perfume(item.get("ID_Perfume", ""))
                 st.markdown(
                     f"- 🌸 **{nombre}** — "

@@ -25,8 +25,12 @@ def _buscar_cliente(df_ventas, celular):
 
 def _barra_progreso(paso_actual):
     pasos = ["Cliente", "Perfumes", "Confirmar"]
-    items_html = ""
-    for i, nombre in enumerate(pasos, 1):
+
+    col1, col2, col3, col4, col5 = st.columns([2, 1, 2, 1, 2])
+    columnas_pasos = [col1, col3, col5]
+    columnas_conectores = [col2, col4]
+
+    for i, (col, nombre) in enumerate(zip(columnas_pasos, pasos), 1):
         if i < paso_actual:
             circulo_bg = "#2c1a0e"
             circulo_color = "white"
@@ -35,7 +39,7 @@ def _barra_progreso(paso_actual):
         elif i == paso_actual:
             circulo_bg = "#c8956c"
             circulo_color = "white"
-            texto_color = "#2c1a0e"
+            texto_color = "#c8956c"
             contenido = str(i)
         else:
             circulo_bg = "#ede0d4"
@@ -43,35 +47,33 @@ def _barra_progreso(paso_actual):
             texto_color = "#a07850"
             contenido = str(i)
 
-        conector = (
-            f"<div style='flex:1; height:1px; background:"
-            f"{'#2c1a0e' if i < paso_actual else '#ede0d4'}; margin:0 4px;'></div>"
-            if i < len(pasos) else ""
-        )
+        with col:
+            st.markdown(
+                f"""<div style="display:flex; flex-direction:column;
+                    align-items:center; gap:4px; padding:0.5rem 0;">
+                    <div style="width:28px; height:28px; border-radius:50%;
+                        background:{circulo_bg}; color:{circulo_color};
+                        display:flex; align-items:center; justify-content:center;
+                        font-size:0.8rem; font-weight:700;">{contenido}</div>
+                    <div style="font-size:0.7rem; font-weight:600; color:{texto_color};
+                        text-transform:uppercase; letter-spacing:0.08em;
+                        text-align:center;">{nombre}</div>
+                </div>""",
+                unsafe_allow_html=True
+            )
 
-        items_html += f"""
-        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
-            <div style="
-                width:28px; height:28px; border-radius:50%;
-                background:{circulo_bg}; color:{circulo_color};
-                display:flex; align-items:center; justify-content:center;
-                font-size:0.8rem; font-weight:700;
-            ">{contenido}</div>
-            <div style="font-size:0.72rem; font-weight:600; color:{texto_color};
-                text-transform:uppercase; letter-spacing:0.08em;">{nombre}</div>
-        </div>
-        {conector}
-        """
+    for j, col in enumerate(columnas_conectores):
+        linea_color = "#2c1a0e" if (j + 1) < paso_actual else "#ede0d4"
+        with col:
+            st.markdown(
+                f"""<div style="height:28px; display:flex; align-items:center;
+                    padding-top:0.5rem;">
+                    <div style="flex:1; height:1px; background:{linea_color};"></div>
+                </div>""",
+                unsafe_allow_html=True
+            )
 
-    st.markdown(
-        f"""<div style="
-            display:flex; align-items:center;
-            background:#ffffff; border:1px solid #ede0d4;
-            border-radius:12px; padding:0.8rem 1.2rem;
-            margin-bottom:1.2rem;
-        ">{items_html}</div>""",
-        unsafe_allow_html=True
-    )
+    st.markdown("")
 
 
 def _paso_1_cliente(df):

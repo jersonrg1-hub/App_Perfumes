@@ -1,6 +1,4 @@
-import html as html_lib
 import streamlit as st
-from pathlib import Path
 from urllib.parse import quote
 from config import fmt_precio
 
@@ -25,6 +23,8 @@ def mostrar_encabezado():
 
 def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, cesta, total):
     items_texto = "\n".join([
+        f"- {i.get('marca', '')} {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
+        if i.get('marca') else
         f"- {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
         for i in cesta
     ])
@@ -42,6 +42,7 @@ def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, c
         f"💰 *Total: S/ {fmt_precio(total)}*"
     )
     return f"https://wa.me/?text={quote(mensaje)}"
+
 
 def separador(simbolo="✦", texto=""):
     contenido = f"{simbolo} {texto} {simbolo}" if texto else f"{simbolo} &nbsp; {simbolo} &nbsp; {simbolo}"

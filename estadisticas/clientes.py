@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 import pandas as pd
 from config import fmt_precio, fmt_fecha
@@ -40,7 +41,8 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
 
     top = resumen.iloc[0] if not resumen.empty else None
     prom = resumen["Total_Gastado"].mean() if not resumen.empty else 0
-    top_nombre = top["Nombre"] if top is not None else "—"
+
+    top_nombre = html.escape(str(top["Nombre"])) if top is not None else "—"
 
     st.markdown(f"""
     <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.5rem;">
@@ -87,7 +89,7 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
     def get_nombre_perfume(id_perfume):
         return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
 
-    for _, cliente in df_mostrar.iterrows():
+    for cliente in df_mostrar.to_dict("records"):
         celular = str(cliente["Celular"])
         nombre = cliente["Nombre"]
         total_gastado = cliente["Total_Gastado"]
@@ -147,7 +149,7 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
                     f"{primera_fila.get('Metodo_Pago', '')}"
                 )
 
-                for _, item in grupo.iterrows():
+                for item in grupo.to_dict("records"):
                     nombre_perfume = get_nombre_perfume(item.get("ID_Perfume", ""))
                     st.markdown(
                         f"&nbsp;&nbsp;&nbsp;&nbsp;🌸 {nombre_perfume} "

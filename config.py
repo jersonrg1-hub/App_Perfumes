@@ -1,3 +1,7 @@
+import pytz
+import pandas as pd
+from datetime import datetime
+
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
@@ -30,36 +34,34 @@ COLUMNAS_VENTAS = [
 
 COL_ESTADO_NUM = COLUMNAS_VENTAS.index("Estado") + 1
 
-import pytz
 TZ_PERU = pytz.timezone("America/Lima")
 
+
 def hoy_peru():
-    """Devuelve la fecha de hoy en hora peruana, no del servidor."""
-    from datetime import datetime
     return datetime.now(TZ_PERU).date()
 
+
 def fmt_fecha(fecha):
-    """Formatea fecha a dd/mm/aaaa para mostrar en pantalla."""
     try:
-        import pandas as pd
         if isinstance(fecha, str):
             fecha = pd.to_datetime(fecha, errors="coerce")
         return fecha.strftime("%d/%m/%Y")
-    except:
+    except Exception:
         return str(fecha)
 
+
 def fmt_precio(valor):
-    """Formatea un precio con 2 decimales. Ej: 10.9 → 10.90"""
     try:
         return f"{float(valor):.2f}"
-    except:
+    except Exception:
         return str(valor)
+
 
 STOCK_CRITICO  = 5
 STOCK_BAJO     = 15
 
+
 def stock_badge_html(stock_ml, size="sm"):
-    """Devuelve un badge HTML de stock con color semáforo."""
     try:
         n = float(stock_ml)
     except (TypeError, ValueError):
@@ -85,8 +87,8 @@ def stock_badge_html(stock_ml, size="sm"):
         f"display:inline-block; margin-left:4px;'>{icono} {label}</span>"
     )
 
+
 def stock_barra_html(stock_ml, max_ml=100):
-    """Devuelve una barra visual de nivel de stock."""
     try:
         n = float(stock_ml)
     except (TypeError, ValueError):

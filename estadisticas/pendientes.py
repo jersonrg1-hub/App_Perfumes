@@ -25,11 +25,14 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         st.success("✅ No hay ventas pendientes")
         return
 
+    catalogo_dict = {}
+    if df_catalogo is not None:
+        catalogo_dict = dict(
+            zip(df_catalogo["ID_Perfume"].astype(str), df_catalogo["Nombre"])
+        )
+
     def get_nombre_perfume(id_perfume):
-        if df_catalogo is None:
-            return f"ID: {id_perfume}"
-        match = df_catalogo[df_catalogo["ID_Perfume"].astype(str) == str(id_perfume)]
-        return match.iloc[0]["Nombre"] if not match.empty else f"ID: {id_perfume}"
+        return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
 
     grupos = pendientes.groupby("ID_Compra")
     st.markdown(f"**{grupos.ngroups} compra(s) pendiente(s)**")
@@ -55,7 +58,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                 st.write(f"💳 **Pago:** {primera.get('Metodo_Pago', '')}")
 
             st.markdown("")
-            for _, item in grupo.iterrows():
+            for item in grupo.to_dict("records"):
                 nombre = get_nombre_perfume(item.get("ID_Perfume", ""))
                 st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;🌸 {nombre} — {item.get('Ml_Vendido', '')}ml — S/ {fmt_precio(item.get('Precio_Cobrado', 0))}", unsafe_allow_html=True)
 
@@ -70,7 +73,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
 
                 with col_ent:
                     filas = grupo["fila_sheet"].tolist()
-                    if st.button("✅ Marcar entregado", key=f"ent_{id_compra}", width="stretch"):
+                    if st.button("✅ Marcar entregado", key=f"ent_{id_compra}", use_container_width=True):
                         try:
                             marcar_pedido_entregado_batch(filas, COL_ESTADO_NUM)
                             st.success(f"✅ {id_compra} marcado como entregado")
@@ -79,12 +82,12 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                             st.error(f"Error: {e}")
 
                 with col_edit:
-                    if st.button("✏️ Editar", key=f"edit_{id_compra}", width="stretch"):
+                    if st.button("✏️ Editar", key=f"edit_{id_compra}", use_container_width=True):
                         st.session_state[modo_key] = "editar"
                         st.rerun()
 
                 with col_anul:
-                    if st.button("🚫 Anular", key=f"anul_{id_compra}", width="stretch"):
+                    if st.button("🚫 Anular", key=f"anul_{id_compra}", use_container_width=True):
                         st.session_state[modo_key] = "anular"
                         st.rerun()
 
@@ -115,7 +118,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
 
                 col_g, col_c = st.columns(2)
                 with col_g:
-                    if st.button("💾 Guardar cambios", key=f"gua_{id_compra}", type="primary", width="stretch"):
+                    if st.button("💾 Guardar cambios", key=f"gua_{id_compra}", type="primary", use_container_width=True):
                         try:
                             for fila in grupo["fila_sheet"].tolist():
                                 actualizar_venta_batch(fila, {
@@ -129,7 +132,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                         except Exception as e:
                             st.error(f"Error: {e}")
                 with col_c:
-                    if st.button("Cancelar", key=f"can_{id_compra}", width="stretch"):
+                    if st.button("Cancelar", key=f"can_{id_compra}", use_container_width=True):
                         st.session_state[modo_key] = "normal"
                         st.rerun()
 
@@ -138,7 +141,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
 
                 col_conf, col_canc = st.columns(2)
                 with col_conf:
-                    if st.button("🚫 Confirmar anulación", key=f"conf_{id_compra}", type="primary", width="stretch"):
+                    if st.button("🚫 Confirmar anulación", key=f"conf_{id_compra}", type="primary", use_container_width=True):
                         try:
                             for fila in grupo["fila_sheet"].tolist():
                                 actualizar_venta_batch(fila, {COL_ESTADO_NUM: "Anulado"})
@@ -148,6 +151,6 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                         except Exception as e:
                             st.error(f"Error: {e}")
                 with col_canc:
-                    if st.button("Cancelar", key=f"canc_{id_compra}", width="stretch"):
+                    if st.button("Cancelar", key=f"canc_{id_compra}", use_container_width=True):
                         st.session_state[modo_key] = "normal"
                         st.rerun()

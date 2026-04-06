@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 import pandas as pd
 from config import fmt_precio, stock_badge_html, stock_barra_html, STOCK_CRITICO, STOCK_BAJO
@@ -82,8 +83,8 @@ def mostrar_panel_stock(df_catalogo):
     max_stock = df["Stock_ml"].max() if not df.empty else 100
 
     for row in df.to_dict("records"):
-        nombre = str(row.get("Nombre", ""))
-        marca = str(row.get("Marca", ""))
+        nombre = html.escape(str(row.get("Nombre", "")))
+        marca = html.escape(str(row.get("Marca", "")))
         stock = row.get("Stock_ml", 0)
         badge = stock_badge_html(stock, size="sm")
         pct = min(100, int((float(stock) / max(max_stock, 1)) * 100))

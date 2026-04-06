@@ -76,11 +76,13 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         mas_vendidos = _calcular_mas_vendidos(df_ventas, df_catalogo)
 
         for row in mas_vendidos.to_dict('records'):
+            nombre = html.escape(str(row.get('Nombre', 'Desconocido')))
+            marca = html.escape(str(row.get('Marca', '')))
             col1, col2, col3 = st.columns([4, 2, 1])
             with col1:
-                st.markdown(f"<span style='font-size:1.05rem; font-weight:700; color:#2c1a0e;'>🌸 {row.get('Nombre', 'Desconocido')}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size:1.05rem; font-weight:700; color:#2c1a0e;'>🌸 {nombre}</span>", unsafe_allow_html=True)
             with col2:
-                st.markdown(f"<span style='font-size:0.95rem; color:#a07850;'>{row.get('Marca', '')}</span>", unsafe_allow_html=True)
+                st.markdown(f"<span style='font-size:0.95rem; color:#a07850;'>{marca}</span>", unsafe_allow_html=True)
             with col3:
                 st.markdown(f"<span style='font-size:1.05rem; font-weight:700; color:#c8956c;'>{row['Cantidad']}x</span>", unsafe_allow_html=True)
             st.markdown("<hr style='margin:0.3rem 0; border-color:#f0e0d0;'>", unsafe_allow_html=True)
@@ -89,12 +91,12 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     with st.expander("Ver todas las ventas"):
         st.dataframe(
             df_ventas.sort_values("Fecha", ascending=False),
-            width='stretch', hide_index=True
+            use_container_width=True, hide_index=True
         )
 
     separador()
     st.markdown("#### 📄 Exportar ventas del día")
-    if st.button("⬇️ Generar PDF del día", key="generar_pdf", width='stretch'):
+    if st.button("⬇️ Generar PDF del día", key="generar_pdf", use_container_width=True):
         pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
         if pdf_bytes:
             st.download_button(
@@ -102,7 +104,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
                 data=pdf_bytes,
                 file_name=f"ventas_{date.today()}.pdf",
                 mime="application/pdf",
-                width='stretch'
+                use_container_width=True
             )
         else:
             st.warning("⚠️ No hay ventas hoy para exportar")

@@ -78,7 +78,7 @@ def mostrar_tab_marca(df):
                 f'{precio_display}</div></div></div></div>'
             )
 
-            st.markdown("".join(bloques), unsafe_allow_html=True)
+        st.markdown("".join(bloques), unsafe_allow_html=True)
 
     else:
         st.markdown("")

@@ -1,6 +1,6 @@
 import streamlit as st
 from config import COL_ESTADO_NUM, COLUMNAS_VENTAS, METODOS_PAGO, fmt_precio, fmt_fecha
-from data import marcar_pedido_entregado_batch, actualizar_venta_batch, actualizar_ventas_multi_fila_batch
+from data import marcar_pedido_entregado_batch, actualizar_ventas_multi_fila_batch
 from components import separador
 
 

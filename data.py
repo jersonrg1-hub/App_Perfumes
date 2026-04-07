@@ -12,7 +12,6 @@ from config import (
 
 
 def log_error(contexto, error):
-    print(f"[ERROR] {contexto}: {str(error)}")
     log = st.session_state.setdefault("error_log", [])
     now = datetime.now().strftime("%H:%M:%S")
     log.append(f"[{now}] [{contexto}] {str(error)}")
@@ -199,43 +198,52 @@ def guardar_cotizacion(celular, cesta, total):
         raise
 
 
-def actualizar_stock_perfume(nombre_perfume, ml_restados):
+def actualizar_stock_perfumes_batch(items_vendidos):
+    if not items_vendidos:
+        return
     try:
         hoja = get_hoja(WORKSHEET_CATALOGO)
         todos = hoja.get_all_values()
 
         if not todos or len(todos) < 2:
-            log_error("actualizar_stock", "Hoja Catalogo vacía o sin datos")
+            log_error("actualizar_stock_batch", "Hoja Catalogo vacía o sin datos")
             return
 
         headers = todos[0]
         if "Stock_ml" not in headers or "Nombre" not in headers:
-            log_error("actualizar_stock", "Faltan columnas Nombre o Stock_ml en Catalogo")
+            log_error("actualizar_stock_batch", "Faltan columnas Nombre o Stock_ml en Catalogo")
             return
 
         col_stock = headers.index("Stock_ml") + 1
         col_nombre = headers.index("Nombre")
 
-        fila_objetivo = None
+        ml_por_nombre = {}
+        for item in items_vendidos:
+            nombre = item["perfume"]
+            ml_por_nombre[nombre] = ml_por_nombre.get(nombre, 0) + float(item["ml"])
+
+        peticiones = []
         for i, fila in enumerate(todos[1:], start=2):
-            if len(fila) > col_nombre and fila[col_nombre] == nombre_perfume:
-                fila_objetivo = i
-                break
+            if len(fila) <= col_nombre:
+                continue
+            nombre_fila = fila[col_nombre]
+            if nombre_fila in ml_por_nombre:
+                valor_actual_str = fila[col_stock - 1]
+                valor_actual = float(valor_actual_str) if valor_actual_str else 0.0
+                nuevo_valor = max(0.0, valor_actual - ml_por_nombre[nombre_fila])
+                letra = gspread.utils.rowcol_to_a1(i, col_stock)
+                peticiones.append({"range": letra, "values": [[nuevo_valor]]})
 
-        if fila_objetivo is None:
-            log_error("actualizar_stock", f"Perfume no encontrado: {nombre_perfume}")
-            return
-
-        valor_actual_str = todos[fila_objetivo - 1][col_stock - 1]
-        valor_actual = float(valor_actual_str) if valor_actual_str else 0.0
-        nuevo_valor = max(0.0, valor_actual - ml_restados)
-
-        letra = gspread.utils.rowcol_to_a1(fila_objetivo, col_stock)
-        hoja.batch_update([{"range": letra, "values": [[nuevo_valor]]}])
+        if peticiones:
+            hoja.batch_update(peticiones)
 
         limpiar_cache_catalogo()
     except Exception as e:
-        log_error("actualizar_stock", e)
+        log_error("actualizar_stock_batch", e)
+
+
+def actualizar_stock_perfume(nombre_perfume, ml_restados):
+    actualizar_stock_perfumes_batch([{"perfume": nombre_perfume, "ml": ml_restados}])
 
 
 def actualizar_venta_batch(fila_sheet, cambios):

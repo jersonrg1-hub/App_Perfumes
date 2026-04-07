@@ -242,9 +242,16 @@ div[data-testid="stAlert"] {
 .stInfo p { color: #2c5282 !important; font-size: 0.95rem !important; }
 
 .stSuccess {
-    background: linear-gradient(135deg, #d4edda, #a8d5b5) !important;
-    border-left: 4px solid #276749 !important;
+    background: linear-gradient(135deg, #ecfdf5, #d1fae5) !important;
+    border-left: 4px solid #059669 !important;
 }
+
+.stSuccess p,
+.stSuccess strong,
+.stSuccess span {
+    color: #064e3b !important;
+}
+
 .stSuccess p, .stSuccess strong, .stSuccess span {
     color: #0f3d22 !important;
     font-size: 0.95rem !important;
@@ -303,7 +310,9 @@ div[data-testid="stAlert"] {
 .stTextInput input,
 .stNumberInput input,
 .stDateInput input {
-    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+
+    border: 1px solid #e0c9b4 !important;
+    border-radius: 8px !important;
 }
 
 /* ── Selectbox: transición ── */
@@ -348,4 +357,24 @@ div[data-baseweb="select"] {
     text-decoration: none !important;
 }
 
+/* ===== FIX INPUT UX ===== */
+
+.stTextInput input,
+.stNumberInput input,
+.stDateInput input,
+textarea {
+    caret-color: #2c1a0e !important;
+    border: 1px solid #e0c9b4 !important;
+    border-radius: 8px !important;
+    padding: 10px 12px !important;
+}
+
+.stTextInput input:focus,
+.stNumberInput input:focus,
+.stDateInput input:focus,
+textarea:focus {
+    border-color: #c8956c !important;
+    box-shadow: 0 0 0 2px rgba(200,149,108,0.25) !important;
+    outline: none !important;
+}
 """

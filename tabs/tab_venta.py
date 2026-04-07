@@ -1,13 +1,12 @@
 import html
 import streamlit as st
 from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO
-from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfume
+from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfumes_batch
 from components import generar_url_whatsapp
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
 from components import separador
 
 
-@st.cache_data(ttl=120)
 def _buscar_cliente(df_ventas, celular):
     if df_ventas.empty or "Celular" not in df_ventas.columns:
         return None
@@ -21,6 +20,18 @@ def _buscar_cliente(df_ventas, celular):
         "metodo_pago": str(ultimo.get("Metodo_Pago", "")),
         "tipo_envio": str(ultimo.get("Tipo_Envio", "")),
     }
+
+
+def _items_cesta_html(cesta):
+    return "".join([
+        f"<div style='display:flex; justify-content:space-between; align-items:center;"
+        f"padding:0.45rem 0; border-bottom:1px solid #f5ede6; font-size:0.88rem;'>"
+        f"<div><span style='color:#2c1a0e; font-weight:600;'>🌸 {html.escape(str(i['perfume']))}</span>"
+        f"<span style='color:#a07850; font-size:0.78rem;'> · {html.escape(str(i['ml']))}ml · {html.escape(str(i['metodo']))}</span></div>"
+        f"<span style='font-family:Inter,DM Sans,sans-serif; font-weight:700; color:#2c1a0e;"
+        f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(i['precio'])}</span></div>"
+        for i in cesta
+    ])
 
 
 def _barra_progreso(paso_actual):
@@ -92,7 +103,7 @@ def _paso_1_cliente(df):
     with col_cel:
         celular = st.text_input("📱 Celular", max_chars=9, key="cel_in")
 
-    if len(celular) == 9 and not st.session_state.get("autocomplete_aplicado"):
+    if len(celular) == 9 and celular.isdigit() and not st.session_state.get("autocomplete_aplicado"):
         df_ventas = cargar_ventas()
         cliente = _buscar_cliente(df_ventas, celular)
         if cliente and cliente["nombre"]:
@@ -110,7 +121,7 @@ def _paso_1_cliente(df):
                 st.session_state._autocomplete_pendiente = cliente
                 st.rerun()
 
-    if len(celular) != 9:
+    if len(celular) != 9 or not celular.isdigit():
         st.session_state.autocomplete_aplicado = False
 
     direccion = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key="dir_in")
@@ -119,8 +130,8 @@ def _paso_1_cliente(df):
     col_btn, _ = st.columns([1, 2])
     with col_btn:
         if st.button("Siguiente →", key="paso1_siguiente", type="primary", use_container_width=True):
-            if not comprador or len(celular) != 9:
-                st.error("⚠️ Completa Nombre y Celular (9 dígitos)")
+            if not comprador or len(celular) != 9 or not celular.isdigit():
+                st.error("⚠️ Completa Nombre y Celular (9 dígitos numéricos)")
             else:
                 st.session_state.wiz_paso = 2
                 st.session_state.wiz_fecha = fecha
@@ -277,15 +288,7 @@ def _paso_3_confirmar():
     """, unsafe_allow_html=True)
 
     total = sum(float(i["precio"]) for i in st.session_state.cesta)
-    items_html = "".join([
-        f"<div style='display:flex; justify-content:space-between; align-items:center;"
-        f"padding:0.45rem 0; border-bottom:1px solid #f5ede6; font-size:0.88rem;'>"
-        f"<div><span style='color:#2c1a0e; font-weight:600;'>🌸 {html.escape(str(i['perfume']))}</span>"
-        f"<span style='color:#a07850; font-size:0.78rem;'> · {html.escape(str(i['ml']))}ml · {html.escape(str(i['metodo']))}</span></div>"
-        f"<span style='font-family:Inter,DM Sans,sans-serif; font-weight:700; color:#2c1a0e;"
-        f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(i['precio'])}</span></div>"
-        for i in st.session_state.cesta
-    ])
+    items_html = _items_cesta_html(st.session_state.cesta)
 
     st.markdown(f"""
     <div style="background:#ffffff; border:1px solid #ede0d4; border-radius:12px;
@@ -329,8 +332,7 @@ def _paso_3_confirmar():
                             "Pendiente"
                         ])
                     guardar_venta(filas)
-                    for item in st.session_state.cesta:
-                        actualizar_stock_perfume(item["perfume"], float(item["ml"]))
+                    actualizar_stock_perfumes_batch(st.session_state.cesta)
                     status.update(label="✅ ¡Venta guardada!", state="complete")
 
                 url_wa = generar_url_whatsapp(
@@ -401,16 +403,7 @@ def mostrar_tab_venta(df):
         total      = st.session_state.get("wiz_total", 0)
         cesta      = st.session_state.get("cesta", [])
 
-        items_html = "".join([
-            f"<div style='display:flex; justify-content:space-between; align-items:center;"
-            f"padding:0.45rem 0; border-bottom:1px solid #f5ede6; font-size:0.88rem;'>"
-            f"<div><span style='color:#2c1a0e; font-weight:600;'>🌸 {html.escape(str(i['perfume']))}</span>"
-            f"<span style='color:#a07850; font-size:0.78rem;'> · {html.escape(str(i['ml']))}ml · {html.escape(str(i['metodo']))}</span></div>"
-            f"<span style='font-family:Inter,DM Sans,sans-serif; font-weight:700; color:#2c1a0e;"
-            f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(i['precio'])}</span></div>"
-            for i in cesta
-        ])
-
+        items_html = _items_cesta_html(cesta)
         st.markdown(
             f"""<div style="background:white; border:1px solid #ede0d4; border-radius:14px;
                 padding:1.2rem 1.4rem; margin-bottom:1rem;">

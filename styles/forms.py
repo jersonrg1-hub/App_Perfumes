@@ -39,6 +39,7 @@ FORMS = """
         color: #2c1a0e !important;
         border-color: #e0c9b4 !important;
         border-radius: 8px !important;
+        cursor: text !important;
     }
 
     .stTextInput input::placeholder {

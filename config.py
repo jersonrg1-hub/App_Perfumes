@@ -76,13 +76,16 @@ def stock_badge_html(stock_ml, size="sm"):
 
     if n <= STOCK_CRITICO:
         bg, color, icono, label = "#fee2e2", "#991b1b", "🔴", f"{n:.0f}ml — crítico"
+        extra_class = "stock-critico-badge"
     elif n <= STOCK_BAJO:
         bg, color, icono, label = "#fef9c3", "#854d0e", "🟡", f"{n:.0f}ml — bajo"
+        extra_class = ""
     else:
         bg, color, icono, label = "#dcfce7", "#166534", "🟢", f"{n:.0f}ml"
+        extra_class = ""
 
     return (
-        f"<span style='background:{bg}; color:{color}; font-size:{fs}; "
+        f"<span class='{extra_class}' style='background:{bg}; color:{color}; font-size:{fs}; "
         f"padding:{pad}; border-radius:20px; font-weight:600; "
         f"display:inline-block; margin-left:4px;'>{icono} {label}</span>"
     )

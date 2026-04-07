@@ -147,8 +147,7 @@ def mostrar_tab_notas(df):
                     f'</div></div>'
                 )
         card_bloques.append(
-            f'<div style="background:#ffffff; border:1px solid #ede0d4; border-radius:14px;'
-            f'padding:1rem 1.4rem; margin-bottom:0.4rem;">'
+            f'<div class="perfume-card" style="margin-bottom:0.4rem;">'
             f'<div style="font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase;'
             f'color:#c8956c; font-weight:600; margin-bottom:0.25rem;">{marca}</div>'
             f'<div style="font-family:\'Playfair Display\',serif; font-size:1.15rem;'

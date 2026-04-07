@@ -227,4 +227,34 @@ hr {
     border-color: #c8956c !important;
     background: #fffaf7 !important;
 }
+
+html {
+    scroll-behavior: smooth;
+}
+
+/* Entrada suave de todo el contenido al cargar */
+.main .block-container {
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* Pulso para stock crítico */
+@keyframes pulse-red {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+    50%       { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+.stock-critico-badge {
+    animation: pulse-red 2s ease-in-out infinite;
+}
+
+/* Entrada de tarjetas con stagger */
+@keyframes slideUpFade {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.perfume-card {
+    animation: slideUpFade 0.3s ease-out both;
+}
+
 """

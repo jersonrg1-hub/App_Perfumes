@@ -167,13 +167,40 @@ def _paso_2_perfumes(df):
                 if stock_num < float(ml_vendido):
                     st.error(f"❌ Stock insuficiente — quedan {stock_num:.0f}ml · necesitas {float(ml_vendido):.0f}ml")
                 elif stock_num <= STOCK_CRITICO:
-                    st.error(f"🔴 Stock crítico — solo {stock_num:.0f}ml · S/ {fmt_precio(precio_item)}")
+                    st.markdown(
+                        f"""<div style="background:#fee2e2; border-left:4px solid #dc2626; border-radius:10px;
+                        padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="color:#991b1b; font-weight:600;">🔴 Stock crítico — solo {stock_num:.0f}ml</span>
+                        <span style="color:#7f1d1d; font-family:'Inter',sans-serif; font-size:1.6rem;
+                        font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
+                        </div>""", unsafe_allow_html=True
+                    )
                 elif stock_num <= STOCK_BAJO:
-                    st.warning(f"🟡 Stock bajo — {stock_num:.0f}ml disponibles · S/ {fmt_precio(precio_item)}")
+                    st.markdown(
+                        f"""<div style="background:#fef9c3; border-left:4px solid #ca8a04; border-radius:10px;
+                        padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="color:#854d0e; font-weight:600;">🟡 Stock bajo — {stock_num:.0f}ml</span>
+                        <span style="color:#713f12; font-family:'Inter',sans-serif; font-size:1.6rem;
+                        font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
+                        </div>""", unsafe_allow_html=True
+                    )
                 else:
-                    st.success(f"🟢 S/ {fmt_precio(precio_item)} · Stock: {stock_num:.0f}ml")
+                    st.markdown(
+                        f"""<div style="background:#dcfce7; border-left:4px solid #16a34a; border-radius:10px;
+                        padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="color:#166534; font-weight:600;">🟢 Stock: {stock_num:.0f}ml disponibles</span>
+                        <span style="color:#14532d; font-family:'Inter',sans-serif; font-size:1.6rem;
+                        font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
+                        </div>""", unsafe_allow_html=True
+                    )
             else:
-                st.success(f"S/ {fmt_precio(precio_item)}")
+                    st.markdown(
+                        f"""<div style="background:#dcfce7; border-left:4px solid #16a34a; border-radius:10px;
+                            padding:0.8rem 1.2rem; text-align:right;">
+                            <span style="color:#14532d; font-family:'Inter',sans-serif; font-size:1.6rem;
+                            font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
+                            </div>""", unsafe_allow_html=True
+                    )
 
             if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", use_container_width=True):
                 st.session_state.cesta.append({

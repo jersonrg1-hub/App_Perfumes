@@ -26,6 +26,7 @@ def mostrar_tab_marca(df):
             unsafe_allow_html=True
         )
 
+        bloques = []
         for row in df_filtrado.to_dict("records"):
             precio = row.get(columna, "")
 
@@ -58,53 +59,26 @@ def mostrar_tab_marca(df):
                 if perfil else ""
             )
 
-            st.markdown(f"""
-            <div style="
-                background: #ffffff;
-                border: 1px solid #ede0d4;
-                border-radius: 14px;
-                padding: 1rem 1.4rem;
-                margin-bottom: 0.6rem;
-                transition: border-color 0.2s ease, box-shadow 0.2s ease;
-            ">
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-                    <div style="flex:1; min-width:0;">
-                        <div style="
-                            font-size:0.65rem; letter-spacing:0.2em;
-                            text-transform:uppercase; color:#c8956c;
-                            font-weight:600; margin-bottom:0.25rem;
-                        ">{marca_safe}</div>
-                        <div style="
-                            font-family:'Playfair Display',serif;
-                            font-size:1.1rem; color:#2c1a0e; font-weight:600;
-                        ">{nombre}{stock_badge}</div>
-                        {notas_html}
-                        {perfil_html}
-                    </div>
-                    <div style="
-                        background: #fdf6f0;
-                        border: 1px solid #ede0d4;
-                        border-radius: 10px;
-                        padding: 0.55rem 1rem;
-                        text-align: center;
-                        min-width: 88px;
-                        flex-shrink: 0;
-                    ">
-                        <div style="
-                            color:#a07850; font-size:0.65rem;
-                            text-transform:uppercase; letter-spacing:0.12em;
-                            font-weight:600; margin-bottom:0.2rem;
-                        ">{tamanio}</div>
-                        <div style="
-                            color:{precio_color};
-                            font-family:'Inter','DM Sans',sans-serif;
-                            font-size:1.2rem; font-weight:700;
-                            font-variant-numeric:tabular-nums;
-                        ">{precio_display}</div>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            bloques.append(
+                f'<div style="background:#ffffff; border:1px solid #ede0d4; border-radius:14px;'
+                f'padding:1rem 1.4rem; margin-bottom:0.6rem;">'
+                f'<div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">'
+                f'<div style="flex:1; min-width:0;">'
+                f'<div style="font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase;'
+                f'color:#c8956c; font-weight:600; margin-bottom:0.25rem;">{marca_safe}</div>'
+                f'<div style="font-family:\'Playfair Display\',serif; font-size:1.1rem;'
+                f'color:#2c1a0e; font-weight:600;">{nombre}{stock_badge}</div>'
+                f'{notas_html}{perfil_html}</div>'
+                f'<div style="background:#fdf6f0; border:1px solid #ede0d4; border-radius:10px;'
+                f'padding:0.55rem 1rem; text-align:center; min-width:88px; flex-shrink:0;">'
+                f'<div style="color:#a07850; font-size:0.65rem; text-transform:uppercase;'
+                f'letter-spacing:0.12em; font-weight:600; margin-bottom:0.2rem;">{tamanio}</div>'
+                f'<div style="color:{precio_color}; font-family:\'Inter\',\'DM Sans\',sans-serif;'
+                f'font-size:1.2rem; font-weight:700; font-variant-numeric:tabular-nums;">'
+                f'{precio_display}</div></div></div></div>'
+            )
+
+            st.markdown("".join(bloques), unsafe_allow_html=True)
 
     else:
         st.markdown("")

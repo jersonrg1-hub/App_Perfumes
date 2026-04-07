@@ -93,7 +93,7 @@ def mostrar_seccion_cotizacion(df):
             col_wa, col_limpiar = st.columns([2, 1])
 
             with col_wa:
-                if len(celular_cot) == 9:
+                if len(celular_cot) == 9 and celular_cot.isdigit():
                     url_wa = _generar_mensaje_cotizacion(
                         celular_cot, st.session_state.cesta_cotizacion
                     )

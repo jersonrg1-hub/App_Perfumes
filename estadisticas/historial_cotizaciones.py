@@ -152,8 +152,21 @@ def mostrar_historial_cotizaciones():
             )
             wa_url = f"https://wa.me/51{wa_celular}?text={quote(mensaje_wa)}"
             st.markdown(
-                f'<a href="{wa_url}" target="_blank" style="text-decoration:none;">'
-                f'<div style="background:#25D366;color:white;padding:8px;border-radius:8px;'
-                f'text-align:center;font-weight:600;font-size:0.85rem;">📲 Escribir por WhatsApp</div></a>',
+                f"""
+                <a href="{wa_url}" target="_blank"
+                   style="
+                       text-decoration:none;
+                       display:block;
+                       background:#25D366;
+                       color:white !important;
+                       padding:8px;
+                       border-radius:8px;
+                       text-align:center;
+                       font-weight:600;
+                       font-size:0.85rem;
+                   ">
+                   📲 Escribir por WhatsApp
+                </a>
+                """,
                 unsafe_allow_html=True
             )

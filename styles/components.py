@@ -377,4 +377,38 @@ textarea:focus {
     box-shadow: 0 0 0 2px rgba(200,149,108,0.25) !important;
     outline: none !important;
 }
+
+/* ===== FIX BOTON WHATSAPP ===== */
+
+.stMarkdown a {
+    color: white !important;
+    text-decoration: none !important;
+}
+
+.stMarkdown a:visited {
+    color: white !important;
+}
+
+.stMarkdown a:hover {
+    color: white !important;
+}
+
+.stMarkdown a:active {
+    color: white !important;
+}
+
+.stMarkdown a[href*="wa.me"] {
+    display: block;
+    background: #25D366;
+    padding: 10px;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 600;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.stMarkdown a[href*="wa.me"]:hover {
+    filter: brightness(0.92);
+    transform: translateY(-1px);
+}
 """

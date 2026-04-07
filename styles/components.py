@@ -311,4 +311,41 @@ div[data-baseweb="select"] {
     transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 
+/* ── Botones de formulario (form_submit_button) ── */
+.stFormSubmitButton > button {
+    background-color: #2c1a0e !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    min-height: 48px !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+.stFormSubmitButton > button p,
+.stFormSubmitButton > button span,
+.stFormSubmitButton > button div {
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+.stFormSubmitButton > button:hover {
+    background-color: #3d2512 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 14px rgba(44, 26, 14, 0.3) !important;
+}
+
+/* ── Forzar color blanco en botones HTML dentro de links ── */
+.stMarkdown a div,
+.stMarkdown a div span,
+.stMarkdown a div p {
+    color: white !important;
+    text-decoration: none !important;
+}
+
+.stMarkdown a {
+    text-decoration: none !important;
+}
+
 """

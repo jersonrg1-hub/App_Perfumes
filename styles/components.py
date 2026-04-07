@@ -3,15 +3,16 @@ COMPONENTS = """
     background: #ffffff;
     border: 1px solid #ede0d4;
     border-radius: 14px;
-    padding: 1.4rem 1.8rem 1.6rem;
-    margin: 1rem 0;
+    padding: 1rem 1.4rem;
+    margin-bottom: 0.6rem;
     box-shadow: 0 1px 4px rgba(160, 120, 80, 0.06);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    cursor: default;
 }
 
 .perfume-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 24px rgba(160, 120, 80, 0.12);
+    box-shadow: 0 8px 28px rgba(160, 120, 80, 0.16);
     border-color: #c8956c;
 }
 
@@ -269,4 +270,45 @@ div[data-testid="stAlert"] {
     .perfume-card .nombre { font-size: 1.2rem; }
     .perfume-item { padding: 0.7rem 0.9rem; }
 }
+
+/* ── Skeleton loader (efecto shimmer mientras carga) ── */
+@keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, #f5ede6 25%, #ede0d4 50%, #f5ede6 75%);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 8px;
+    height: 18px;
+    margin-bottom: 0.4rem;
+}
+
+/* ── Fade entre tabs ── */
+.stTabs [data-baseweb="tab-panel"] {
+    animation: fadeIn 0.3s ease-out !important;
+}
+
+/* ── Hover en expanders más suave ── */
+[data-testid="stExpanderHeader"] {
+    transition: background 0.2s ease, transform 0.15s ease !important;
+}
+[data-testid="stExpanderHeader"]:hover {
+    transform: translateX(2px) !important;
+}
+
+/* ── Inputs: transición en focus ── */
+.stTextInput input,
+.stNumberInput input,
+.stDateInput input {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+/* ── Selectbox: transición ── */
+div[data-baseweb="select"] {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
 """

@@ -60,9 +60,7 @@ def mostrar_tab_marca(df):
             )
 
             bloques.append(
-                f'<div style="background:#ffffff; border:1px solid #ede0d4; border-radius:14px;'
-                f'padding:1rem 1.4rem; margin-bottom:0.6rem;">'
-                f'<div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">'
+                f'<div class="perfume-card" style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">'
                 f'<div style="flex:1; min-width:0;">'
                 f'<div style="font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase;'
                 f'color:#c8956c; font-weight:600; margin-bottom:0.25rem;">{marca_safe}</div>'
@@ -75,7 +73,7 @@ def mostrar_tab_marca(df):
                 f'letter-spacing:0.12em; font-weight:600; margin-bottom:0.2rem;">{tamanio}</div>'
                 f'<div style="color:{precio_color}; font-family:\'Inter\',\'DM Sans\',sans-serif;'
                 f'font-size:1.2rem; font-weight:700; font-variant-numeric:tabular-nums;">'
-                f'{precio_display}</div></div></div></div>'
+                f'{precio_display}</div></div></div>'
             )
 
         st.markdown("".join(bloques), unsafe_allow_html=True)

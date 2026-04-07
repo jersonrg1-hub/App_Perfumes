@@ -26,7 +26,6 @@ def _metrica_card(titulo, valor):
 
 @st.cache_data(ttl=120)
 def _calcular_mas_vendidos(df_ventas, df_catalogo):
-    """Top 5 perfumes más vendidos. Cacheado para no recalcular en cada render."""
     if "ID_Perfume" not in df_ventas.columns:
         return pd.DataFrame()
     df = df_ventas.copy()
@@ -78,8 +77,10 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     st.markdown("#### 🏆 Perfumes más vendidos")
 
     if "ID_Perfume" in df_ventas.columns:
-        mas_vendidos = _calcular_mas_vendidos(df_ventas, df_catalogo)
-
+        mas_vendidos = _calcular_mas_vendidos(
+            df_ventas[["ID_Perfume"]],
+            df_catalogo[["ID_Perfume", "Nombre", "Marca"]]
+        )
         for pos, row in enumerate(mas_vendidos.to_dict("records"), 1):
             nombre = html.escape(str(row.get("Nombre", "Desconocido")))
             marca  = html.escape(str(row.get("Marca", "")))

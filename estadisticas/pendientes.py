@@ -1,6 +1,6 @@
 import streamlit as st
 from config import COL_ESTADO_NUM, COLUMNAS_VENTAS, METODOS_PAGO, fmt_precio, fmt_fecha
-from data import marcar_pedido_entregado_batch, actualizar_venta_batch
+from data import marcar_pedido_entregado_batch, actualizar_venta_batch, actualizar_ventas_multi_fila_batch
 from components import separador
 
 
@@ -120,12 +120,10 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                 with col_g:
                     if st.button("💾 Guardar cambios", key=f"gua_{id_compra}", type="primary", use_container_width=True):
                         try:
-                            for fila in grupo["fila_sheet"].tolist():
-                                actualizar_venta_batch(fila, {
-                                    COL_METODO: nuevo_metodo,
-                                    COL_DIR: nueva_dir,
-                                    COL_ESTADO_NUM: nuevo_estado,
-                                })
+                            actualizar_ventas_multi_fila_batch([
+                                (fila, {COL_METODO: nuevo_metodo, COL_DIR: nueva_dir, COL_ESTADO_NUM: nuevo_estado})
+                                for fila in grupo["fila_sheet"].tolist()
+                            ])
                             st.success("✅ Cambios guardados")
                             st.session_state[modo_key] = "normal"
                             st.rerun()
@@ -143,8 +141,10 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                 with col_conf:
                     if st.button("🚫 Confirmar anulación", key=f"conf_{id_compra}", type="primary", use_container_width=True):
                         try:
-                            for fila in grupo["fila_sheet"].tolist():
-                                actualizar_venta_batch(fila, {COL_ESTADO_NUM: "Anulado"})
+                            actualizar_ventas_multi_fila_batch([
+                                (fila, {COL_ESTADO_NUM: "Anulado"})
+                                for fila in grupo["fila_sheet"].tolist()
+                            ])
                             st.session_state.pop(modo_key, None)
                             st.success(f"🚫 {id_compra} anulado")
                             st.rerun()

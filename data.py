@@ -246,6 +246,24 @@ def actualizar_stock_perfume(nombre_perfume, ml_restados):
     actualizar_stock_perfumes_batch([{"perfume": nombre_perfume, "ml": ml_restados}])
 
 
+def actualizar_ventas_multi_fila_batch(filas_cambios):
+    try:
+        hoja = get_hoja(WORKSHEET_VENTAS)
+        peticiones = []
+        for fila_sheet, cambios in filas_cambios:
+            for col_num, valor in cambios.items():
+                peticiones.append({
+                    "range": gspread.utils.rowcol_to_a1(int(fila_sheet), int(col_num)),
+                    "values": [[valor]]
+                })
+        if peticiones:
+            hoja.batch_update(peticiones, value_input_option="USER_ENTERED")
+        limpiar_cache_ventas()
+    except Exception as e:
+        log_error("actualizar_ventas_multi_fila_batch", e)
+        raise
+
+
 def actualizar_venta_batch(fila_sheet, cambios):
     try:
         hoja = get_hoja(WORKSHEET_VENTAS)

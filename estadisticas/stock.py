@@ -82,6 +82,7 @@ def mostrar_panel_stock(df_catalogo):
 
     max_stock = df["Stock_ml"].max() if not df.empty else 100
 
+    bloques = []
     for row in df.to_dict("records"):
         nombre = html.escape(str(row.get("Nombre", "")))
         marca = html.escape(str(row.get("Marca", "")))
@@ -96,20 +97,21 @@ def mostrar_panel_stock(df_catalogo):
         else:
             bar_color = "#22c55e"
 
-        st.markdown(f"""
-        <div style="background:white; border:1px solid #f0e0d0; border-radius:12px;
-            padding:0.8rem 1.2rem; margin-bottom:0.5rem;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">
-                <div>
-                    <span style="font-size:0.72rem; color:#a07850; text-transform:uppercase;
-                        font-weight:600; margin-right:6px;">{marca}</span>
-                    <span style="font-size:1rem; color:#2c1a0e; font-weight:600;">🌸 {nombre}</span>
-                </div>
-                <div>{badge}</div>
-            </div>
-            <div style="background:#f0e0d0; border-radius:4px; height:6px; overflow:hidden;">
-                <div style="width:{pct}%; height:100%; background:{bar_color};
-                    border-radius:4px;"></div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        bloques.append(
+            f'<div style="background:white; border:1px solid #f0e0d0; border-radius:12px;'
+            f'padding:0.8rem 1.2rem; margin-bottom:0.5rem;">'
+            f'<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;">'
+            f'<div>'
+            f'<span style="font-size:0.72rem; color:#a07850; text-transform:uppercase;'
+            f'font-weight:600; margin-right:6px;">{marca}</span>'
+            f'<span style="font-size:1rem; color:#2c1a0e; font-weight:600;">🌸 {nombre}</span>'
+            f'</div>'
+            f'<div>{badge}</div>'
+            f'</div>'
+            f'<div style="background:#f0e0d0; border-radius:4px; height:6px; overflow:hidden;">'
+            f'<div style="width:{pct}%; height:100%; background:{bar_color}; border-radius:4px;"></div>'
+            f'</div>'
+            f'</div>'
+        )
+
+    st.markdown("".join(bloques), unsafe_allow_html=True)

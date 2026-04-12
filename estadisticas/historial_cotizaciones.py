@@ -39,12 +39,7 @@ def mostrar_historial_cotizaciones():
 
     st.markdown("")
 
-    col_bus, col_est = st.columns([2, 1])
-    with col_bus:
-        buscar = st.text_input("🔍 Buscar por celular o ID", key="cot_buscar", placeholder="Ej: 987654321")
-    with col_est:
-        estados = ["Todos"] + sorted(df["Estado"].dropna().unique().tolist()) if "Estado" in df.columns else ["Todos"]
-        filtro_estado = st.selectbox("Estado", estados, key="cot_estado")
+    buscar = st.text_input("🔍 Buscar por celular o ID", key="cot_buscar", placeholder="Ej: 987654321")
 
     df_mostrar = df.copy()
     if buscar:
@@ -54,9 +49,6 @@ def mostrar_historial_cotizaciones():
         if "ID_Cotizacion" in df_mostrar.columns:
             mask |= df_mostrar["ID_Cotizacion"].astype(str).str.contains(buscar, na=False)
         df_mostrar = df_mostrar[mask]
-
-    if filtro_estado != "Todos":
-        df_mostrar = df_mostrar[df_mostrar["Estado"] == filtro_estado]
 
     df_mostrar = df_mostrar.sort_values("Fecha", ascending=False) if "Fecha" in df_mostrar.columns else df_mostrar
 

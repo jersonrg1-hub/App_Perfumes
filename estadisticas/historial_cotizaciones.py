@@ -107,17 +107,18 @@ def mostrar_historial_cotizaciones():
             st.markdown("")
             wa_celular = str(row.get("Celular", ""))
             items_wa = "\n".join([
-                f"- {item.strip()}"
+                f"  🌸 {item.strip()}"
                 for item in str(row.get("Perfumes", "")).split(" | ")
                 if item.strip()
             ])
             mensaje_wa = (
-                f"🌸 *COTIZACIÓN {id_cot}*\n"
-                f"━━━━━━━━━━━━━━━━\n"
+                f"🌸 *Perfuteca — Cotización {id_cot}*\n"
+                f"────────────────────\n"
+                f"📋 *Perfumes disponibles:*\n"
                 f"{items_wa}\n"
-                f"━━━━━━━━━━━━━━━━\n"
+                f"────────────────────\n"
                 f"💰 *Total: S/ {fmt_precio(total)}*\n\n"
-                f"¿Te interesa alguno? 😊"
+                f"_¿Te interesa alguno? Con gusto te lo reservo 😊_"
             )
             wa_url = f"https://wa.me/51{wa_celular}?text={quote(mensaje_wa)}"
             st.markdown(

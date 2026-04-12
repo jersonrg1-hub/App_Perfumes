@@ -23,23 +23,23 @@ def mostrar_encabezado():
 
 def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, cesta, total):
     items_texto = "\n".join([
-        f"- {i.get('marca', '')} {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
-        if i.get('marca') else
-        f"- {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
+        f"  🌸 {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
         for i in cesta
     ])
+    dir_linea = f"\n📍 *Dirección:* {direccion}" if direccion and direccion.strip() else ""
     mensaje = (
-        f"🌸 *RESUMEN DE VENTA {id_compra}*\n"
-        f"━━━━━━━━━━━━━━━━\n"
+        f"🌸 *Perfuteca — Comprobante {id_compra}*\n"
+        f"────────────────────\n"
         f"👤 *Comprador:* {comprador}\n"
         f"📱 *Celular:* {celular}\n"
-        f"📍 *Dirección:* {direccion}\n"
-        f"🚚 *Envío:* {tipo_envio}\n"
-        f"━━━━━━━━━━━━━━━━\n"
+        f"🚚 *Envío:* {tipo_envio}"
+        f"{dir_linea}\n"
+        f"────────────────────\n"
         f"🛍️ *Productos:*\n"
         f"{items_texto}\n"
-        f"━━━━━━━━━━━━━━━━\n"
-        f"💰 *Total: S/ {fmt_precio(total)}*"
+        f"────────────────────\n"
+        f"💰 *Total: S/ {fmt_precio(total)}*\n\n"
+        f"_¡Gracias por tu compra! 💛_"
     )
     return f"https://wa.me/?text={quote(mensaje)}"
 

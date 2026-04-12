@@ -2,36 +2,13 @@ import html
 import streamlit as st
 import pandas as pd
 from urllib.parse import quote
-from config import fmt_precio, hoy_peru, WORKSHEET_COTIZACIONES
-from data import get_hoja
+from config import fmt_precio, hoy_peru
+from data import cargar_cotizaciones
 from components import separador
 
 
-@st.cache_data(ttl=120)
-def _cargar_cotizaciones():
-    try:
-        hoja = get_hoja(WORKSHEET_COTIZACIONES)
-        valores = hoja.get_all_values()
-        if not valores or len(valores) < 2:
-            return pd.DataFrame()
-        headers = valores[0]
-        filas = valores[1:]
-        df = pd.DataFrame(filas, columns=headers)
-        if "Fecha" in df.columns:
-            df["Fecha"] = pd.to_datetime(df["Fecha"].astype(str).str.strip(), errors="coerce")
-        if "Total" in df.columns:
-            df["Total"] = pd.to_numeric(df["Total"], errors="coerce").fillna(0)
-        return df
-    except Exception:
-        return pd.DataFrame()
-
-
-def _limpiar_cache():
-    _cargar_cotizaciones.clear()
-
-
 def mostrar_historial_cotizaciones():
-    df = _cargar_cotizaciones()
+    df = cargar_cotizaciones()
 
     if df.empty:
         st.info("📭 No hay cotizaciones registradas todavía")

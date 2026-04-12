@@ -23,7 +23,7 @@ def mostrar_tamanios_populares(df_ventas):
         st.warning("⚠️ No se encontró la columna Ml_Vendido")
         return
 
-    conteo = _calcular_conteo_tamanios(df_ventas)
+    conteo = _calcular_conteo_tamanios(df_ventas[["Ml_Vendido", "Precio_Cobrado"]])
 
     total_ventas = conteo["Cantidad"].sum()
 

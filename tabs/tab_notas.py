@@ -6,9 +6,9 @@ from config import PRECIOS_COLUMNAS, fmt_precio
 
 
 @st.cache_data(ttl=120)
-def _extraer_valores(df, columna):
+def _extraer_valores(serie):
     valores = set()
-    for item in df[columna].dropna():
+    for item in serie.dropna():
         for v in str(item).split(","):
             v_limpio = v.strip().lower().capitalize()
             if v_limpio:
@@ -34,8 +34,8 @@ def mostrar_tab_notas(df):
         st.warning("⚠️ Agrega las columnas **Notas** y **Perfil_Olfativo** en tu Google Sheets")
         return
 
-    notas_ordenadas = _extraer_valores(df, "Notas") if tiene_notas else []
-    perfiles_ordenados = _extraer_valores(df, "Perfil_Olfativo") if tiene_perfil else []
+    notas_ordenadas = _extraer_valores(df["Notas"]) if tiene_notas else []
+    perfiles_ordenados = _extraer_valores(df["Perfil_Olfativo"]) if tiene_perfil else []
 
     col1, col2 = st.columns(2)
 

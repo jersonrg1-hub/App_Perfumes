@@ -136,8 +136,10 @@ def _extraer_ids_numericos(ids_col):
 
 def obtener_proximo_id():
     try:
-        hoja = get_hoja(WORKSHEET_VENTAS)
-        ids_numericos = _extraer_ids_numericos(hoja.col_values(1))
+        df = cargar_ventas()
+        if df.empty or "ID_Compra" not in df.columns:
+            return "V001"
+        ids_numericos = _extraer_ids_numericos(df["ID_Compra"].tolist())
         if not ids_numericos:
             return "V001"
         return f"V{max(ids_numericos) + 1:03d}"
@@ -160,10 +162,36 @@ def marcar_pedido_entregado_batch(lista_filas, col_estado):
         raise
 
 
-def _obtener_proximo_id_cotizacion():
+@st.cache_data(ttl=120)
+def cargar_cotizaciones():
     try:
         hoja = get_hoja(WORKSHEET_COTIZACIONES)
-        ids_numericos = _extraer_ids_numericos(hoja.col_values(1))
+        valores = hoja.get_all_values()
+        if not valores or len(valores) < 2:
+            return pd.DataFrame()
+        headers = valores[0]
+        filas = valores[1:]
+        df = pd.DataFrame(filas, columns=headers)
+        if "Fecha" in df.columns:
+            df["Fecha"] = pd.to_datetime(df["Fecha"].astype(str).str.strip(), errors="coerce")
+        if "Total" in df.columns:
+            df["Total"] = pd.to_numeric(df["Total"], errors="coerce").fillna(0)
+        return df
+    except Exception as e:
+        log_error("cargar_cotizaciones", e)
+        return pd.DataFrame()
+
+
+def limpiar_cache_cotizaciones():
+    cargar_cotizaciones.clear()
+
+
+def _obtener_proximo_id_cotizacion():
+    try:
+        df = cargar_cotizaciones()
+        if df.empty or "ID_Cotizacion" not in df.columns:
+            return "C001"
+        ids_numericos = _extraer_ids_numericos(df["ID_Cotizacion"].tolist())
         if not ids_numericos:
             return "C001"
         return f"C{max(ids_numericos) + 1:03d}"
@@ -192,6 +220,7 @@ def guardar_cotizacion(celular, cesta, total):
         ]
 
         hoja.append_rows([fila], value_input_option='USER_ENTERED')
+        limpiar_cache_cotizaciones()
         return id_cotizacion
     except Exception as e:
         log_error("guardar_cotizacion", e)

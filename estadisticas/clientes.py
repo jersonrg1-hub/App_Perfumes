@@ -37,7 +37,9 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
     if df["Fecha"].dtype == object:
         df["Fecha"] = pd.to_datetime(df["Fecha"].astype(str).str.strip(), errors="coerce")
 
-    resumen = _calcular_resumen_clientes(df)
+    resumen = _calcular_resumen_clientes(
+        df[["Celular", "Comprador", "ID_Compra", "Precio_Cobrado", "Fecha"]]
+    )
 
     top = resumen.iloc[0] if not resumen.empty else None
     prom = resumen["Total_Gastado"].mean() if not resumen.empty else 0

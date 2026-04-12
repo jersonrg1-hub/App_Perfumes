@@ -6,13 +6,22 @@ from estadisticas.resumen import _metrica_card
 
 
 @st.cache_data(ttl=120)
-def _stats_mes(df_ventas, mes_str):
-    periodo = pd.Period(mes_str, freq="M")
-    fecha_valida = df_ventas["Fecha"].notna()
-    df_mes = df_ventas[fecha_valida & (df_ventas.loc[fecha_valida, "Fecha"].dt.to_period("M") == periodo)]
-    total = df_mes["Precio_Cobrado"].sum()
-    num = len(df_mes)
-    prom = total / num if num > 0 else 0
+def _calcular_stats_mensuales(df_ventas):
+    """Agrega todas las estadísticas mensuales de una vez. Evita hashear el DataFrame por cada mes."""
+    df = df_ventas[df_ventas["Precio_Cobrado"].notna() & df_ventas["Fecha"].notna()].copy()
+    agrupado = (
+        df.groupby(df["Fecha"].dt.to_period("M").astype(str))
+        .agg(total=("Precio_Cobrado", "sum"), num=("Precio_Cobrado", "count"))
+    )
+    agrupado["prom"] = agrupado["total"] / agrupado["num"].where(agrupado["num"] > 0, 1)
+    return agrupado.to_dict("index")
+
+
+def _stats_mes(stats_dict, mes_str):
+    entry = stats_dict.get(mes_str, {})
+    total = entry.get("total", 0)
+    num = int(entry.get("num", 0))
+    prom = entry.get("prom", 0)
     return total, num, prom
 
 
@@ -155,8 +164,9 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
         mes2 = st.selectbox("📅 Mes 2", opciones_meses,
             index=max(0, len(opciones_meses) - 2), key="mes2_comp")
 
-    total_m1, num_m1, prom_m1 = _stats_mes(df_ventas, mes1)
-    total_m2, num_m2, prom_m2 = _stats_mes(df_ventas, mes2)
+    stats_dict = _calcular_stats_mensuales(df_ventas[["Fecha", "Precio_Cobrado"]])
+    total_m1, num_m1, prom_m1 = _stats_mes(stats_dict, mes1)
+    total_m2, num_m2, prom_m2 = _stats_mes(stats_dict, mes2)
 
     st.markdown("")
     col1, col2 = st.columns(2)

@@ -3,3 +3,5 @@ secrets.txt
 __pycache__/
 .idea/
 .env
+.streamlit/secrets.toml
+.claude/

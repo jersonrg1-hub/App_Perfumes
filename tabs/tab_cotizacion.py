@@ -8,18 +8,19 @@ from data import guardar_cotizacion
 def _generar_mensaje_cotizacion(celular, cesta_cotizacion):
     total = sum(float(i["precio"]) for i in cesta_cotizacion)
     items = "\n".join([
-        f"- {i.get('marca', '')} {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
+        f"  🌸 *{i['marca']}* · {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
         if i.get('marca') else
-        f"- {i['perfume']} {i['ml']}ml → S/ {fmt_precio(i['precio'])}"
+        f"  🌸 {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
         for i in cesta_cotizacion
     ])
     mensaje = (
-        f"🌸 *COTIZACIÓN DE PERFUMES*\n"
-        f"━━━━━━━━━━━━━━━━\n"
+        f"🌸 *Perfuteca — Cotización*\n"
+        f"────────────────────\n"
+        f"📋 *Perfumes disponibles:*\n"
         f"{items}\n"
-        f"━━━━━━━━━━━━━━━━\n"
+        f"────────────────────\n"
         f"💰 *Total: S/ {fmt_precio(total)}*\n\n"
-        f"¿Te interesa alguno? 😊"
+        f"_¿Te interesa alguno? Con gusto te lo reservo 😊_"
     )
     return f"https://wa.me/51{celular}?text={quote(mensaje)}"
 

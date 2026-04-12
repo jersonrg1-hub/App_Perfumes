@@ -6,7 +6,7 @@ import pandas as pd
 
 from components import separador
 from config import fmt_precio, hoy_peru
-from pdf_generator import exportar_pdf_ventas_hoy
+from pdf_generator import exportar_pdf_ventas_hoy, exportar_pdf_ventas_mes
 
 
 def _metrica_card(titulo, valor):
@@ -131,16 +131,36 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         )
 
     separador()
-    st.markdown("#### 📄 Exportar ventas del día")
-    if st.button("⬇️ Generar PDF del día", key="generar_pdf", use_container_width=True):
-        pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
-        if pdf_bytes:
-            st.download_button(
-                label="📥 Descargar PDF",
-                data=pdf_bytes,
-                file_name=f"ventas_{date.today()}.pdf",
-                mime="application/pdf",
-                use_container_width=True
-            )
-        else:
-            st.warning("⚠️ No hay ventas hoy para exportar")
+    st.markdown("#### 📄 Exportar PDF")
+    col_pdf1, col_pdf2 = st.columns(2)
+
+    with col_pdf1:
+        if st.button("⬇️ PDF del día", key="generar_pdf_dia", use_container_width=True):
+            pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
+            if pdf_bytes:
+                st.download_button(
+                    label="📥 Descargar PDF del día",
+                    data=pdf_bytes,
+                    file_name=f"ventas_{date.today()}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="dl_pdf_dia"
+                )
+            else:
+                st.warning("⚠️ No hay ventas hoy")
+
+    with col_pdf2:
+        if st.button("⬇️ PDF del mes", key="generar_pdf_mes", use_container_width=True):
+            pdf_bytes = exportar_pdf_ventas_mes(df_ventas, df_catalogo)
+            if pdf_bytes:
+                hoy = date.today()
+                st.download_button(
+                    label="📥 Descargar PDF del mes",
+                    data=pdf_bytes,
+                    file_name=f"ventas_{hoy.year}_{hoy.month:02d}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="dl_pdf_mes"
+                )
+            else:
+                st.warning("⚠️ No hay ventas este mes")

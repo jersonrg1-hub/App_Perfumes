@@ -23,6 +23,8 @@ def mostrar_encabezado():
 
 def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, cesta, total):
     items_texto = "\n".join([
+        f"  🌸 *{i['marca']}* · {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
+        if i.get('marca') else
         f"  🌸 {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
         for i in cesta
     ])

@@ -26,35 +26,61 @@ def mostrar_tab_estadisticas(df):
         with st.spinner("Cargando ventas..."):
             df_ventas = cargar_ventas()
 
-        subtab1, subtab2, subtab3, subtab4, subtab5, subtab6, subtab7, subtab8, subtab9 = st.tabs([
-            "📊 Estadísticas",
-            "📦 Pendientes",
-            "📋 Historial",
+        subtab1, subtab2, subtab3, subtab4 = st.tabs([
+            "📊 Resumen",
+            "📦 Ventas",
             "👥 Clientes",
-            "💰 Cotizaciones",
-            "📈 Gráficos",
-            "🧪 Stock",
-            "📏 Tamaños",
-            "📅 Semanal & Meses"
+            "📈 Análisis",
         ])
+
         with subtab1:
             mostrar_estadisticas(df_ventas, df)
+
         with subtab2:
-            mostrar_ventas_pendientes(df_ventas, df)
+            seccion_ventas = st.radio(
+                "seccion_ventas",
+                ["📦 Pendientes", "📋 Historial", "📏 Tamaños", "📅 Semanal"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="ventas_radio",
+            )
+            st.markdown("")
+            if seccion_ventas == "📦 Pendientes":
+                mostrar_ventas_pendientes(df_ventas, df)
+            elif seccion_ventas == "📋 Historial":
+                mostrar_historial_ventas(df_ventas, df)
+            elif seccion_ventas == "📏 Tamaños":
+                mostrar_tamanios_populares(df_ventas)
+            elif seccion_ventas == "📅 Semanal":
+                mostrar_resumen_semanal(df_ventas, df)
+
         with subtab3:
-            mostrar_historial_ventas(df_ventas, df)
+            seccion_clientes = st.radio(
+                "seccion_clientes",
+                ["👥 Clientes Frecuentes", "💰 Cotizaciones"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="clientes_radio",
+            )
+            st.markdown("")
+            if seccion_clientes == "👥 Clientes Frecuentes":
+                mostrar_clientes_frecuentes(df_ventas, df)
+            elif seccion_clientes == "💰 Cotizaciones":
+                mostrar_historial_cotizaciones()
+
         with subtab4:
-            mostrar_clientes_frecuentes(df_ventas, df)
-        with subtab5:
-            mostrar_historial_cotizaciones()
-        with subtab6:
-            mostrar_graficos(df_ventas)
-        with subtab7:
-            mostrar_panel_stock(df)
-        with subtab8:
-            mostrar_tamanios_populares(df_ventas)
-        with subtab9:
-            mostrar_resumen_semanal(df_ventas, df)
+            seccion_analisis = st.radio(
+                "seccion_analisis",
+                ["📈 Gráficos", "🧪 Stock"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="analisis_radio",
+            )
+            st.markdown("")
+            if seccion_analisis == "📈 Gráficos":
+                mostrar_graficos(df_ventas)
+            elif seccion_analisis == "🧪 Stock":
+                mostrar_panel_stock(df)
 
     except Exception as e:
         st.error(f"❌ Error cargando ventas: {e}")

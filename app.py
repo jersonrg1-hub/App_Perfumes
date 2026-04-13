@@ -1,12 +1,12 @@
 import streamlit as st
 from styles import get_styles
-from data import cargar_catalogo
+from data import cargar_catalogo, limpiar_cache_catalogo
 from components import mostrar_encabezado
 from errores import (
     mostrar_error_conexion,
     mostrar_error_datos_vacios,
     mostrar_error_columna,
-    validar_dataframe
+    validar_dataframe,
 )
 from auth import inicializar_auth, login_seccion, check_auth, mostrar_boton_logout
 
@@ -20,9 +20,10 @@ st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centere
 
 inicializar_auth()
 
-st.markdown("""
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-""", unsafe_allow_html=True)
+st.markdown(
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+    unsafe_allow_html=True,
+)
 st.markdown(get_styles(), unsafe_allow_html=True)
 
 mostrar_encabezado()
@@ -32,6 +33,9 @@ try:
 
     if df.empty:
         mostrar_error_datos_vacios()
+        if st.button("🔄 Reintentar", key="retry_empty"):
+            limpiar_cache_catalogo()
+            st.rerun()
         st.stop()
 
     columnas_faltantes = validar_dataframe(df)
@@ -46,7 +50,7 @@ try:
         "🎵 Notas",
         "📝 Venta",
         "📊 Estadísticas",
-        "🔐 Sesión"
+        "🔐 Sesión",
     ])
 
     with tab1:
@@ -82,11 +86,16 @@ try:
             st.write("Ingresa la contraseña para gestionar ventas e inventario.")
             login_seccion(key_suffix="tab_final")
 
-except ConnectionError as e:
+except ConnectionError:
+    mostrar_error_conexion()
+    if st.button("🔄 Reintentar conexión", key="retry_conn"):
+        limpiar_cache_catalogo()
+        st.rerun()
+
+except Exception as e:
     mostrar_error_conexion()
     with st.expander("🔍 Ver detalle del error"):
         st.code(str(e))
-except Exception as e:
-    st.error("❌ Error inesperado en la aplicación")
-    with st.expander("🔍 Ver detalle del error"):
-        st.code(str(e))
+    if st.button("🔄 Reintentar", key="retry_exc"):
+        limpiar_cache_catalogo()
+        st.rerun()

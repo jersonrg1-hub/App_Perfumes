@@ -132,5 +132,19 @@ def mostrar_tab_nombre(df):
             mostrar_sin_precio(perfume["Nombre"], "ningún tamaño")
 
     else:
-        st.markdown("")
-        st.info("👆 Selecciona un perfume para ver sus precios")
+        st.markdown(
+            """<div style="
+                text-align:center; padding:2.5rem 1.5rem; margin-top:1rem;
+                background:#ffffff; border:1px dashed #e0c9b4; border-radius:16px;
+            ">
+                <div style="font-size:2.2rem; margin-bottom:0.7rem;">🔍</div>
+                <div style="font-family:'Playfair Display',serif; font-size:1.05rem;
+                    color:#2c1a0e; font-weight:600; margin-bottom:0.3rem;">
+                    Elige un perfume
+                </div>
+                <div style="font-size:0.83rem; color:#a07850;">
+                    Selecciona para ver precios y detalles
+                </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )

@@ -7,12 +7,12 @@ from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html
 def mostrar_tab_marca(df):
     col_marca, col_tamanio = st.columns(2)
     with col_marca:
-        marcas = ["— Elige una marca —"] + sorted(df["Marca"].dropna().unique().tolist())
-        marca_seleccionada = st.selectbox("Marca", marcas, key="marca")
+        marcas = sorted(df["Marca"].dropna().unique().tolist())
+        marca_seleccionada = st.selectbox("Marca", marcas, index=None, placeholder="— Elige una marca —", key="marca")
     with col_tamanio:
         tamanio = st.selectbox("Tamaño", list(PRECIOS_COLUMNAS.keys()), key="tamanio1")
 
-    if marca_seleccionada != "— Elige una marca —":
+    if marca_seleccionada is not None:
         df_filtrado = df[df["Marca"] == marca_seleccionada]
         columna = PRECIOS_COLUMNAS[tamanio]
 

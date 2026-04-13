@@ -227,7 +227,8 @@ MOBILE = """
 
         /* ── Stepper del wizard de venta ── */
         .wiz-step-label {
-            font-size: 0.62rem !important;
+            font-size: 0.60rem !important;
+            letter-spacing: 0.04em !important;
         }
 
         /* ── Items de cesta ── */
@@ -360,6 +361,11 @@ MOBILE = """
         [data-testid="stExpanderHeader"] {
             font-size: 0.82rem !important;
             min-height: 50px !important;
+        }
+
+        /* ── Stepper: ocultar labels en pantallas muy pequeñas ── */
+        .wiz-step-label {
+            display: none !important;
         }
     }
 """

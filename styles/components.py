@@ -132,40 +132,52 @@ COMPONENTS = """
     margin: 1.5rem 0;
 }
 
+/* Botón secundario — outlined sutil */
 .stButton button {
     border-radius: 10px !important;
     font-family: 'Lato', sans-serif !important;
     font-weight: 600 !important;
     transition: all 0.18s ease !important;
-    background-color: #2c1a0e !important;
-    color: white !important;
-    border: none !important;
+    background-color: transparent !important;
+    color: #2c1a0e !important;
+    border: 1.5px solid #d4b896 !important;
 }
 
 .stButton button p,
 .stButton button span {
-    color: white !important;
+    color: #2c1a0e !important;
     font-weight: 600 !important;
 }
 
 .stButton button:hover {
-    background-color: #3d2512 !important;
+    background-color: #f5e6d8 !important;
+    border-color: #c8956c !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 4px 14px rgba(44, 26, 14, 0.28) !important;
+    box-shadow: 0 4px 14px rgba(200, 149, 108, 0.2) !important;
 }
 
 .stButton button:active {
     transform: scale(0.97) !important;
-    background-color: #1a0f08 !important;
+    background-color: #fdf0e8 !important;
 }
 
+/* Botón primario — terracota */
 .stButton button[kind="primary"] {
-    background: linear-gradient(135deg, #2c1a0e 0%, #5c3a1e 100%) !important;
+    background: linear-gradient(135deg, #c8956c 0%, #b8845c 100%) !important;
+    color: white !important;
+    border: none !important;
+}
+
+.stButton button[kind="primary"] p,
+.stButton button[kind="primary"] span {
+    color: white !important;
+    font-weight: 600 !important;
 }
 
 .stButton button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #b8845c 0%, #a8744c 100%) !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(44, 26, 14, 0.32) !important;
+    box-shadow: 0 6px 20px rgba(200, 149, 108, 0.35) !important;
 }
 
 [data-testid="stExpanderHeader"] {
@@ -322,7 +334,7 @@ div[data-baseweb="select"] {
 
 /* ── Botones de formulario (form_submit_button) ── */
 .stFormSubmitButton > button {
-    background-color: #2c1a0e !important;
+    background: linear-gradient(135deg, #c8956c 0%, #b8845c 100%) !important;
     color: white !important;
     border: none !important;
     border-radius: 10px !important;
@@ -340,9 +352,9 @@ div[data-baseweb="select"] {
 }
 
 .stFormSubmitButton > button:hover {
-    background-color: #3d2512 !important;
+    background: linear-gradient(135deg, #b8845c 0%, #a8744c 100%) !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 4px 14px rgba(44, 26, 14, 0.3) !important;
+    box-shadow: 0 4px 14px rgba(200, 149, 108, 0.3) !important;
 }
 
 /* ── Forzar color blanco en botones HTML dentro de links ── */

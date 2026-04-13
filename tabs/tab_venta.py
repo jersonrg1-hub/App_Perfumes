@@ -66,7 +66,7 @@ def _barra_progreso(paso_actual):
                         background:{circulo_bg}; color:{circulo_color};
                         display:flex; align-items:center; justify-content:center;
                         font-size:0.8rem; font-weight:700;">{contenido}</div>
-                    <div style="font-size:0.7rem; font-weight:600; color:{texto_color};
+                    <div class="wiz-step-label" style="font-size:0.7rem; font-weight:600; color:{texto_color};
                         text-transform:uppercase; letter-spacing:0.08em;
                         text-align:center;">{nombre}</div>
                 </div>""",
@@ -145,8 +145,8 @@ def _paso_1_cliente(df):
 def _paso_2_perfumes(df):
     st.markdown("#### 🛒 Agregar perfumes")
 
-    nombres_opciones = ["— Elige un perfume —"] + sorted(df["Nombre"].dropna().unique().tolist())
-    perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, key="perf_sel")
+    nombres_opciones = sorted(df["Nombre"].dropna().unique().tolist())
+    perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, index=None, placeholder="— Elige un perfume —", key="perf_sel")
 
     col_ml, col_pago = st.columns(2)
     with col_ml:
@@ -154,7 +154,7 @@ def _paso_2_perfumes(df):
     with col_pago:
         metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key="pago_sel")
 
-    if perfume_venta != nombres_opciones[0]:
+    if perfume_venta is not None:
         perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]
         id_perfume = perfume_row["ID_Perfume"]
         columna_precio = f"Precio_{ml_vendido}ml"
@@ -210,6 +210,8 @@ def _paso_2_perfumes(df):
                     "ml": ml_vendido, "precio": precio_item, "metodo": metodo_pago
                 })
                 st.toast(f"Agregado: {perfume_venta}", icon="✅")
+                st.session_state["perf_sel"] = None
+                st.rerun()
         else:
             st.warning("⚠️ Sin precio configurado")
 

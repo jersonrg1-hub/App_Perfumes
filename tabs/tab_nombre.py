@@ -46,10 +46,10 @@ def _mostrar_todos_precios(perfume, precios_columnas):
 
 
 def mostrar_tab_nombre(df):
-    nombres = ["— Elige un perfume —"] + sorted(df["Nombre"].dropna().unique().tolist())
-    nombre_seleccionado = st.selectbox("Perfume", nombres, key="nombre")
+    nombres = sorted(df["Nombre"].dropna().unique().tolist())
+    nombre_seleccionado = st.selectbox("Perfume", nombres, index=None, placeholder="— Elige un perfume —", key="nombre")
 
-    if nombre_seleccionado != "— Elige un perfume —":
+    if nombre_seleccionado is not None:
         perfume = df[df["Nombre"] == nombre_seleccionado].iloc[0]
         url_imagen = str(perfume.get("URL_imagen", "")).strip()
 

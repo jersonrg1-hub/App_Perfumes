@@ -1,44 +1,92 @@
 MOBILE = """
 
     /* ═══════════════════════════════════════════
+       BASE MÓVIL — aplica en todos los tamaños
+       Mejoras táctiles globales
+    ═══════════════════════════════════════════ */
+
+    /* Elimina el flash gris al tocar en Android/iOS */
+    * {
+        -webkit-tap-highlight-color: transparent !important;
+    }
+
+    /* Scroll suave en toda la app */
+    html {
+        scroll-behavior: smooth;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    /* Safe area para iPhone con notch y barra de gestos */
+    .main .block-container {
+        padding-bottom: max(1.5rem, env(safe-area-inset-bottom)) !important;
+    }
+
+
+    /* ═══════════════════════════════════════════
        BREAKPOINT PRINCIPAL — 768px
        Tablets y móviles grandes
     ═══════════════════════════════════════════ */
     @media (max-width: 768px) {
 
-        /* ── Reducir padding lateral de Streamlit ── */
+        /* ── Contenedor principal ── */
         .main .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-            padding-top: 1rem !important;
+            padding-left: 0.9rem !important;
+            padding-right: 0.9rem !important;
+            padding-top: 0.5rem !important;
+            max-width: 100% !important;
         }
 
-        /* ── Título ── */
+        /* ── Encabezado más compacto ── */
+        .header-wrapper {
+            padding: 0.8rem 0.5rem 0.2rem !important;
+            margin-bottom: 0.2rem !important;
+        }
+
         .titulo-app {
-            font-size: 2.2rem !important;
+            font-size: 2rem !important;
+            margin-bottom: 0.2rem !important;
         }
 
         .subtitulo-app {
-            font-size: 0.75rem !important;
-            letter-spacing: 0.25em !important;
+            font-size: 0.7rem !important;
+            letter-spacing: 0.22em !important;
+            margin-bottom: 0.4rem !important;
         }
 
-        /* ── Pestañas: scroll horizontal sin saltos ── */
+        .header-linea {
+            margin: 0.3rem auto 1rem !important;
+        }
+
+        /* ── Pestañas fijas al hacer scroll ── */
         .stTabs [data-baseweb="tab-list"] {
+            position: sticky !important;
+            top: 0 !important;
+            z-index: 100 !important;
             overflow-x: auto !important;
             flex-wrap: nowrap !important;
             -webkit-overflow-scrolling: touch !important;
+            scrollbar-width: none !important;
             padding: 4px !important;
             gap: 2px !important;
+            background-color: #f5e6d8 !important;
+        }
+
+        .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {
+            display: none !important;
         }
 
         .stTabs [data-baseweb="tab"] {
-            padding: 0.4rem 0.7rem !important;
+            padding: 0.4rem 0.65rem !important;
             font-size: 0.78rem !important;
             white-space: nowrap !important;
+            min-height: 40px !important;
         }
 
         /* ── Métricas: 2 columnas en vez de 4 ── */
+        [data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+        }
+
         [data-testid="column"] {
             min-width: 45% !important;
             flex: 1 1 45% !important;
@@ -46,14 +94,14 @@ MOBILE = """
 
         /* ── Tarjeta perfume ── */
         .perfume-card {
-            padding: 0.8rem 1rem !important;
+            padding: 0.75rem 0.9rem !important;
         }
 
         .perfume-card .nombre {
-            font-size: 1.15rem !important;
+            font-size: 1.1rem !important;
         }
 
-        /* ── Precio box (tab_nombre) ── */
+        /* ── Precio box ── */
         .precio-box .valor {
             font-size: 2rem !important;
         }
@@ -62,20 +110,21 @@ MOBILE = """
             padding: 0.6rem !important;
         }
 
-        /* ── Inputs y selects táctiles ── */
+        /* ── Inputs táctiles — mínimo 48px para dedos ── */
+        .stTextInput input,
+        .stNumberInput input,
+        .stDateInput input {
+            min-height: 48px !important;
+            font-size: 16px !important;   /* evita zoom en iOS */
+            padding: 0.6rem 0.8rem !important;
+        }
+
         div[data-baseweb="select"] {
             min-height: 48px !important;
         }
 
         div[data-baseweb="select"] span {
-            font-size: 1rem !important;
-        }
-
-        .stTextInput input,
-        .stNumberInput input,
-        .stDateInput input {
-            min-height: 48px !important;
-            font-size: 1rem !important;
+            font-size: 16px !important;
         }
 
         /* ── Botones táctiles ── */
@@ -84,20 +133,41 @@ MOBILE = """
             font-size: 0.95rem !important;
         }
 
-        /* ── Expander header más cómodo ── */
-        [data-testid="stExpanderHeader"] {
-            padding: 0.8rem 1rem !important;
-            font-size: 0.9rem !important;
+        /* ── Labels más legibles ── */
+        .stTextInput label,
+        .stDateInput label,
+        .stSelectbox label,
+        .stNumberInput label {
+            font-size: 0.8rem !important;
+            letter-spacing: 0.03em !important;
+            text-transform: none !important;
         }
 
-        /* ── Separadores más compactos ── */
+        /* ── Expander header cómodo al tacto ── */
+        [data-testid="stExpanderHeader"] {
+            padding: 0.85rem 1rem !important;
+            font-size: 0.9rem !important;
+            min-height: 52px !important;
+        }
+
+        /* ── Menos margen vertical entre elementos ── */
         hr {
             margin: 0.5rem 0 !important;
+        }
+
+        .element-container {
+            margin-bottom: 0.4rem !important;
         }
 
         /* ── Dataframe: scroll horizontal visible ── */
         .stDataFrame {
             overflow-x: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+        }
+
+        /* ── Alertas ── */
+        div[data-testid="stAlert"] p {
+            font-size: 0.9rem !important;
         }
     }
 
@@ -112,57 +182,32 @@ MOBILE = """
         .main .block-container {
             padding-left: 0.6rem !important;
             padding-right: 0.6rem !important;
+            padding-top: 0.4rem !important;
         }
 
-        /* ── Título compacto ── */
+        /* ── Encabezado muy compacto ── */
+        .header-wrapper {
+            padding: 0.6rem 0.5rem 0.1rem !important;
+        }
+
         .titulo-app {
-            font-size: 1.8rem !important;
+            font-size: 1.75rem !important;
         }
 
-        /* ── Tabs más pequeñas ── */
+        .header-linea {
+            margin: 0.2rem auto 0.7rem !important;
+        }
+
+        /* ── Tabs más pequeñas pero cómodas ── */
         .stTabs [data-baseweb="tab"] {
             padding: 0.35rem 0.55rem !important;
             font-size: 0.72rem !important;
         }
 
-        /* ── Columnas: forzar stack vertical
-           excepto cuando son exactamente 2 ── */
-        [data-testid="column"]:nth-child(n+3) {
-            min-width: 45% !important;
-            flex: 1 1 45% !important;
-        }
-
-        /* ── Tarjetas de perfume: separar precio
-           del nombre en columna vertical ── */
-        .perfume-card .nombre {
-            font-size: 1rem !important;
-        }
-
-        /* ── Chips de precio (3 columnas): más compactos ── */
-        .precio-card {
-            padding: 0.5rem 0.3rem !important;
-        }
-
-        /* ── Stepper de venta: texto más pequeño ── */
-        .wiz-step-label {
-            font-size: 0.62rem !important;
-        }
-
-        /* ── Cesta de items: precio en línea nueva si es necesario ── */
-        .cesta-item {
-            flex-wrap: wrap !important;
-            gap: 0.3rem !important;
-        }
-
-        /* ── 7 columnas de días: fuente mínima ── */
-        [data-testid="column"] > div > div > div > div {
-            font-size: 0.6rem !important;
-        }
-
-        /* ── Métricas: ambas columnas al 100% si son 4 ──
-           Logrado con flex-wrap en el padre            ── */
+        /* ── 4 métricas → 2×2, 3 métricas → todas al 100% o 2+1 ── */
         [data-testid="stHorizontalBlock"] {
             flex-wrap: wrap !important;
+            gap: 0.4rem !important;
         }
 
         [data-testid="column"] {
@@ -170,49 +215,112 @@ MOBILE = """
             flex: 1 1 45% !important;
         }
 
-        /* ── Botones: ancho completo ── */
+        /* ── Tarjetas de perfume ── */
+        .perfume-card .nombre {
+            font-size: 1rem !important;
+        }
+
+        /* ── Chips de precio: más compactos ── */
+        .precio-card {
+            padding: 0.5rem 0.3rem !important;
+        }
+
+        /* ── Stepper del wizard de venta ── */
+        .wiz-step-label {
+            font-size: 0.62rem !important;
+        }
+
+        /* ── Items de cesta ── */
+        .cesta-item {
+            flex-wrap: wrap !important;
+            gap: 0.3rem !important;
+        }
+
+        /* ── Botones: ancho completo, altura cómoda para dedos ── */
         .stButton button {
             min-height: 52px !important;
             font-size: 1rem !important;
             width: 100% !important;
+            border-radius: 12px !important;
         }
 
-        /* ── Inputs: más altos para dedos ── */
+        /* ── Inputs: altura mayor para dedos ── */
         .stTextInput input,
         .stNumberInput input,
         .stDateInput input {
             min-height: 52px !important;
-            font-size: 1rem !important;
+            font-size: 16px !important;
+            border-radius: 10px !important;
         }
 
         div[data-baseweb="select"] {
             min-height: 52px !important;
+            border-radius: 10px !important;
         }
 
         /* ── Expanders: padding interno reducido ── */
         [data-testid="stExpanderDetails"] {
-            padding: 0.7rem !important;
+            padding: 0.65rem 0.5rem !important;
+        }
+
+        /* ── Header del expander: más tap-friendly ── */
+        [data-testid="stExpanderHeader"] {
+            min-height: 56px !important;
+            padding: 0.9rem 0.75rem !important;
         }
 
         /* ── Alertas más compactas ── */
         div[data-testid="stAlert"] {
-            padding: 0.7rem 0.9rem !important;
+            padding: 0.65rem 0.8rem !important;
         }
 
         div[data-testid="stAlert"] p {
-            font-size: 0.88rem !important;
+            font-size: 0.85rem !important;
+            line-height: 1.5 !important;
         }
 
-        /* ── Métricas: valores más pequeños en 4-grid ── */
+        /* ── Métricas: fuente más pequeña ── */
         .stMetric [data-testid="stMetricValue"] {
-            font-size: 1.4rem !important;
+            font-size: 1.35rem !important;
+        }
+
+        /* ── Labels legibles sin uppercase agresivo ── */
+        .stTextInput label,
+        .stDateInput label,
+        .stSelectbox label,
+        .stNumberInput label {
+            font-size: 0.78rem !important;
+            text-transform: none !important;
+            letter-spacing: 0.02em !important;
+            margin-bottom: 2px !important;
+        }
+
+        /* ── Espaciado vertical entre bloques ── */
+        .element-container {
+            margin-bottom: 0.35rem !important;
+        }
+
+        /* ── Toast notifications ── */
+        .stToast {
+            bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+        }
+
+        /* ── Botón de descarga ── */
+        [data-testid="stDownloadButton"] button {
+            min-height: 52px !important;
+            font-size: 1rem !important;
+        }
+
+        /* ── Spinner ── */
+        [data-testid="stSpinner"] {
+            font-size: 0.9rem !important;
         }
     }
 
 
     /* ═══════════════════════════════════════════
        BREAKPOINT MUY PEQUEÑO — 360px
-       Móviles compactos
+       Móviles compactos (Galaxy A, Moto G, etc.)
     ═══════════════════════════════════════════ */
     @media (max-width: 360px) {
 
@@ -223,6 +331,10 @@ MOBILE = """
 
         .titulo-app {
             font-size: 1.5rem !important;
+        }
+
+        .header-ornamento {
+            display: none !important;
         }
 
         .stTabs [data-baseweb="tab"] {
@@ -236,6 +348,18 @@ MOBILE = """
 
         .stButton button {
             font-size: 0.9rem !important;
+            min-height: 50px !important;
+        }
+
+        .stTextInput input,
+        .stNumberInput input,
+        .stDateInput input {
+            font-size: 16px !important;
+        }
+
+        [data-testid="stExpanderHeader"] {
+            font-size: 0.82rem !important;
+            min-height: 50px !important;
         }
     }
 """

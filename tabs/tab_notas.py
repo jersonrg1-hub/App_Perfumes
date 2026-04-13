@@ -66,8 +66,22 @@ def mostrar_tab_notas(df):
             st.caption("Sin columna Perfil_Olfativo")
 
     if not notas_seleccionadas and not perfiles_seleccionados:
-        st.markdown("")
-        st.info("👆 Selecciona una nota o perfil olfativo para ver los perfumes")
+        st.markdown(
+            """<div style="
+                text-align:center; padding:2.5rem 1.5rem; margin-top:1rem;
+                background:#ffffff; border:1px dashed #e0c9b4; border-radius:16px;
+            ">
+                <div style="font-size:2.2rem; margin-bottom:0.7rem;">🎵</div>
+                <div style="font-family:'Playfair Display',serif; font-size:1.05rem;
+                    color:#2c1a0e; font-weight:600; margin-bottom:0.3rem;">
+                    Elige una nota o perfil
+                </div>
+                <div style="font-size:0.83rem; color:#a07850;">
+                    Selecciona para filtrar los perfumes por aroma
+                </div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
         return
 
     df_filtrado = df

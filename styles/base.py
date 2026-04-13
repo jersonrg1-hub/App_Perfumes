@@ -46,17 +46,12 @@ h1, h2, h3, h4 {
 
 .header-wrapper {
     text-align: center;
-    padding: 2.5rem 1rem 0.5rem;
+    padding: 1.5rem 1rem 0.5rem;
     margin-bottom: 0.5rem;
 }
 
 .header-ornamento {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    margin-bottom: 0.8rem;
-    opacity: 0.5;
+    display: none;
 }
 
 .header-ornamento::before,
@@ -88,8 +83,8 @@ h1, h2, h3, h4 {
 .subtitulo-app {
     text-align: center;
     color: #a07850;
-    font-size: 0.72rem;
-    letter-spacing: 0.32em;
+    font-size: 0.78rem;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
     margin-bottom: 0.8rem;
     font-weight: 300;
@@ -122,6 +117,7 @@ h1, h2, h3, h4 {
     letter-spacing: 0.15em;
 }
 
+/* Botón secundario — outlined sutil */
 .stButton > button {
     border-radius: 10px !important;
     font-family: 'Lato', sans-serif !important;
@@ -129,32 +125,44 @@ h1, h2, h3, h4 {
     font-size: 0.95rem !important;
     letter-spacing: 0.02em !important;
     padding: 0.55rem 1.2rem !important;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease !important;
-    background-color: #2c1a0e !important;
-    color: white !important;
-    border: none !important;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease !important;
+    background-color: transparent !important;
+    color: #2c1a0e !important;
+    border: 1.5px solid #d4b896 !important;
 }
 
 .stButton > button p,
 .stButton > button span,
 .stButton > button div {
-    color: white !important;
+    color: #2c1a0e !important;
     font-weight: 600 !important;
 }
 
 .stButton > button:hover {
-    background-color: #3d2512 !important;
+    background-color: #f5e6d8 !important;
+    border-color: #c8956c !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 4px 14px rgba(44, 26, 14, 0.25) !important;
+    box-shadow: 0 4px 14px rgba(200, 149, 108, 0.2) !important;
 }
 
+/* Botón primario — terracota */
 .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #2c1a0e 0%, #5c3a1e 100%) !important;
+    background: linear-gradient(135deg, #c8956c 0%, #b8845c 100%) !important;
+    color: white !important;
+    border: none !important;
+}
+
+.stButton > button[kind="primary"] p,
+.stButton > button[kind="primary"] span,
+.stButton > button[kind="primary"] div {
+    color: white !important;
+    font-weight: 600 !important;
 }
 
 .stButton > button[kind="primary"]:hover {
+    background: linear-gradient(135deg, #b8845c 0%, #a8744c 100%) !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 20px rgba(44, 26, 14, 0.3) !important;
+    box-shadow: 0 6px 20px rgba(200, 149, 108, 0.35) !important;
 }
 
 .stButton > button:active {

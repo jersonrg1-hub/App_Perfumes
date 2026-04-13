@@ -21,7 +21,8 @@ def _metrica_card(titulo, valor):
             font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">{titulo_safe}</div>
         <div style="color:#c8956c; font-size:1.7rem; font-weight:700;
             font-family:Inter,sans-serif;
-            font-variant-numeric:tabular-nums;">{valor_safe}</div>
+            font-variant-numeric:tabular-nums;
+            white-space:nowrap;">{valor_safe}</div>
     </div>
     """
 

@@ -60,6 +60,15 @@ TABS = """
         animation: fadeIn 0.25s ease-in-out;
     }
 
+    /* Forzar Playfair Display en títulos h4 dentro de tabs */
+    .stTabs h4,
+    .stTabs [data-baseweb="tab-panel"] h4,
+    .stMarkdown h4 {
+        font-family: 'Playfair Display', serif !important;
+        color: #2c1a0e !important;
+        letter-spacing: -0.01em !important;
+    }
+
     /* Scroll suave en móvil */
     .stTabs [data-baseweb="tab-list"] {
         overflow-x: auto !important;

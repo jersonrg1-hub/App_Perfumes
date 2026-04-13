@@ -396,7 +396,6 @@ def _resetear_wizard():
 
 
 def mostrar_tab_venta(df):
-    mostrar_seccion_cotizacion(df)
     st.markdown("### 📝 Registrar Nueva Venta")
 
     if "cesta" not in st.session_state:
@@ -504,3 +503,6 @@ def mostrar_tab_venta(df):
         _paso_2_perfumes(df)
     elif st.session_state.wiz_paso == 3:
         _paso_3_confirmar()
+
+    separador()
+    mostrar_seccion_cotizacion(df)

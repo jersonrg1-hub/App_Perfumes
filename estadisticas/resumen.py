@@ -14,10 +14,12 @@ def _metrica_card(titulo, valor):
     valor_safe = html.escape(str(valor))
     return f"""
     <div style="background:white; border-radius:12px; padding:1rem;
-        text-align:center; border:1px solid #ede0d4;">
+        text-align:center; border:1px solid #ede0d4;
+        border-top:3px solid #c8956c;
+        box-shadow:0 2px 8px rgba(200,149,108,0.08);">
         <div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;
             font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">{titulo_safe}</div>
-        <div style="color:#2c1a0e; font-size:1.7rem; font-weight:700;
+        <div style="color:#c8956c; font-size:1.7rem; font-weight:700;
             font-family:Inter,sans-serif;
             font-variant-numeric:tabular-nums;">{valor_safe}</div>
     </div>
@@ -74,6 +76,38 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         st.markdown(_metrica_card("Total mes", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
 
     st.markdown("")
+    col_pdf1, col_pdf2 = st.columns(2)
+    with col_pdf1:
+        if st.button("⬇️ PDF del día", key="generar_pdf_dia", use_container_width=True):
+            pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
+            if pdf_bytes:
+                st.download_button(
+                    label="📥 Descargar PDF del día",
+                    data=pdf_bytes,
+                    file_name=f"ventas_{date.today()}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="dl_pdf_dia"
+                )
+            else:
+                st.warning("⚠️ No hay ventas hoy")
+    with col_pdf2:
+        if st.button("⬇️ PDF del mes", key="generar_pdf_mes", use_container_width=True):
+            pdf_bytes = exportar_pdf_ventas_mes(df_ventas, df_catalogo)
+            if pdf_bytes:
+                hoy_d = date.today()
+                st.download_button(
+                    label="📥 Descargar PDF del mes",
+                    data=pdf_bytes,
+                    file_name=f"ventas_{hoy_d.year}_{hoy_d.month:02d}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="dl_pdf_mes"
+                )
+            else:
+                st.warning("⚠️ No hay ventas este mes")
+
+    separador()
     st.markdown("#### 🏆 Perfumes más vendidos")
 
     if "ID_Perfume" in df_ventas.columns:
@@ -130,37 +164,3 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             use_container_width=True, hide_index=True
         )
 
-    separador()
-    st.markdown("#### 📄 Exportar PDF")
-    col_pdf1, col_pdf2 = st.columns(2)
-
-    with col_pdf1:
-        if st.button("⬇️ PDF del día", key="generar_pdf_dia", use_container_width=True):
-            pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
-            if pdf_bytes:
-                st.download_button(
-                    label="📥 Descargar PDF del día",
-                    data=pdf_bytes,
-                    file_name=f"ventas_{date.today()}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="dl_pdf_dia"
-                )
-            else:
-                st.warning("⚠️ No hay ventas hoy")
-
-    with col_pdf2:
-        if st.button("⬇️ PDF del mes", key="generar_pdf_mes", use_container_width=True):
-            pdf_bytes = exportar_pdf_ventas_mes(df_ventas, df_catalogo)
-            if pdf_bytes:
-                hoy = date.today()
-                st.download_button(
-                    label="📥 Descargar PDF del mes",
-                    data=pdf_bytes,
-                    file_name=f"ventas_{hoy.year}_{hoy.month:02d}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="dl_pdf_mes"
-                )
-            else:
-                st.warning("⚠️ No hay ventas este mes")

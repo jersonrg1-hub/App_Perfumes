@@ -1,3 +1,4 @@
+import html
 import streamlit as st
 from config import COL_ESTADO_NUM, COLUMNAS_VENTAS, METODOS_PAGO, fmt_precio, fmt_fecha
 from data import marcar_pedido_entregado_batch, actualizar_ventas_multi_fila_batch
@@ -48,19 +49,54 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
 
         with st.expander(f"📦 {id_compra} — {primera.get('Comprador', '')} | S/ {fmt_precio(total_compra)}"):
 
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"📅 **Fecha:** {fmt_fecha(primera.get('Fecha', ''))}")
-                st.write(f"📱 **Celular:** {primera.get('Celular', '')}")
-                st.write(f"🚚 **Envío:** {primera.get('Tipo_Envio', '')}")
-            with col2:
-                st.write(f"📍 **Dirección:** {primera.get('Direccion', '')}")
-                st.write(f"💳 **Pago:** {primera.get('Metodo_Pago', '')}")
+            fecha_s   = html.escape(str(fmt_fecha(primera.get("Fecha", ""))))
+            celular_s = html.escape(str(primera.get("Celular", "")))
+            envio_s   = html.escape(str(primera.get("Tipo_Envio", "")))
+            dir_s     = html.escape(str(primera.get("Direccion", "") or "—"))
+            pago_s    = html.escape(str(primera.get("Metodo_Pago", "")))
 
-            st.markdown("")
-            for item in grupo.to_dict("records"):
-                nombre = get_nombre_perfume(item.get("ID_Perfume", ""))
-                st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;🌸 {nombre} — {item.get('Ml_Vendido', '')}ml — S/ {fmt_precio(item.get('Precio_Cobrado', 0))}", unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background:#fdf6f0; border:1px solid #ede0d4; border-radius:12px;
+                padding:0.85rem 1.1rem; margin-bottom:0.5rem;
+                display:grid; grid-template-columns:1fr 1fr; gap:0.45rem;
+                font-size:0.88rem; color:#2c1a0e;">
+                <div><span style="color:#a07850; font-size:0.7rem; text-transform:uppercase;
+                    font-weight:600; letter-spacing:0.08em;">📅 Fecha</span>
+                    <br><strong>{fecha_s}</strong></div>
+                <div><span style="color:#a07850; font-size:0.7rem; text-transform:uppercase;
+                    font-weight:600; letter-spacing:0.08em;">📱 Celular</span>
+                    <br><strong>{celular_s}</strong></div>
+                <div><span style="color:#a07850; font-size:0.7rem; text-transform:uppercase;
+                    font-weight:600; letter-spacing:0.08em;">🚚 Envío</span>
+                    <br><strong>{envio_s}</strong></div>
+                <div><span style="color:#a07850; font-size:0.7rem; text-transform:uppercase;
+                    font-weight:600; letter-spacing:0.08em;">💳 Pago</span>
+                    <br><strong>{pago_s}</strong></div>
+                <div style="grid-column:1/-1;"><span style="color:#a07850; font-size:0.7rem;
+                    text-transform:uppercase; font-weight:600; letter-spacing:0.08em;">📍 Dirección</span>
+                    <br><strong>{dir_s}</strong></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            items_html = "".join([
+                f"<div style='display:flex; justify-content:space-between; align-items:center;"
+                f"padding:0.4rem 0; border-bottom:1px solid #f5ede6; font-size:0.88rem;'>"
+                f"<span style='color:#2c1a0e; font-weight:500;'>🌸 "
+                f"{html.escape(str(get_nombre_perfume(it.get('ID_Perfume',''))))}"
+                f" · {html.escape(str(it.get('Ml_Vendido','')))}ml</span>"
+                f"<span style='font-weight:700; color:#c8956c; font-family:Inter,sans-serif;"
+                f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(it.get('Precio_Cobrado', 0))}</span>"
+                f"</div>"
+                for it in grupo.to_dict("records")
+            ])
+            st.markdown(
+                f"<div style='background:white; border:1px solid #ede0d4; border-radius:12px;"
+                f"padding:0.8rem 1.1rem; margin-bottom:0.5rem;'>"
+                f"<div style='font-size:0.68rem; color:#a07850; text-transform:uppercase;"
+                f"font-weight:600; letter-spacing:0.1em; margin-bottom:0.5rem;'>Perfumes</div>"
+                f"{items_html}</div>",
+                unsafe_allow_html=True
+            )
 
             separador()
 

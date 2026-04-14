@@ -1,6 +1,7 @@
 import hmac
 import time
 import streamlit as st
+from data import cargar_ventas
 
 MAX_INTENTOS = 3
 BLOQUEO_SEGUNDOS = 60  # 1 minuto de bloqueo tras agotar intentos
@@ -69,6 +70,7 @@ def login_seccion(key_suffix="default"):
                 st.session_state.autenticado = True
                 st.session_state.intentos_login = 0
                 st.session_state.bloqueado_hasta = 0.0
+                cargar_ventas()  # precalentar cache para estadísticas
                 st.success("✅ Acceso concedido")
                 st.rerun()
             else:

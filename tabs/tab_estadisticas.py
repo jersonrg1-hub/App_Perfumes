@@ -13,6 +13,7 @@ from estadisticas.graficos import mostrar_graficos
 from estadisticas.historial_cotizaciones import mostrar_historial_cotizaciones
 
 
+@st.fragment
 def mostrar_tab_estadisticas(df):
     st.markdown("### 📊 Estadísticas de Ventas")
 

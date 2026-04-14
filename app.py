@@ -24,6 +24,12 @@ st.markdown(
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
     unsafe_allow_html=True,
 )
+# Fuentes no bloqueantes: preconnect + link en lugar de @import dentro de <style>
+st.markdown("""
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Lato:wght@300;400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+""", unsafe_allow_html=True)
 st.markdown(get_styles(), unsafe_allow_html=True)
 
 mostrar_encabezado()

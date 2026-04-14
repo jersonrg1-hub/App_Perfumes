@@ -187,6 +187,29 @@ def limpiar_cache_cotizaciones():
     cargar_cotizaciones.clear()
 
 
+def actualizar_estado_cotizacion(id_cotizacion, nuevo_estado):
+    try:
+        hoja = get_hoja(WORKSHEET_COTIZACIONES)
+        todos = hoja.get_all_values()
+        if not todos or len(todos) < 2:
+            return
+        headers = todos[0]
+        if "ID_Cotizacion" not in headers or "Estado" not in headers:
+            log_error("actualizar_estado_cotizacion", "Faltan columnas ID_Cotizacion o Estado")
+            return
+        col_id = headers.index("ID_Cotizacion")
+        col_estado = headers.index("Estado") + 1
+        for i, fila in enumerate(todos[1:], start=2):
+            if len(fila) > col_id and fila[col_id] == id_cotizacion:
+                celda = gspread.utils.rowcol_to_a1(i, col_estado)
+                hoja.update(celda, [[nuevo_estado]])
+                break
+        limpiar_cache_cotizaciones()
+    except Exception as e:
+        log_error("actualizar_estado_cotizacion", e)
+        raise
+
+
 def _obtener_proximo_id_cotizacion():
     try:
         df = cargar_cotizaciones()

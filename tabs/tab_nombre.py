@@ -46,8 +46,25 @@ def _mostrar_todos_precios(perfume, precios_columnas):
 
 
 def mostrar_tab_nombre(df):
-    nombres = sorted(df["Nombre"].dropna().unique().tolist())
-    nombre_seleccionado = st.selectbox("Perfume", nombres, index=None, placeholder="— Elige un perfume —", key="nombre")
+    busqueda = st.text_input("🔍 Buscar perfume", placeholder="Escribe parte del nombre...", key="nombre_buscar")
+    nombre_seleccionado = None
+    if busqueda:
+        nombres_filtrados = sorted(
+            df[df["Nombre"].str.contains(busqueda, case=False, na=False)]["Nombre"].dropna().unique().tolist()
+        )
+        if not nombres_filtrados:
+            st.caption("Sin resultados.")
+        elif len(nombres_filtrados) == 1:
+            nombre_seleccionado = nombres_filtrados[0]
+            st.caption(f"✓ {nombre_seleccionado}")
+        else:
+            nombre_seleccionado = st.selectbox(
+                "Seleccionar",
+                nombres_filtrados,
+                index=None,
+                placeholder=f"— {len(nombres_filtrados)} coincidencias —",
+                key="nombre_sel",
+            )
 
     if nombre_seleccionado is not None:
         perfume = df[df["Nombre"] == nombre_seleccionado].iloc[0]
@@ -140,10 +157,10 @@ def mostrar_tab_nombre(df):
                 <div style="font-size:2.2rem; margin-bottom:0.7rem;">🔍</div>
                 <div style="font-family:'Playfair Display',serif; font-size:1.05rem;
                     color:#2c1a0e; font-weight:600; margin-bottom:0.3rem;">
-                    Elige un perfume
+                    Busca un perfume
                 </div>
                 <div style="font-size:0.83rem; color:#a07850;">
-                    Selecciona para ver precios y detalles
+                    Escribe parte del nombre para ver precios y detalles
                 </div>
             </div>""",
             unsafe_allow_html=True,

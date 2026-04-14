@@ -107,19 +107,8 @@ def _paso_1_cliente(df):
         df_ventas = cargar_ventas()
         cliente = _buscar_cliente(df_ventas, celular)
         if cliente and cliente["nombre"]:
-            nombre_c = html.escape(cliente["nombre"])
-            dir_c = html.escape(cliente["direccion"])
-            st.markdown(
-                f"""<div style="background:#fdf6f0; border:1px solid #ede0d4;
-                border-left:3px solid #c8956c; border-radius:8px;
-                padding:0.6rem 1rem; margin:0.3rem 0; font-size:0.9rem; color:#2c1a0e;">
-                👤 Cliente conocido: <strong>{nombre_c}</strong>
-                {' — ' + dir_c if dir_c else ''}
-                </div>""", unsafe_allow_html=True
-            )
-            if st.button(f"✨ Autocompletar datos de {cliente['nombre']}", key="btn_autocomplete"):
-                st.session_state._autocomplete_pendiente = cliente
-                st.rerun()
+            st.session_state._autocomplete_pendiente = cliente
+            st.rerun()
 
     if len(celular) != 9 or not celular.isdigit():
         st.session_state.autocomplete_aplicado = False
@@ -202,12 +191,20 @@ def _paso_2_perfumes(df):
                             </div>""", unsafe_allow_html=True
                     )
 
+            precio_final = st.number_input(
+                "💰 Precio final",
+                min_value=0.0,
+                value=float(precio_item),
+                step=0.5,
+                format="%.2f",
+                key=f"precio_edit_{perfume_venta}_{ml_vendido}",
+            )
             if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", use_container_width=True):
                 st.session_state.cesta.append({
                     "perfume": perfume_venta,
                     "marca": str(perfume_row.get("Marca", "")),
                     "id_perfume": id_perfume,
-                    "ml": ml_vendido, "precio": precio_item, "metodo": metodo_pago
+                    "ml": ml_vendido, "precio": precio_final, "metodo": metodo_pago
                 })
                 st.toast(f"Agregado: {perfume_venta}", icon="✅")
                 st.session_state["perf_sel"] = None
@@ -417,6 +414,7 @@ def mostrar_tab_venta(df):
         if datos["tipo_envio"] in TIPOS_ENVIO:
             st.session_state.envio_sel = datos["tipo_envio"]
         st.session_state.autocomplete_aplicado = True
+        st.toast(f"✨ Datos de {datos['nombre']} cargados", icon="👤")
         st.session_state._autocomplete_pendiente = None
 
     if st.session_state.get("venta_guardada") and st.session_state.wiz_paso == 3:

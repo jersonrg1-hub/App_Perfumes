@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 from urllib.parse import quote
 from config import fmt_precio, hoy_peru
-from data import cargar_cotizaciones
+from data import cargar_cotizaciones, actualizar_estado_cotizacion
 from components import separador
 
 
@@ -16,17 +16,15 @@ def mostrar_historial_cotizaciones():
 
     total_cot = len(df)
     total_monto = df["Total"].sum() if "Total" in df.columns else 0
-    esta_semana = 0
-    if "Fecha" in df.columns:
-        hoy = pd.Timestamp(hoy_peru()).normalize()
-        inicio_semana = hoy - pd.Timedelta(days=hoy.weekday())
-        esta_semana = len(df[df["Fecha"].dt.normalize() >= inicio_semana])
+    aceptadas = len(df[df["Estado"] == "Aceptada"]) if "Estado" in df.columns else 0
+    rechazadas = len(df[df["Estado"] == "Rechazada"]) if "Estado" in df.columns else 0
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     for col, valor, label, bg, color in [
-        (col1, total_cot, "Total enviadas", "#f5ede6", "#2c1a0e"),
-        (col2, f"S/ {fmt_precio(total_monto)}", "Monto cotizado", "#fef9c3", "#713f12"),
-        (col3, esta_semana, "Esta semana", "#dcfce7", "#166534"),
+        (col1, total_cot, "Total", "#f5ede6", "#2c1a0e"),
+        (col2, f"S/ {fmt_precio(total_monto)}", "Monto", "#fef9c3", "#713f12"),
+        (col3, aceptadas, "Aceptadas", "#dcfce7", "#166534"),
+        (col4, rechazadas, "Rechazadas", "#fee2e2", "#991b1b"),
     ]:
         with col:
             st.markdown(
@@ -39,9 +37,19 @@ def mostrar_historial_cotizaciones():
 
     st.markdown("")
 
-    buscar = st.text_input("🔍 Buscar por celular o ID", key="cot_buscar", placeholder="Ej: 987654321")
+    col_buscar, col_filtro = st.columns([2, 1])
+    with col_buscar:
+        buscar = st.text_input("🔍 Buscar por celular o ID", key="cot_buscar", placeholder="Ej: 987654321")
+    with col_filtro:
+        filtro_estado = st.selectbox(
+            "Estado",
+            ["Todos", "Enviado", "Aceptada", "Rechazada"],
+            key="cot_estado_filtro"
+        )
 
     df_mostrar = df.copy()
+    if filtro_estado != "Todos" and "Estado" in df_mostrar.columns:
+        df_mostrar = df_mostrar[df_mostrar["Estado"] == filtro_estado]
     if buscar:
         mask = pd.Series(False, index=df_mostrar.index)
         if "Celular" in df_mostrar.columns:
@@ -66,11 +74,14 @@ def mostrar_historial_cotizaciones():
         estado = html.escape(str(row.get("Estado", "—")))
 
         if estado == "Enviado":
+            badge_bg, badge_color = "#fef9c3", "#713f12"
+            badge_icon = "📤"
+        elif estado == "Aceptada":
             badge_bg, badge_color = "#dcfce7", "#166534"
             badge_icon = "✅"
-        elif estado == "Convertido":
-            badge_bg, badge_color = "#dbeafe", "#1e40af"
-            badge_icon = "🛒"
+        elif estado == "Rechazada":
+            badge_bg, badge_color = "#fee2e2", "#991b1b"
+            badge_icon = "❌"
         else:
             badge_bg, badge_color = "#f5ede6", "#a07850"
             badge_icon = "📋"
@@ -140,3 +151,24 @@ def mostrar_historial_cotizaciones():
                 """,
                 unsafe_allow_html=True
             )
+
+            id_cot_raw = str(row.get("ID_Cotizacion", ""))
+            if estado not in ("Aceptada", "Rechazada"):
+                separador()
+                col_ac, col_rech = st.columns(2)
+                with col_ac:
+                    if st.button("✅ Aceptada", key=f"ac_{id_cot_raw}", use_container_width=True, type="primary"):
+                        try:
+                            actualizar_estado_cotizacion(id_cot_raw, "Aceptada")
+                            st.success("✅ Marcada como Aceptada")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                with col_rech:
+                    if st.button("❌ Rechazada", key=f"rech_{id_cot_raw}", use_container_width=True):
+                        try:
+                            actualizar_estado_cotizacion(id_cot_raw, "Rechazada")
+                            st.success("❌ Marcada como Rechazada")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")

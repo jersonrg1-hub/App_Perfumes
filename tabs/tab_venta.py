@@ -395,6 +395,7 @@ def _resetear_wizard():
     st.session_state.wiz_direccion = ""
 
 
+@st.fragment
 def mostrar_tab_venta(df):
     st.markdown("### 📝 Registrar Nueva Venta")
 

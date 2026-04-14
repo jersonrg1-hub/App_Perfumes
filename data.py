@@ -41,6 +41,7 @@ def get_spreadsheet():
         raise
 
 
+@st.cache_resource
 def get_hoja(worksheet_name):
     try:
         return get_spreadsheet().worksheet(worksheet_name)
@@ -50,7 +51,7 @@ def get_hoja(worksheet_name):
         raise
 
 
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=600)
 def cargar_catalogo():
     try:
         hoja = get_hoja(WORKSHEET_CATALOGO)

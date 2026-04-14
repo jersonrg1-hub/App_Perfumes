@@ -1,9 +1,6 @@
 def get_styles() -> str:
     return """
     <style>
-    /* ─── Google Fonts ─────────────────────────────────────────────────────── */
-    @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Lato:wght@300;400;700&family=Inter:wght@400;500;600;700&display=swap');
-
     /* ─── Variables de color ───────────────────────────────────────────────── */
     :root {
         --cream:      #faf5f0;

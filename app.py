@@ -1,6 +1,6 @@
 import streamlit as st
 from styles import get_styles
-from data import cargar_catalogo, limpiar_cache_catalogo
+from data import cargar_catalogo, cargar_ventas, cargar_cotizaciones, limpiar_cache_catalogo
 from components import mostrar_encabezado
 from errores import (
     mostrar_error_conexion,
@@ -36,6 +36,14 @@ mostrar_encabezado()
 
 try:
     df = cargar_catalogo()
+
+    # Mejora 2: precalentar caches de ventas y cotizaciones en el arranque.
+    # Al estar en cache, los tabs de Estadísticas y Cotizaciones cargan instantáneo.
+    try:
+        cargar_ventas()
+        cargar_cotizaciones()
+    except Exception:
+        pass  # No bloquear el arranque si Sheets tarda en responder
 
     if df.empty:
         mostrar_error_datos_vacios()

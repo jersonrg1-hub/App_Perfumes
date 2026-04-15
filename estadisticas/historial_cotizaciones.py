@@ -153,13 +153,14 @@ def mostrar_historial_cotizaciones():
             )
 
             id_cot_raw = str(row.get("ID_Cotizacion", ""))
+            fila_cot = int(row.get("fila_sheet", 0))
             if estado not in ("Aceptada", "Rechazada"):
                 separador()
                 col_ac, col_rech = st.columns(2)
                 with col_ac:
                     if st.button("✅ Aceptada", key=f"ac_{id_cot_raw}", use_container_width=True, type="primary"):
                         try:
-                            actualizar_estado_cotizacion(id_cot_raw, "Aceptada")
+                            actualizar_estado_cotizacion(id_cot_raw, "Aceptada", fila_sheet=fila_cot)
                             st.success("✅ Marcada como Aceptada")
                             st.rerun()
                         except Exception as e:
@@ -167,7 +168,7 @@ def mostrar_historial_cotizaciones():
                 with col_rech:
                     if st.button("❌ Rechazada", key=f"rech_{id_cot_raw}", use_container_width=True):
                         try:
-                            actualizar_estado_cotizacion(id_cot_raw, "Rechazada")
+                            actualizar_estado_cotizacion(id_cot_raw, "Rechazada", fila_sheet=fila_cot)
                             st.success("❌ Marcada como Rechazada")
                             st.rerun()
                         except Exception as e:

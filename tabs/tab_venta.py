@@ -170,17 +170,18 @@ def _paso_1_cliente(df):
 def _paso_2_perfumes(df):
     st.markdown("#### 🛒 Agregar perfumes")
 
+    _k = st.session_state.get("perf_sel_count", 0)
     marcas_opciones = sorted(df["Marca"].dropna().unique().tolist())
     marca_filtro = st.selectbox(
         "🏷️ Marca (opcional)",
         marcas_opciones,
         index=None,
         placeholder="— Todas las marcas —",
-        key="marca_filtro_venta",
+        key=f"marca_filtro_venta_{_k}",
     )
     df_perfumes = df[df["Marca"] == marca_filtro] if marca_filtro else df
     nombres_opciones = sorted(df_perfumes["Nombre"].dropna().unique().tolist())
-    perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, index=None, placeholder="— Elige un perfume —", key="perf_sel")
+    perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, index=None, placeholder="— Elige un perfume —", key=f"perf_sel_{_k}")
 
     col_ml, col_pago = st.columns(2)
     with col_ml:
@@ -213,7 +214,7 @@ def _paso_2_perfumes(df):
                     "ml": ml_vendido, "precio": precio_final, "metodo": metodo_pago
                 })
                 st.toast(f"Agregado: {perfume_venta}", icon="✅")
-                st.session_state["perf_sel"] = None
+                st.session_state.perf_sel_count += 1
                 st.rerun()
         else:
             st.warning("⚠️ Sin precio configurado")
@@ -466,9 +467,10 @@ def _resetear_wizard():
     st.session_state.venta_guardada = False
     for key in ["comp_in", "cel_in", "dir_in"]:
         st.session_state[key] = ""
-    for key in ["perf_sel", "ml_sel", "pago_sel", "envio_sel", "marca_filtro_venta"]:
+    for key in ["ml_sel", "pago_sel", "envio_sel"]:
         if key in st.session_state:
             del st.session_state[key]
+    st.session_state.perf_sel_count = 0
     st.session_state.fecha_venta = hoy_peru()
     st.session_state.wiz_comprador = ""
     st.session_state.wiz_celular = ""
@@ -487,6 +489,8 @@ def mostrar_tab_venta(df):
         st.session_state.autocomplete_aplicado = False
     if "fecha_venta" not in st.session_state:
         st.session_state.fecha_venta = hoy_peru()
+    if "perf_sel_count" not in st.session_state:
+        st.session_state.perf_sel_count = 0
 
     if st.session_state.get("_autocomplete_pendiente"):
         datos = st.session_state._autocomplete_pendiente

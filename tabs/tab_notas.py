@@ -2,10 +2,10 @@ import html
 import streamlit as st
 
 from components import separador
-from config import PRECIOS_COLUMNAS, fmt_precio
+from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html, stock_barra_html
 
 
-@st.cache_data(ttl=120)
+@st.cache_data(ttl=600)
 def _extraer_valores(serie):
     valores = set()
     for item in serie.dropna():
@@ -21,6 +21,13 @@ def _tiene_todos(valor_str, seleccionados):
         return False
     valores = [v.strip().lower().capitalize() for v in str(valor_str).split(",")]
     return all(s in valores for s in seleccionados)
+
+
+def _tiene_alguno(valor_str, seleccionados):
+    if not valor_str:
+        return False
+    valores = [v.strip().lower().capitalize() for v in str(valor_str).split(",")]
+    return any(s in valores for s in seleccionados)
 
 
 def mostrar_tab_notas(df):
@@ -65,6 +72,19 @@ def mostrar_tab_notas(df):
             perfiles_seleccionados = []
             st.caption("Sin columna Perfil_Olfativo")
 
+    hay_seleccion = bool(notas_seleccionadas or perfiles_seleccionados)
+    if hay_seleccion:
+        modo_filtro = st.radio(
+            "Modo",
+            ["Todas", "Alguna"],
+            index=0,
+            horizontal=True,
+            key="notas_modo",
+            help="**Todas**: el perfume debe tener todas las seleccionadas · **Alguna**: basta con una coincidencia",
+        )
+    else:
+        modo_filtro = "Todas"
+
     if not notas_seleccionadas and not perfiles_seleccionados:
         st.markdown(
             """<div style="
@@ -86,14 +106,16 @@ def mostrar_tab_notas(df):
 
     df_filtrado = df
 
+    filtrar = _tiene_todos if modo_filtro == "Todas" else _tiene_alguno
+
     if notas_seleccionadas:
         df_filtrado = df_filtrado[
-            df_filtrado["Notas"].apply(lambda x: _tiene_todos(x, notas_seleccionadas))
+            df_filtrado["Notas"].apply(lambda x: filtrar(x, notas_seleccionadas))
         ]
 
     if perfiles_seleccionados:
         df_filtrado = df_filtrado[
-            df_filtrado["Perfil_Olfativo"].apply(lambda x: _tiene_todos(x, perfiles_seleccionados))
+            df_filtrado["Perfil_Olfativo"].apply(lambda x: filtrar(x, perfiles_seleccionados))
         ]
 
     st.markdown("")
@@ -124,6 +146,8 @@ def mostrar_tab_notas(df):
         nombre = html.escape(str(row.get("Nombre", "")))
         notas_txt = html.escape(str(notas_txt)) if notas_txt else ""
         perfil_txt = html.escape(str(perfil_txt)) if perfil_txt else ""
+        stock_badge = stock_badge_html(row.get("Stock_ml", None))
+        stock_barra = stock_barra_html(row.get("Stock_ml", None))
         notas_html = (
             f"<div style='font-size:0.82rem; color:#a07850; margin-top:0.3rem;'>🎵 {notas_txt}</div>"
             if notas_txt else ""
@@ -165,7 +189,8 @@ def mostrar_tab_notas(df):
             f'<div style="font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase;'
             f'color:#c8956c; font-weight:600; margin-bottom:0.25rem;">{marca}</div>'
             f'<div style="font-family:\'Playfair Display\',serif; font-size:1.15rem;'
-            f'color:#2c1a0e; font-weight:600;">{nombre}</div>'
+            f'color:#2c1a0e; font-weight:600;">{nombre}{stock_badge}</div>'
+            f'{stock_barra}'
             f'{notas_html}{perfil_html}</div>'
             f'<div style="display:flex; margin-bottom:0.8rem;">{precios_html}</div>'
         )

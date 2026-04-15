@@ -152,8 +152,11 @@ def _paso_1_cliente(df):
     col_btn, _ = st.columns([1, 2])
     with col_btn:
         if st.button("Siguiente →", key="paso1_siguiente", type="primary", use_container_width=True):
+            requiere_direccion = tipo_envio != "Contraentrega"
             if not comprador or len(celular) != 9 or not celular.isdigit():
                 st.error("⚠️ Completa Nombre y Celular (9 dígitos numéricos)")
+            elif requiere_direccion and not direccion.strip():
+                st.error(f"⚠️ La dirección es requerida para envío por {tipo_envio}")
             else:
                 st.session_state.wiz_paso = 2
                 st.session_state.wiz_fecha = fecha
@@ -167,7 +170,16 @@ def _paso_1_cliente(df):
 def _paso_2_perfumes(df):
     st.markdown("#### 🛒 Agregar perfumes")
 
-    nombres_opciones = sorted(df["Nombre"].dropna().unique().tolist())
+    marcas_opciones = sorted(df["Marca"].dropna().unique().tolist())
+    marca_filtro = st.selectbox(
+        "🏷️ Marca (opcional)",
+        marcas_opciones,
+        index=None,
+        placeholder="— Todas las marcas —",
+        key="marca_filtro_venta",
+    )
+    df_perfumes = df[df["Marca"] == marca_filtro] if marca_filtro else df
+    nombres_opciones = sorted(df_perfumes["Nombre"].dropna().unique().tolist())
     perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, index=None, placeholder="— Elige un perfume —", key="perf_sel")
 
     col_ml, col_pago = st.columns(2)
@@ -454,7 +466,7 @@ def _resetear_wizard():
     st.session_state.venta_guardada = False
     for key in ["comp_in", "cel_in", "dir_in"]:
         st.session_state[key] = ""
-    for key in ["perf_sel", "ml_sel", "pago_sel", "envio_sel"]:
+    for key in ["perf_sel", "ml_sel", "pago_sel", "envio_sel", "marca_filtro_venta"]:
         if key in st.session_state:
             del st.session_state[key]
     st.session_state.fecha_venta = hoy_peru()

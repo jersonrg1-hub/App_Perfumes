@@ -1,6 +1,7 @@
 import re
 import streamlit as st
 import gspread
+import gspread.exceptions
 import pandas as pd
 from datetime import datetime
 from google.oauth2.service_account import Credentials
@@ -18,6 +19,27 @@ def log_error(contexto, error):
     if len(log) > 50:
         st.session_state.error_log = log[-50:]
 
+
+# ── Mejora 3: reconexión automática ──────────────────────────────────────────
+
+def _limpiar_conexion():
+    """Limpia el cache de conexiones para forzar una reconexión limpia."""
+    get_cliente.clear()
+    get_spreadsheet.clear()
+    get_hoja.clear()
+
+
+def _ejecutar_con_reintento(fn, contexto):
+    """Ejecuta fn(). Si falla con APIError, reconecta y reintenta una vez."""
+    try:
+        return fn()
+    except gspread.exceptions.APIError:
+        log_error(contexto, "APIError — reconectando y reintentando...")
+        _limpiar_conexion()
+        return fn()  # propaga si vuelve a fallar
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 @st.cache_resource
 def get_cliente():
@@ -54,11 +76,16 @@ def get_hoja(worksheet_name):
 @st.cache_data(ttl=600)
 def cargar_catalogo():
     try:
-        hoja = get_hoja(WORKSHEET_CATALOGO)
-        datos = hoja.get_all_records(value_render_option='UNFORMATTED_VALUE')
+        def _fetch():
+            hoja = get_hoja(WORKSHEET_CATALOGO)
+            return hoja.get_all_records(value_render_option='UNFORMATTED_VALUE')
+
+        datos = _ejecutar_con_reintento(_fetch, "cargar_catalogo")
         df = pd.DataFrame(datos)
 
         if not df.empty:
+            # fila_sheet: número real de fila en la hoja (cabecera = fila 1)
+            df["fila_sheet"] = range(2, len(df) + 2)
             cols_numericas = ['precio', 'costo', 'ml_disponibles', 'stock', 'Stock_ml']
             for col in cols_numericas:
                 if col in df.columns:
@@ -76,9 +103,11 @@ def limpiar_cache_catalogo():
 @st.cache_data(ttl=120)
 def cargar_ventas():
     try:
-        hoja = get_hoja(WORKSHEET_VENTAS)
+        def _fetch():
+            hoja = get_hoja(WORKSHEET_VENTAS)
+            return hoja.get_all_values()
 
-        valores = hoja.get_all_values()
+        valores = _ejecutar_con_reintento(_fetch, "cargar_ventas")
         if not valores or len(valores) < 2:
             return pd.DataFrame()
 
@@ -166,13 +195,19 @@ def marcar_pedido_entregado_batch(lista_filas, col_estado):
 @st.cache_data(ttl=120)
 def cargar_cotizaciones():
     try:
-        hoja = get_hoja(WORKSHEET_COTIZACIONES)
-        valores = hoja.get_all_values()
+        def _fetch():
+            hoja = get_hoja(WORKSHEET_COTIZACIONES)
+            return hoja.get_all_values()
+
+        valores = _ejecutar_con_reintento(_fetch, "cargar_cotizaciones")
         if not valores or len(valores) < 2:
             return pd.DataFrame()
         headers = valores[0]
         filas = valores[1:]
         df = pd.DataFrame(filas, columns=headers)
+        if not df.empty:
+            # fila_sheet: número real de fila en la hoja (cabecera = fila 1)
+            df["fila_sheet"] = range(2, len(df) + 2)
         if "Fecha" in df.columns:
             df["Fecha"] = pd.to_datetime(df["Fecha"].astype(str).str.strip(), errors="coerce")
         if "Total" in df.columns:
@@ -187,23 +222,37 @@ def limpiar_cache_cotizaciones():
     cargar_cotizaciones.clear()
 
 
-def actualizar_estado_cotizacion(id_cotizacion, nuevo_estado):
+def actualizar_estado_cotizacion(id_cotizacion, nuevo_estado, fila_sheet=None):
     try:
         hoja = get_hoja(WORKSHEET_COTIZACIONES)
-        todos = hoja.get_all_values()
-        if not todos or len(todos) < 2:
-            return
-        headers = todos[0]
-        if "ID_Cotizacion" not in headers or "Estado" not in headers:
-            log_error("actualizar_estado_cotizacion", "Faltan columnas ID_Cotizacion o Estado")
-            return
-        col_id = headers.index("ID_Cotizacion")
-        col_estado = headers.index("Estado") + 1
-        for i, fila in enumerate(todos[1:], start=2):
-            if len(fila) > col_id and fila[col_id] == id_cotizacion:
-                celda = gspread.utils.rowcol_to_a1(i, col_estado)
-                hoja.update(celda, [[nuevo_estado]])
-                break
+
+        if fila_sheet:
+            # Camino rápido: fila conocida, sin get_all_values()
+            df_cot = cargar_cotizaciones()
+            sheet_cols = [c for c in df_cot.columns if c != "fila_sheet"]
+            if "Estado" not in sheet_cols:
+                log_error("actualizar_estado_cotizacion", "Falta columna Estado")
+                return
+            col_estado = sheet_cols.index("Estado") + 1
+            celda = gspread.utils.rowcol_to_a1(int(fila_sheet), col_estado)
+            hoja.update(celda, [[nuevo_estado]])
+        else:
+            # Fallback: buscar fila por ID (comportamiento original)
+            todos = hoja.get_all_values()
+            if not todos or len(todos) < 2:
+                return
+            headers = todos[0]
+            if "ID_Cotizacion" not in headers or "Estado" not in headers:
+                log_error("actualizar_estado_cotizacion", "Faltan columnas ID_Cotizacion o Estado")
+                return
+            col_id = headers.index("ID_Cotizacion")
+            col_estado = headers.index("Estado") + 1
+            for i, fila in enumerate(todos[1:], start=2):
+                if len(fila) > col_id and fila[col_id] == id_cotizacion:
+                    celda = gspread.utils.rowcol_to_a1(i, col_estado)
+                    hoja.update(celda, [[nuevo_estado]])
+                    break
+
         limpiar_cache_cotizaciones()
     except Exception as e:
         log_error("actualizar_estado_cotizacion", e)
@@ -255,20 +304,18 @@ def actualizar_stock_perfumes_batch(items_vendidos):
     if not items_vendidos:
         return
     try:
-        hoja = get_hoja(WORKSHEET_CATALOGO)
-        todos = hoja.get_all_values()
-
-        if not todos or len(todos) < 2:
-            log_error("actualizar_stock_batch", "Hoja Catalogo vacía o sin datos")
+        # Usamos el df cacheado — evita un get_all_values() extra
+        df_cat = cargar_catalogo()
+        if df_cat.empty or "fila_sheet" not in df_cat.columns:
+            log_error("actualizar_stock_batch", "Catálogo vacío o sin fila_sheet")
             return
-
-        headers = todos[0]
-        if "Stock_ml" not in headers or "Nombre" not in headers:
+        if "Stock_ml" not in df_cat.columns or "Nombre" not in df_cat.columns:
             log_error("actualizar_stock_batch", "Faltan columnas Nombre o Stock_ml en Catalogo")
             return
 
-        col_stock = headers.index("Stock_ml") + 1
-        col_nombre = headers.index("Nombre")
+        # Posición de Stock_ml en la hoja (excluir fila_sheet, que es virtual)
+        sheet_cols = [c for c in df_cat.columns if c != "fila_sheet"]
+        col_stock = sheet_cols.index("Stock_ml") + 1  # 1-indexed
 
         ml_por_nombre = {}
         for item in items_vendidos:
@@ -276,18 +323,18 @@ def actualizar_stock_perfumes_batch(items_vendidos):
             ml_por_nombre[nombre] = ml_por_nombre.get(nombre, 0) + float(item["ml"])
 
         peticiones = []
-        for i, fila in enumerate(todos[1:], start=2):
-            if len(fila) <= col_nombre:
-                continue
-            nombre_fila = fila[col_nombre]
-            if nombre_fila in ml_por_nombre:
-                valor_actual_str = fila[col_stock - 1]
-                valor_actual = float(valor_actual_str) if valor_actual_str else 0.0
-                nuevo_valor = max(0.0, valor_actual - ml_por_nombre[nombre_fila])
-                letra = gspread.utils.rowcol_to_a1(i, col_stock)
-                peticiones.append({"range": letra, "values": [[nuevo_valor]]})
+        for _, row in df_cat[df_cat["Nombre"].isin(ml_por_nombre)].iterrows():
+            nombre_fila = row["Nombre"]
+            valor_actual = float(row["Stock_ml"]) if row["Stock_ml"] else 0.0
+            nuevo_valor = max(0.0, valor_actual - ml_por_nombre[nombre_fila])
+            fila_num = int(row["fila_sheet"])
+            peticiones.append({
+                "range": gspread.utils.rowcol_to_a1(fila_num, col_stock),
+                "values": [[nuevo_valor]]
+            })
 
         if peticiones:
+            hoja = get_hoja(WORKSHEET_CATALOGO)
             hoja.batch_update(peticiones)
 
         limpiar_cache_catalogo()

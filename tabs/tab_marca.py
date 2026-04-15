@@ -1,7 +1,7 @@
 import html
 import pandas as pd
 import streamlit as st
-from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html
+from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html, stock_barra_html
 
 
 def mostrar_tab_marca(df):
@@ -37,6 +37,7 @@ def mostrar_tab_marca(df):
             nombre = html.escape(str(row.get("Nombre", "")))
             marca_safe = html.escape(str(row.get("Marca", "")))
             stock_badge = stock_badge_html(row.get("Stock_ml", None))
+            stock_barra = stock_barra_html(row.get("Stock_ml", None))
 
             notas_html = (
                 f"<div style='color:#a07850; font-size:0.82rem; margin-top:0.3rem;'>"
@@ -74,6 +75,7 @@ def mostrar_tab_marca(df):
                 f'color:#c8956c; font-weight:600; margin-bottom:0.25rem;">{marca_safe}</div>'
                 f'<div style="font-family:\'Playfair Display\',serif; font-size:1.1rem;'
                 f'color:#2c1a0e; font-weight:600; margin-bottom:0.1rem;">{nombre}{stock_badge}</div>'
+                f'{stock_barra}'
                 f'{notas_html}{perfil_html}'
                 f'<div style="display:flex; gap:6px; margin-top:0.5rem; flex-wrap:wrap;">'
                 f'{precios_html}'

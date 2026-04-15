@@ -57,8 +57,8 @@ def fmt_precio(valor):
         return str(valor)
 
 
-STOCK_CRITICO  = 5
-STOCK_BAJO     = 15
+STOCK_CRITICO  = 10
+STOCK_BAJO     = 20
 
 
 def stock_badge_html(stock_ml, size="sm"):

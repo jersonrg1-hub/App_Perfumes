@@ -2,9 +2,8 @@ import html
 import streamlit as st
 from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO
 from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfumes_batch
-from components import generar_url_whatsapp
+from components import generar_url_whatsapp, separador
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
-from components import separador
 
 
 def _buscar_cliente(df_ventas, celular):
@@ -32,6 +31,40 @@ def _items_cesta_html(cesta):
         f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(i['precio'])}</span></div>"
         for i in cesta
     ])
+
+
+def _card_stock(precio_item, stock_val, ml_vendido):
+    """Muestra el badge de stock + precio según el nivel disponible."""
+    if stock_val not in (None, "", 0):
+        stock_num = float(stock_val)
+        if stock_num < float(ml_vendido):
+            st.error(f"❌ Stock insuficiente — quedan {stock_num:.0f}ml · necesitas {float(ml_vendido):.0f}ml")
+            return
+        if stock_num <= STOCK_CRITICO:
+            bg, border, txt, num = "#fee2e2", "#dc2626", "#991b1b", "#7f1d1d"
+            label = f"🔴 Stock crítico — solo {stock_num:.0f}ml"
+        elif stock_num <= STOCK_BAJO:
+            bg, border, txt, num = "#fef9c3", "#ca8a04", "#854d0e", "#713f12"
+            label = f"🟡 Stock bajo — {stock_num:.0f}ml"
+        else:
+            bg, border, txt, num = "#dcfce7", "#16a34a", "#166534", "#14532d"
+            label = f"🟢 Stock: {stock_num:.0f}ml disponibles"
+        st.markdown(
+            f"""<div style="background:{bg}; border-left:4px solid {border}; border-radius:10px;
+            padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;">
+            <span style="color:{txt}; font-weight:600;">{label}</span>
+            <span style="color:{num}; font-family:'Inter',sans-serif; font-size:1.6rem;
+            font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
+            </div>""", unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            f"""<div style="background:#dcfce7; border-left:4px solid #16a34a; border-radius:10px;
+            padding:0.8rem 1.2rem; text-align:right;">
+            <span style="color:#14532d; font-family:'Inter',sans-serif; font-size:1.6rem;
+            font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
+            </div>""", unsafe_allow_html=True
+        )
 
 
 def _barra_progreso(paso_actual):
@@ -150,46 +183,7 @@ def _paso_2_perfumes(df):
         precio_item = perfume_row.get(columna_precio, 0)
 
         if precio_item not in (0, "", None):
-            stock_val = perfume_row.get("Stock_ml", None)
-            if stock_val not in (None, "", 0):
-                stock_num = float(stock_val)
-                if stock_num < float(ml_vendido):
-                    st.error(f"❌ Stock insuficiente — quedan {stock_num:.0f}ml · necesitas {float(ml_vendido):.0f}ml")
-                elif stock_num <= STOCK_CRITICO:
-                    st.markdown(
-                        f"""<div style="background:#fee2e2; border-left:4px solid #dc2626; border-radius:10px;
-                        padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="color:#991b1b; font-weight:600;">🔴 Stock crítico — solo {stock_num:.0f}ml</span>
-                        <span style="color:#7f1d1d; font-family:'Inter',sans-serif; font-size:1.6rem;
-                        font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
-                        </div>""", unsafe_allow_html=True
-                    )
-                elif stock_num <= STOCK_BAJO:
-                    st.markdown(
-                        f"""<div style="background:#fef9c3; border-left:4px solid #ca8a04; border-radius:10px;
-                        padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="color:#854d0e; font-weight:600;">🟡 Stock bajo — {stock_num:.0f}ml</span>
-                        <span style="color:#713f12; font-family:'Inter',sans-serif; font-size:1.6rem;
-                        font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
-                        </div>""", unsafe_allow_html=True
-                    )
-                else:
-                    st.markdown(
-                        f"""<div style="background:#dcfce7; border-left:4px solid #16a34a; border-radius:10px;
-                        padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="color:#166534; font-weight:600;">🟢 Stock: {stock_num:.0f}ml disponibles</span>
-                        <span style="color:#14532d; font-family:'Inter',sans-serif; font-size:1.6rem;
-                        font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
-                        </div>""", unsafe_allow_html=True
-                    )
-            else:
-                    st.markdown(
-                        f"""<div style="background:#dcfce7; border-left:4px solid #16a34a; border-radius:10px;
-                            padding:0.8rem 1.2rem; text-align:right;">
-                            <span style="color:#14532d; font-family:'Inter',sans-serif; font-size:1.6rem;
-                            font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_item)}</span>
-                            </div>""", unsafe_allow_html=True
-                    )
+            _card_stock(precio_item, perfume_row.get("Stock_ml", None), ml_vendido)
 
             precio_final = st.number_input(
                 "💰 Precio final",
@@ -376,6 +370,83 @@ def _paso_3_confirmar():
                 st.error(f"Error al guardar: {e}")
 
 
+def _mostrar_venta_guardada():
+    st.success("✅ ¡Venta guardada correctamente!")
+
+    id_compra  = html.escape(str(st.session_state.get("wiz_id_compra", "")))
+    comprador  = html.escape(str(st.session_state.get("wiz_comprador", "")))
+    celular    = html.escape(str(st.session_state.get("wiz_celular", "")))
+    direccion  = html.escape(str(st.session_state.get("wiz_direccion", "") or "—"))
+    tipo_envio = html.escape(str(st.session_state.get("wiz_tipo_envio", "")))
+    wiz_fecha  = st.session_state.get("wiz_fecha")
+    fecha_str  = wiz_fecha.strftime("%d/%m/%Y") if hasattr(wiz_fecha, "strftime") else str(wiz_fecha or "—")
+    total      = st.session_state.get("wiz_total", 0)
+    cesta      = st.session_state.get("cesta", [])
+
+    items_html = _items_cesta_html(cesta)
+    st.markdown(
+        f"""<div style="background:white; border:1px solid #ede0d4; border-radius:14px;
+            padding:1.2rem 1.4rem; margin-bottom:1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center;
+                margin-bottom:1rem; padding-bottom:0.8rem; border-bottom:1px solid #ede0d4;">
+                <div>
+                    <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
+                        font-weight:600; letter-spacing:0.1em; margin-bottom:2px;">Compra</div>
+                    <div style="font-family:'Inter','DM Sans',sans-serif; font-size:1.4rem;
+                        font-weight:700; color:#2c1a0e;">{id_compra}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
+                        font-weight:600; margin-bottom:2px;">Total</div>
+                    <div style="font-family:'Inter','DM Sans',sans-serif; font-size:1.4rem;
+                        font-weight:700; color:#c8956c; font-variant-numeric:tabular-nums;">
+                        S/ {fmt_precio(total)}</div>
+                </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;
+                margin-bottom:1rem; font-size:0.88rem;">
+                <div><span style="color:#a07850; font-size:0.75rem;">👤 Comprador</span>
+                    <br><strong style="color:#2c1a0e;">{comprador}</strong></div>
+                <div><span style="color:#a07850; font-size:0.75rem;">📱 Celular</span>
+                    <br><strong style="color:#2c1a0e;">{celular}</strong></div>
+                <div><span style="color:#a07850; font-size:0.75rem;">📅 Fecha</span>
+                    <br><strong style="color:#2c1a0e;">{fecha_str}</strong></div>
+                <div><span style="color:#a07850; font-size:0.75rem;">🚚 Envío</span>
+                    <br><strong style="color:#2c1a0e;">{tipo_envio}</strong></div>
+                <div style="grid-column:1/-1;">
+                    <span style="color:#a07850; font-size:0.75rem;">📍 Dirección</span>
+                    <br><strong style="color:#2c1a0e;">{direccion}</strong></div>
+            </div>
+            <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
+                font-weight:600; letter-spacing:0.1em; margin-bottom:0.4rem;">Perfumes</div>
+            {items_html}
+            <div style="display:flex; justify-content:space-between; align-items:center;
+                margin-top:0.7rem; padding-top:0.5rem; border-top:1px solid #ede0d4;">
+                <span style="font-size:0.8rem; font-weight:600; color:#a07850;
+                    text-transform:uppercase; letter-spacing:0.08em;">Total</span>
+                <span style="font-family:'Inter','DM Sans',sans-serif; font-size:1.15rem;
+                    font-weight:700; color:#c8956c; font-variant-numeric:tabular-nums;">
+                    S/ {fmt_precio(total)}</span>
+            </div>
+        </div>""",
+        unsafe_allow_html=True
+    )
+
+    url_wa = st.session_state.get("wiz_url_wa", "")
+    if url_wa:
+        st.markdown(
+            f"""<a href="{url_wa}" target="_blank" style="text-decoration:none;">
+            <div style="background:#25D366; color:white; padding:14px; border-radius:10px;
+            text-align:center; font-weight:700; margin-bottom:0.8rem; font-size:1rem;">
+                📲 Enviar Comprobante por WhatsApp
+            </div></a>""", unsafe_allow_html=True
+        )
+
+    if st.button("🆕 Registrar otra venta", key="nueva_venta", use_container_width=True):
+        _resetear_wizard()
+        st.rerun()
+
+
 def _resetear_wizard():
     st.session_state.wiz_paso = 1
     st.session_state.cesta = []
@@ -418,80 +489,7 @@ def mostrar_tab_venta(df):
         st.session_state._autocomplete_pendiente = None
 
     if st.session_state.get("venta_guardada") and st.session_state.wiz_paso == 3:
-        st.success("✅ ¡Venta guardada correctamente!")
-
-        id_compra  = html.escape(str(st.session_state.get("wiz_id_compra", "")))
-        comprador  = html.escape(str(st.session_state.get("wiz_comprador", "")))
-        celular    = html.escape(str(st.session_state.get("wiz_celular", "")))
-        direccion  = html.escape(str(st.session_state.get("wiz_direccion", "") or "—"))
-        tipo_envio = html.escape(str(st.session_state.get("wiz_tipo_envio", "")))
-        wiz_fecha  = st.session_state.get("wiz_fecha")
-        fecha_str  = wiz_fecha.strftime("%d/%m/%Y") if hasattr(wiz_fecha, "strftime") else str(wiz_fecha or "—")
-        total      = st.session_state.get("wiz_total", 0)
-        cesta      = st.session_state.get("cesta", [])
-
-        items_html = _items_cesta_html(cesta)
-        st.markdown(
-            f"""<div style="background:white; border:1px solid #ede0d4; border-radius:14px;
-                padding:1.2rem 1.4rem; margin-bottom:1rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center;
-                    margin-bottom:1rem; padding-bottom:0.8rem; border-bottom:1px solid #ede0d4;">
-                    <div>
-                        <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
-                            font-weight:600; letter-spacing:0.1em; margin-bottom:2px;">Compra</div>
-                        <div style="font-family:'Inter','DM Sans',sans-serif; font-size:1.4rem;
-                            font-weight:700; color:#2c1a0e;">{id_compra}</div>
-                    </div>
-                    <div style="text-align:right;">
-                        <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
-                            font-weight:600; margin-bottom:2px;">Total</div>
-                        <div style="font-family:'Inter','DM Sans',sans-serif; font-size:1.4rem;
-                            font-weight:700; color:#c8956c; font-variant-numeric:tabular-nums;">
-                            S/ {fmt_precio(total)}</div>
-                    </div>
-                </div>
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;
-                    margin-bottom:1rem; font-size:0.88rem;">
-                    <div><span style="color:#a07850; font-size:0.75rem;">👤 Comprador</span>
-                        <br><strong style="color:#2c1a0e;">{comprador}</strong></div>
-                    <div><span style="color:#a07850; font-size:0.75rem;">📱 Celular</span>
-                        <br><strong style="color:#2c1a0e;">{celular}</strong></div>
-                    <div><span style="color:#a07850; font-size:0.75rem;">📅 Fecha</span>
-                        <br><strong style="color:#2c1a0e;">{fecha_str}</strong></div>
-                    <div><span style="color:#a07850; font-size:0.75rem;">🚚 Envío</span>
-                        <br><strong style="color:#2c1a0e;">{tipo_envio}</strong></div>
-                    <div style="grid-column:1/-1;">
-                        <span style="color:#a07850; font-size:0.75rem;">📍 Dirección</span>
-                        <br><strong style="color:#2c1a0e;">{direccion}</strong></div>
-                </div>
-                <div style="font-size:0.68rem; color:#a07850; text-transform:uppercase;
-                    font-weight:600; letter-spacing:0.1em; margin-bottom:0.4rem;">Perfumes</div>
-                {items_html}
-                <div style="display:flex; justify-content:space-between; align-items:center;
-                    margin-top:0.7rem; padding-top:0.5rem; border-top:1px solid #ede0d4;">
-                    <span style="font-size:0.8rem; font-weight:600; color:#a07850;
-                        text-transform:uppercase; letter-spacing:0.08em;">Total</span>
-                    <span style="font-family:'Inter','DM Sans',sans-serif; font-size:1.15rem;
-                        font-weight:700; color:#c8956c; font-variant-numeric:tabular-nums;">
-                        S/ {fmt_precio(total)}</span>
-                </div>
-            </div>""",
-            unsafe_allow_html=True
-        )
-
-        url_wa = st.session_state.get("wiz_url_wa", "")
-        if url_wa:
-            st.markdown(
-                f"""<a href="{url_wa}" target="_blank" style="text-decoration:none;">
-                <div style="background:#25D366; color:white; padding:14px; border-radius:10px;
-                text-align:center; font-weight:700; margin-bottom:0.8rem; font-size:1rem;">
-                    📲 Enviar Comprobante por WhatsApp
-                </div></a>""", unsafe_allow_html=True
-            )
-
-        if st.button("🆕 Registrar otra venta", key="nueva_venta", use_container_width=True):
-            _resetear_wizard()
-            st.rerun()
+        _mostrar_venta_guardada()
         return
 
     _barra_progreso(st.session_state.wiz_paso)

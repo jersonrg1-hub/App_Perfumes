@@ -49,8 +49,12 @@ def mostrar_tab_nombre(df):
     busqueda = st.text_input("🔍 Buscar perfume", placeholder="Escribe parte del nombre...", key="nombre_buscar")
     nombre_seleccionado = None
     if busqueda:
+        mask = (
+            df["Nombre"].str.contains(busqueda, case=False, na=False, regex=False) |
+            df["Marca"].str.contains(busqueda, case=False, na=False, regex=False)
+        )
         nombres_filtrados = sorted(
-            df[df["Nombre"].str.contains(busqueda, case=False, na=False)]["Nombre"].dropna().unique().tolist()
+            df[mask]["Nombre"].dropna().unique().tolist()
         )
         if not nombres_filtrados:
             st.caption("Sin resultados.")

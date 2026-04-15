@@ -160,8 +160,9 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     st.markdown("")
     st.markdown("#### 📋 Historial completo")
     with st.expander("Ver todas las ventas"):
+        cols_mostrar = [c for c in df_ventas.columns if c != "fila_sheet"]
         st.dataframe(
-            df_ventas.sort_values("Fecha", ascending=False),
+            df_ventas[cols_mostrar].sort_values("Fecha", ascending=False),
             use_container_width=True, hide_index=True
         )
 

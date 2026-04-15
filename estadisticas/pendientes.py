@@ -35,6 +35,16 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
     def get_nombre_perfume(id_perfume):
         return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
 
+    buscar = st.text_input(
+        "🔍 Buscar", placeholder="Nombre o ID de compra...", key="pend_buscar"
+    )
+    if buscar:
+        mask = (
+            pendientes["Comprador"].astype(str).str.lower().str.contains(buscar.lower(), na=False, regex=False) |
+            pendientes["ID_Compra"].astype(str).str.lower().str.contains(buscar.lower(), na=False, regex=False)
+        )
+        pendientes = pendientes[mask]
+
     grupos = pendientes.groupby("ID_Compra")
     st.markdown(f"**{grupos.ngroups} compra(s) pendiente(s)**")
 

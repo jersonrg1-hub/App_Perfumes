@@ -44,7 +44,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
 
     if buscar:
         df_filtrado = df_filtrado[
-            df_filtrado["Comprador"].astype(str).str.lower().str.contains(buscar.lower(), na=False)
+            df_filtrado["Comprador"].astype(str).str.lower().str.contains(buscar.lower(), na=False, regex=False)
         ]
 
     if mes_filtro != "Todos los meses":

@@ -10,7 +10,11 @@ def _mostrar_todos_precios(perfume, precios_columnas):
     if hasattr(perfume, "to_dict"):
         perfume = perfume.to_dict()
 
-    st.markdown("#### 💰 Precios por tamaño")
+    st.markdown(
+        '<div style="font-size:0.68rem; letter-spacing:0.2em; text-transform:uppercase;'
+        'color:var(--c-text-muted); font-weight:700; margin:1.2rem 0 0.7rem;">Precios por tamaño</div>',
+        unsafe_allow_html=True
+    )
     cols = st.columns(len(precios_columnas))
 
     for i, (tamanio, columna) in enumerate(precios_columnas.items()):
@@ -20,27 +24,19 @@ def _mostrar_todos_precios(perfume, precios_columnas):
         with cols[i]:
             if precio not in (0, "", None):
                 st.markdown(
-                    f'<div style="'
-                    f'background:#ffffff; border:1px solid #ede0d4; border-radius:12px;'
-                    f'padding:1.1rem 0.7rem; text-align:center; margin-bottom:0.6rem;'
-                    f'transition:border-color 0.2s ease;">'
-                    f'<div style="color:#a07850; font-size:0.9rem; letter-spacing:0.2em;'
-                    f'text-transform:uppercase; font-weight:600; margin-bottom:0.4rem;">{tamanio_safe}</div>'
-                    f'<div style="width:20px; height:1px; background:#ede0d4; margin:0 auto 0.5rem;"></div>'
-                    f'<div style="color:#2c1a0e; font-family:\'Inter\',\'DM Sans\',sans-serif;'
-                    f'font-size:1.7rem; font-weight:700; line-height:1; letter-spacing:-0.03em;'
-                    f'font-variant-numeric:tabular-nums;">'
-                    f'S/ {fmt_precio(precio)}</div>'
+                    f'<div class="precio-box">'
+                    f'<div class="label">{tamanio_safe}</div>'
+                    f'<div class="separador-box"></div>'
+                    f'<div class="valor"><span class="moneda">S/</span>{fmt_precio(precio)}</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
             else:
                 st.markdown(
-                    f'<div style="background:#fdf6f0; border-radius:12px; padding:1rem 0.7rem;'
-                    f'text-align:center; border:1px dashed #e0c9b4; margin-bottom:0.6rem;">'
-                    f'<div style="color:#c8956c; font-size:0.9rem; letter-spacing:0.2em;'
-                    f'text-transform:uppercase; margin-bottom:0.3rem;">{tamanio_safe}</div>'
-                    f'<div style="color:#d4b896; font-size:0.8rem; font-style:italic;">sin precio</div>'
+                    f'<div class="precio-box sin-precio-box">'
+                    f'<div class="label">{tamanio_safe}</div>'
+                    f'<div class="separador-box"></div>'
+                    f'<div style="color:var(--c-text-faint); font-size:0.82rem; font-style:italic; margin-top:0.3rem;">sin precio</div>'
                     f'</div>',
                     unsafe_allow_html=True
                 )
@@ -88,65 +84,72 @@ def mostrar_tab_nombre(df):
         marca_safe = html.escape(str(perfume.get("Marca", "")))
         nombre_safe = html.escape(str(perfume.get("Nombre", "")))
 
-        col_info, col_notas = st.columns([1, 1])
+        stock_val = perfume.get("Stock_ml", None)
+        badge = stock_badge_html(stock_val, size="lg")
+        barra = stock_barra_html(stock_val)
+        stock_html = f"<div style='margin-top:0.7rem;'>{badge}{barra}</div>" if badge else ""
 
-        with col_info:
-            stock_val = perfume.get("Stock_ml", None)
-            badge = stock_badge_html(stock_val, size="lg")
-            barra = stock_barra_html(stock_val)
-            stock_html = (
-                f"<div style='margin-top:0.6rem;'>{badge}{barra}</div>"
-                if badge else ""
-            )
+        notas_seccion = (
+            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
+            f"color:var(--c-primary-light); font-weight:700; margin-bottom:0.25rem;'>Notas</div>"
+            f"<div style='color:var(--c-text-muted); font-size:0.88rem; line-height:1.6;'>{notas_txt}</div>"
+            if notas_txt else ""
+        )
+        perfil_seccion = (
+            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
+            f"color:var(--c-gold); font-weight:700; margin:0.55rem 0 0.2rem;'>Perfil olfativo</div>"
+            f"<div style='color:var(--c-text-mid); font-size:0.88rem; line-height:1.6;'>{perfil_txt}</div>"
+            if perfil_txt else ""
+        )
 
-            st.markdown(f"""
-            <div style="
-                background: #ffffff;
-                border: 1px solid #ede0d4;
-                border-radius: 14px;
-                padding: 1.4rem 1.8rem 1.6rem;
-                height: 100%;
-            ">
-                <div style="
-                    font-size:0.65rem; letter-spacing:0.22em;
-                    text-transform:uppercase; color:#c8956c;
-                    font-weight:600; margin-bottom:0.35rem;
-                ">{marca_safe}</div>
-                <div style="
-                    font-family:'Playfair Display',serif;
-                    font-size:1.55rem; color:#2c1a0e;
-                    font-weight:600; letter-spacing:-0.02em; line-height:1.15;
-                ">{nombre_safe}</div>
-                {stock_html}
-            </div>
-            """, unsafe_allow_html=True)
-
-        with col_notas:
-            if notas_txt or perfil_txt:
-                st.markdown(f"""
-                <div style="
-                    background: #fdf6f0;
-                    border: 1px solid #ede0d4;
-                    border-radius: 14px;
-                    padding: 1.2rem 1.4rem;
-                    height: 100%;
-                    box-sizing: border-box;
-                ">
-                    {"<div style='color:#a07850; font-size:0.92rem; margin-bottom:0.5rem;'>🎵 <strong>Notas:</strong> " + notas_txt + "</div>" if notas_txt else ""}
-                    {"<div style='color:#c8956c; font-size:0.92rem;'>✨ <strong>Perfil:</strong> " + perfil_txt + "</div>" if perfil_txt else ""}
-                </div>
-                """, unsafe_allow_html=True)
-
+        tiene_imagen = False
+        imagen_path = None
         if url_imagen:
             imagen_path = Path(__file__).parent.parent / url_imagen
-            if imagen_path.exists():
-                col_img, _ = st.columns([1, 2])
-                with col_img:
-                    st.image(str(imagen_path), width=220)
-            else:
-                st.caption("📷 Imagen no disponible")
+            tiene_imagen = imagen_path.exists()
 
-        st.markdown("---")
+        if tiene_imagen:
+            col_img, col_info = st.columns([1, 2])
+            with col_img:
+                st.image(str(imagen_path), use_container_width=True)
+            with col_info:
+                st.markdown(f"""
+                <div style="background:var(--c-bg-card); border:1px solid var(--c-border-light);
+                    border-left:3px solid var(--c-primary-light); border-radius:var(--radius-lg);
+                    padding:1.3rem 1.6rem 1.5rem; height:100%; box-sizing:border-box;">
+                    <div style="font-size:0.63rem; letter-spacing:0.26em; text-transform:uppercase;
+                        color:var(--c-primary-light); font-weight:700; margin-bottom:0.3rem;">{marca_safe}</div>
+                    <div style="font-family:'Playfair Display',serif; font-size:1.65rem;
+                        color:var(--c-text); font-weight:600; letter-spacing:-0.02em; line-height:1.15;">{nombre_safe}</div>
+                    {stock_html}
+                    {'<hr style="border:none;border-top:1px solid var(--c-border-light);margin:0.8rem 0;">' if (notas_seccion or perfil_seccion) else ""}
+                    {notas_seccion}{perfil_seccion}
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            col_info, col_notas = st.columns([1, 1])
+            with col_info:
+                st.markdown(f"""
+                <div style="background:var(--c-bg-card); border:1px solid var(--c-border-light);
+                    border-left:3px solid var(--c-primary-light); border-radius:var(--radius-lg);
+                    padding:1.3rem 1.6rem 1.5rem; height:100%;">
+                    <div style="font-size:0.63rem; letter-spacing:0.26em; text-transform:uppercase;
+                        color:var(--c-primary-light); font-weight:700; margin-bottom:0.3rem;">{marca_safe}</div>
+                    <div style="font-family:'Playfair Display',serif; font-size:1.65rem;
+                        color:var(--c-text); font-weight:600; letter-spacing:-0.02em; line-height:1.15;">{nombre_safe}</div>
+                    {stock_html}
+                </div>
+                """, unsafe_allow_html=True)
+            with col_notas:
+                if notas_txt or perfil_txt:
+                    st.markdown(f"""
+                    <div style="background:linear-gradient(160deg,#fff9f5,#fdf3eb);
+                        border:1px solid var(--c-border-light); border-radius:var(--radius-lg);
+                        padding:1.2rem 1.4rem; height:100%; box-sizing:border-box;">
+                        {notas_seccion}{perfil_seccion}
+                    </div>
+                    """, unsafe_allow_html=True)
+
         _mostrar_todos_precios(perfume, PRECIOS_COLUMNAS)
 
         sin_precios = [t for t, c in PRECIOS_COLUMNAS.items() if not perfume.get(c)]

@@ -365,8 +365,15 @@ def _paso_3_confirmar():
                             "Pendiente"
                         ])
                     guardar_venta(filas)
-                    actualizar_stock_perfumes_batch(st.session_state.cesta)
                     status.update(label="✅ ¡Venta guardada!", state="complete")
+
+                try:
+                    actualizar_stock_perfumes_batch(st.session_state.cesta)
+                except Exception as e_stock:
+                    st.warning(
+                        f"⚠️ Venta guardada ({id_compra}), pero el stock no pudo actualizarse. "
+                        f"Corrígelo manualmente en el catálogo. ({type(e_stock).__name__})"
+                    )
 
                 url_wa = generar_url_whatsapp(
                     id_compra, st.session_state.wiz_comprador,

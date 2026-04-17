@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from components import separador
+from components import separador, construir_catalogo_dict, nombre_por_id
 from config import fmt_precio, fmt_fecha
 
 def mostrar_historial_ventas(df_ventas, df_catalogo=None):
@@ -76,14 +76,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
         st.info("😔 No hay ventas que coincidan con los filtros")
         return
 
-    catalogo_dict = {}
-    if df_catalogo is not None:
-        catalogo_dict = dict(
-            zip(df_catalogo["ID_Perfume"].astype(str), df_catalogo["Nombre"])
-        )
-
-    def get_nombre_perfume(id_perfume):
-        return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
+    catalogo_dict = construir_catalogo_dict(df_catalogo)
 
     orden_ids = (
         df_filtrado.groupby("ID_Compra")["Fecha"]
@@ -114,7 +107,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
 
             st.markdown("**🛍️ Productos:**")
             for item in grupo.to_dict("records"):
-                nombre = get_nombre_perfume(item.get("ID_Perfume", ""))
+                nombre = nombre_por_id(catalogo_dict, item.get("ID_Perfume", ""))
                 st.markdown(
                     f"- 🌸 **{nombre}** — "
                     f"{item.get('Ml_Vendido', '')}ml "

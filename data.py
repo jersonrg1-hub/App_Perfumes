@@ -146,8 +146,9 @@ def limpiar_cache_ventas():
 
 def guardar_venta(filas):
     try:
-        hoja = get_hoja(WORKSHEET_VENTAS)
-        hoja.append_rows(filas, value_input_option='USER_ENTERED')
+        def _write():
+            get_hoja(WORKSHEET_VENTAS).append_rows(filas, value_input_option='USER_ENTERED')
+        _ejecutar_con_reintento(_write, "guardar_venta")
         limpiar_cache_ventas()
     except Exception as e:
         log_error("guardar_venta", e)
@@ -180,12 +181,13 @@ def obtener_proximo_id():
 
 def marcar_pedido_entregado_batch(lista_filas, col_estado):
     try:
-        hoja = get_hoja(WORKSHEET_VENTAS)
         peticiones = [
             {'range': gspread.utils.rowcol_to_a1(fila, col_estado), 'values': [['Entregado']]}
             for fila in lista_filas
         ]
-        hoja.batch_update(peticiones)
+        def _write():
+            get_hoja(WORKSHEET_VENTAS).batch_update(peticiones)
+        _ejecutar_con_reintento(_write, "marcar_entregado_batch")
         limpiar_cache_ventas()
     except Exception as e:
         log_error("marcar_entregado_batch", e)
@@ -224,35 +226,36 @@ def limpiar_cache_cotizaciones():
 
 def actualizar_estado_cotizacion(id_cotizacion, nuevo_estado, fila_sheet=None):
     try:
-        hoja = get_hoja(WORKSHEET_COTIZACIONES)
+        def _write():
+            hoja = get_hoja(WORKSHEET_COTIZACIONES)
+            if fila_sheet is not None:
+                # Camino rápido: fila conocida, sin get_all_values()
+                df_cot = cargar_cotizaciones()
+                sheet_cols = [c for c in df_cot.columns if c != "fila_sheet"]
+                if "Estado" not in sheet_cols:
+                    log_error("actualizar_estado_cotizacion", "Falta columna Estado")
+                    return
+                col_estado = sheet_cols.index("Estado") + 1
+                celda = gspread.utils.rowcol_to_a1(int(fila_sheet), col_estado)
+                hoja.update(celda, [[nuevo_estado]])
+            else:
+                # Fallback: buscar fila por ID (comportamiento original)
+                todos = hoja.get_all_values()
+                if not todos or len(todos) < 2:
+                    return
+                headers = todos[0]
+                if "ID_Cotizacion" not in headers or "Estado" not in headers:
+                    log_error("actualizar_estado_cotizacion", "Faltan columnas ID_Cotizacion o Estado")
+                    return
+                col_id = headers.index("ID_Cotizacion")
+                col_estado = headers.index("Estado") + 1
+                for i, fila in enumerate(todos[1:], start=2):
+                    if len(fila) > col_id and fila[col_id] == id_cotizacion:
+                        celda = gspread.utils.rowcol_to_a1(i, col_estado)
+                        hoja.update(celda, [[nuevo_estado]])
+                        break
 
-        if fila_sheet:
-            # Camino rápido: fila conocida, sin get_all_values()
-            df_cot = cargar_cotizaciones()
-            sheet_cols = [c for c in df_cot.columns if c != "fila_sheet"]
-            if "Estado" not in sheet_cols:
-                log_error("actualizar_estado_cotizacion", "Falta columna Estado")
-                return
-            col_estado = sheet_cols.index("Estado") + 1
-            celda = gspread.utils.rowcol_to_a1(int(fila_sheet), col_estado)
-            hoja.update(celda, [[nuevo_estado]])
-        else:
-            # Fallback: buscar fila por ID (comportamiento original)
-            todos = hoja.get_all_values()
-            if not todos or len(todos) < 2:
-                return
-            headers = todos[0]
-            if "ID_Cotizacion" not in headers or "Estado" not in headers:
-                log_error("actualizar_estado_cotizacion", "Faltan columnas ID_Cotizacion o Estado")
-                return
-            col_id = headers.index("ID_Cotizacion")
-            col_estado = headers.index("Estado") + 1
-            for i, fila in enumerate(todos[1:], start=2):
-                if len(fila) > col_id and fila[col_id] == id_cotizacion:
-                    celda = gspread.utils.rowcol_to_a1(i, col_estado)
-                    hoja.update(celda, [[nuevo_estado]])
-                    break
-
+        _ejecutar_con_reintento(_write, "actualizar_estado_cotizacion")
         limpiar_cache_cotizaciones()
     except Exception as e:
         log_error("actualizar_estado_cotizacion", e)
@@ -275,7 +278,6 @@ def _obtener_proximo_id_cotizacion():
 
 def guardar_cotizacion(celular, cesta, total):
     try:
-        hoja = get_hoja(WORKSHEET_COTIZACIONES)
         id_cotizacion = _obtener_proximo_id_cotizacion()
 
         items_txt = " | ".join([
@@ -292,7 +294,9 @@ def guardar_cotizacion(celular, cesta, total):
             "Enviado"
         ]
 
-        hoja.append_rows([fila], value_input_option='USER_ENTERED')
+        def _write():
+            get_hoja(WORKSHEET_COTIZACIONES).append_rows([fila], value_input_option='USER_ENTERED')
+        _ejecutar_con_reintento(_write, "guardar_cotizacion")
         limpiar_cache_cotizaciones()
         return id_cotizacion
     except Exception as e:
@@ -309,24 +313,24 @@ def actualizar_stock_perfumes_batch(items_vendidos):
         if df_cat.empty or "fila_sheet" not in df_cat.columns:
             log_error("actualizar_stock_batch", "Catálogo vacío o sin fila_sheet")
             return
-        if "Stock_ml" not in df_cat.columns or "Nombre" not in df_cat.columns:
-            log_error("actualizar_stock_batch", "Faltan columnas Nombre o Stock_ml en Catalogo")
+        if "Stock_ml" not in df_cat.columns or "ID_Perfume" not in df_cat.columns:
+            log_error("actualizar_stock_batch", "Faltan columnas ID_Perfume o Stock_ml en Catalogo")
             return
 
         # Posición de Stock_ml en la hoja (excluir fila_sheet, que es virtual)
         sheet_cols = [c for c in df_cat.columns if c != "fila_sheet"]
         col_stock = sheet_cols.index("Stock_ml") + 1  # 1-indexed
 
-        ml_por_nombre = {}
+        ml_por_id = {}
         for item in items_vendidos:
-            nombre = item["perfume"]
-            ml_por_nombre[nombre] = ml_por_nombre.get(nombre, 0) + float(item["ml"])
+            id_perf = str(item["id_perfume"])
+            ml_por_id[id_perf] = ml_por_id.get(id_perf, 0) + float(item["ml"])
 
         peticiones = []
-        for _, row in df_cat[df_cat["Nombre"].isin(ml_por_nombre)].iterrows():
-            nombre_fila = row["Nombre"]
+        for _, row in df_cat[df_cat["ID_Perfume"].astype(str).isin(ml_por_id)].iterrows():
+            id_fila = str(row["ID_Perfume"])
             valor_actual = float(row["Stock_ml"]) if row["Stock_ml"] else 0.0
-            nuevo_valor = max(0.0, valor_actual - ml_por_nombre[nombre_fila])
+            nuevo_valor = max(0.0, valor_actual - ml_por_id[id_fila])
             fila_num = int(row["fila_sheet"])
             peticiones.append({
                 "range": gspread.utils.rowcol_to_a1(fila_num, col_stock),
@@ -334,8 +338,9 @@ def actualizar_stock_perfumes_batch(items_vendidos):
             })
 
         if peticiones:
-            hoja = get_hoja(WORKSHEET_CATALOGO)
-            hoja.batch_update(peticiones)
+            def _write():
+                get_hoja(WORKSHEET_CATALOGO).batch_update(peticiones)
+            _ejecutar_con_reintento(_write, "actualizar_stock_batch")
 
         limpiar_cache_catalogo()
     except Exception as e:
@@ -344,7 +349,6 @@ def actualizar_stock_perfumes_batch(items_vendidos):
 
 def actualizar_ventas_multi_fila_batch(filas_cambios):
     try:
-        hoja = get_hoja(WORKSHEET_VENTAS)
         peticiones = []
         for fila_sheet, cambios in filas_cambios:
             for col_num, valor in cambios.items():
@@ -353,7 +357,9 @@ def actualizar_ventas_multi_fila_batch(filas_cambios):
                     "values": [[valor]]
                 })
         if peticiones:
-            hoja.batch_update(peticiones, value_input_option="USER_ENTERED")
+            def _write():
+                get_hoja(WORKSHEET_VENTAS).batch_update(peticiones, value_input_option="USER_ENTERED")
+            _ejecutar_con_reintento(_write, "actualizar_ventas_multi_fila_batch")
         limpiar_cache_ventas()
     except Exception as e:
         log_error("actualizar_ventas_multi_fila_batch", e)

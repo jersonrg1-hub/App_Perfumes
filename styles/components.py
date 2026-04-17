@@ -1,134 +1,207 @@
 COMPONENTS = """
+/* ══════════════════════════════════════
+   TARJETA DE PERFUME (lista en tab_marca)
+══════════════════════════════════════ */
 .perfume-card {
-    background: #ffffff;
-    border: 1px solid #ede0d4;
-    border-radius: 14px;
-    padding: 1rem 1.4rem;
-    margin-bottom: 0.6rem;
-    box-shadow: 0 1px 4px rgba(160, 120, 80, 0.06);
-    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+    background: var(--c-bg-card);
+    border: 1px solid var(--c-border-light);
+    border-left: 3px solid var(--c-primary-light);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.4rem 1rem 1.2rem;
+    margin-bottom: 0.65rem;
+    box-shadow: var(--shadow-xs);
+    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, border-left-color 0.22s ease;
     cursor: default;
+    position: relative;
 }
 
 .perfume-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 8px 28px rgba(160, 120, 80, 0.16);
-    border-color: #c8956c;
+    box-shadow: var(--shadow-md);
+    border-color: var(--c-border);
+    border-left-color: var(--c-primary);
 }
 
 .perfume-card .marca {
-    font-size: 0.68rem;
-    letter-spacing: 0.22em;
+    font-size: 0.65rem;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: #c8956c;
-    font-weight: 600;
-    margin-bottom: 0.35rem;
+    color: var(--c-primary-light);
+    font-weight: 700;
+    margin-bottom: 0.3rem;
     font-family: 'Lato', sans-serif;
 }
 
 .perfume-card .nombre {
     font-family: 'Playfair Display', serif;
-    font-size: 1.55rem;
-    color: #2c1a0e;
+    font-size: 1.15rem;
+    color: var(--c-text);
     font-weight: 600;
     letter-spacing: -0.02em;
-    line-height: 1.15;
+    line-height: 1.2;
 }
 
-.precio-card {
-    background: #ffffff;
-    border: 1px solid #ede0d4;
-    border-radius: 12px;
-    text-align: center;
-    margin-bottom: 0.6rem;
-    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.precio-card:hover {
-    transform: translateY(-3px);
-    border-color: #c8956c;
-    box-shadow: 0 6px 18px rgba(160, 120, 80, 0.12) !important;
-}
-
-.precio-box {
-    background: #fdf6f0;
-    border: 1px solid #ede0d4;
+/* ── Chips de precio en tarjeta ── */
+.precio-chip {
+    background: var(--c-bg);
+    border: 1px solid var(--c-border-light);
     border-radius: 14px;
-    padding: 1.6rem;
+    padding: 0.55rem 0.5rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.precio-chip:hover {
+    border-color: var(--c-primary-light);
+    background: var(--c-primary-pale);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.precio-chip .chip-label {
+    color: var(--c-text-muted);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    line-height: 1.4;
+    margin-bottom: 0.15rem;
+}
+
+.precio-chip .chip-valor {
+    color: var(--c-text);
+    font-family: 'Inter', sans-serif;
+    font-size: 1.15rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.precio-chip .chip-valor.sin-precio {
+    color: var(--c-text-faint);
+    font-size: 0.85rem;
+    font-style: italic;
+    font-weight: 400;
+}
+
+/* ══════════════════════════════════════
+   CAJA DE PRECIO GRANDE (tab_nombre)
+══════════════════════════════════════ */
+.precio-box {
+    background: linear-gradient(160deg, #ffffff 0%, #fdf6f0 100%);
+    border: 1px solid var(--c-border-light);
+    border-radius: var(--radius-lg);
+    padding: 1.6rem 1.2rem;
     text-align: center;
-    margin: 1.2rem 0;
-    transition: transform 0.2s ease, border-color 0.2s ease;
+    margin: 1rem 0;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: var(--shadow-xs);
 }
 
 .precio-box:hover {
-    transform: translateY(-2px);
-    border-color: #c8956c;
+    transform: translateY(-3px);
+    border-color: var(--c-primary-light);
+    box-shadow: var(--shadow-sm);
 }
 
 .precio-box .label {
-    color: #a07850;
-    font-size: 0.72rem;
-    letter-spacing: 0.2em;
+    color: var(--c-text-muted);
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
     text-transform: uppercase;
-    margin-bottom: 0.4rem;
-    font-weight: 600;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.precio-box .separador-box {
+    width: 24px;
+    height: 1.5px;
+    background: linear-gradient(to right, transparent, var(--c-gold), transparent);
+    margin: 0 auto 0.55rem;
 }
 
 .precio-box .valor {
-    color: #2c1a0e;
+    color: var(--c-text);
     font-family: 'Playfair Display', serif;
-    font-size: 3rem;
+    font-size: 2.6rem;
     font-weight: 700;
     line-height: 1;
+    letter-spacing: -0.03em;
+}
+
+.precio-box .moneda {
+    color: var(--c-primary-light);
+    font-size: 1.1rem;
+    font-weight: 600;
+    vertical-align: super;
+    margin-right: 2px;
 }
 
 .precio-box .tamanio {
-    color: #c8956c;
-    font-size: 0.85rem;
+    color: var(--c-text-faint);
+    font-size: 0.8rem;
     margin-top: 0.5rem;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
 }
 
+.precio-box.sin-precio-box {
+    background: var(--c-bg) !important;
+    border-style: dashed !important;
+    opacity: 0.7;
+}
+
+/* ══════════════════════════════════════
+   ÍTEM DE CESTA (wizard de venta)
+══════════════════════════════════════ */
 .perfume-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.4rem;
-    border-radius: 12px;
+    padding: 0.85rem 1.2rem;
+    border-radius: var(--radius-md);
     margin-bottom: 0.5rem;
-    background: white;
-    border: 1px solid #ede0d4;
+    background: var(--c-bg-card);
+    border: 1px solid var(--c-border-light);
+    border-left: 3px solid var(--c-primary-pale);
     transition: all 0.2s ease;
 }
 
 .perfume-item:hover {
-    border-color: #c8956c;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 14px rgba(160, 120, 80, 0.1);
+    border-left-color: var(--c-primary-light);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
 }
 
 .perfume-item .pf-nombre {
-    color: #2c1a0e;
+    color: var(--c-text);
     font-weight: 600;
-    font-size: 1rem;
+    font-size: 0.95rem;
 }
 
 .perfume-item .pf-precio {
-    color: #c8956c;
+    color: var(--c-primary);
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-family: 'Playfair Display', serif;
 }
 
 .sin-precio {
-    color: #bbb;
+    color: var(--c-text-faint);
     font-size: 0.85rem;
     font-style: italic;
 }
 
 .divider {
     border: none;
-    border-top: 1px solid #e8d5c4;
+    border-top: 1px solid var(--c-border-light);
     margin: 1.5rem 0;
 }
 

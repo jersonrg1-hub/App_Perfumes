@@ -41,13 +41,19 @@ def mostrar_tab_marca(df):
             stock_barra = stock_barra_html(row.get("Stock_ml", None))
 
             notas_html = (
-                f"<div style='color:#a07850; font-size:0.82rem; margin-top:0.3rem;'>"
-                f"🎵 {notas}</div>"
+                f"<div style='margin-top:0.45rem;'>"
+                f"<span style='color:var(--c-primary-light); font-size:0.7rem; font-weight:700;"
+                f"letter-spacing:0.14em; text-transform:uppercase;'>Notas</span>"
+                f"<div style='color:var(--c-text-mid); font-size:0.92rem; line-height:1.55; margin-top:0.1rem;'>{notas}</div>"
+                f"</div>"
                 if notas else ""
             )
             perfil_html = (
-                f"<div style='color:#c8956c; font-size:0.82rem; margin-top:0.15rem;'>"
-                f"✨ {perfil}</div>"
+                f"<div style='margin-top:0.35rem;'>"
+                f"<span style='color:var(--c-gold); font-size:0.7rem; font-weight:700;"
+                f"letter-spacing:0.14em; text-transform:uppercase;'>Perfil olfativo</span>"
+                f"<div style='color:var(--c-text-mid); font-size:0.92rem; line-height:1.55; margin-top:0.1rem;'>{perfil}</div>"
+                f"</div>"
                 if perfil else ""
             )
 
@@ -56,29 +62,22 @@ def mostrar_tab_marca(df):
                 precio = row.get(columna, "")
                 tiene_precio = precio not in (0, "", None)
                 precio_display = f"S/ {fmt_precio(precio)}" if tiene_precio else "—"
-                precio_color = "#2c1a0e" if tiene_precio else "#bbb"
+                valor_class = "chip-valor" if tiene_precio else "chip-valor sin-precio"
                 tamanio_safe = html.escape(str(tamanio))
                 precios_html += (
-                    f'<div style="background:#fdf6f0; border:1px solid #ede0d4;'
-                    f'border-radius:8px; padding:0.35rem 0.65rem; text-align:center;'
-                    f'flex:1; min-width:60px;">'
-                    f'<div style="color:#a07850; font-size:0.6rem; text-transform:uppercase;'
-                    f'font-weight:600; letter-spacing:0.1em; margin-bottom:0.15rem;">{tamanio_safe}</div>'
-                    f'<div style="color:{precio_color}; font-family:\'Inter\',\'DM Sans\',sans-serif;'
-                    f'font-size:0.95rem; font-weight:700; font-variant-numeric:tabular-nums;'
-                    f'white-space:nowrap;">{precio_display}</div>'
+                    f'<div class="precio-chip">'
+                    f'<span class="chip-label">{tamanio_safe}</span>'
+                    f'<span class="{valor_class}">{precio_display}</span>'
                     f'</div>'
                 )
 
             bloques.append(
                 f'<div class="perfume-card">'
-                f'<div style="font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase;'
-                f'color:#c8956c; font-weight:600; margin-bottom:0.25rem;">{marca_safe}</div>'
-                f'<div style="font-family:\'Playfair Display\',serif; font-size:1.1rem;'
-                f'color:#2c1a0e; font-weight:600; margin-bottom:0.1rem;">{nombre}{stock_badge}</div>'
+                f'<div class="marca">{marca_safe}</div>'
+                f'<div class="nombre">{nombre}{stock_badge}</div>'
                 f'{stock_barra}'
                 f'{notas_html}{perfil_html}'
-                f'<div style="display:flex; gap:6px; margin-top:0.5rem; flex-wrap:wrap;">'
+                f'<div style="display:flex; gap:8px; margin-top:0.7rem; width:100%;">'
                 f'{precios_html}'
                 f'</div>'
                 f'</div>'

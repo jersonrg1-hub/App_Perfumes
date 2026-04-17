@@ -123,18 +123,11 @@ def _barra_progreso(paso_actual):
 def _paso_1_cliente(df):
     st.markdown("#### 👤 Datos del comprador")
 
-    col_fecha, col_envio = st.columns(2)
-    with col_fecha:
-        fecha = st.date_input("📅 Fecha", format="DD/MM/YYYY", key="fecha_venta")
-    with col_envio:
-        tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="envio_sel")
-
-    col_comp, col_cel = st.columns(2)
-    with col_comp:
-        comprador_raw = st.text_input("👤 Nombre", placeholder="Comprador", key="comp_in")
-        comprador = comprador_raw.title() if comprador_raw else ""
-    with col_cel:
-        celular = st.text_input("📱 Celular", max_chars=9, key="cel_in")
+    fecha = st.date_input("📅 Fecha", format="DD/MM/YYYY", key="fecha_venta")
+    tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="envio_sel")
+    comprador_raw = st.text_input("👤 Nombre", placeholder="Comprador", key="comp_in")
+    comprador = comprador_raw.title() if comprador_raw else ""
+    celular = st.text_input("📱 Celular", max_chars=9, key="cel_in")
 
     if len(celular) == 9 and celular.isdigit() and not st.session_state.get("autocomplete_aplicado"):
         df_ventas = cargar_ventas()
@@ -183,11 +176,8 @@ def _paso_2_perfumes(df):
     nombres_opciones = sorted(df_perfumes["Nombre"].dropna().unique().tolist())
     perfume_venta = st.selectbox("🌸 Perfume", nombres_opciones, index=None, placeholder="— Elige un perfume —", key=f"perf_sel_{_k}")
 
-    col_ml, col_pago = st.columns(2)
-    with col_ml:
-        ml_vendido = st.selectbox("📏 Tamaño", ML_OPCIONES, key="ml_sel")
-    with col_pago:
-        metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key="pago_sel")
+    ml_vendido = st.selectbox("📏 Tamaño", ML_OPCIONES, key="ml_sel")
+    metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key="pago_sel")
 
     if perfume_venta is not None:
         perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]

@@ -109,46 +109,40 @@ def mostrar_tab_nombre(df):
             tiene_imagen = imagen_path.exists()
 
         if tiene_imagen:
-            col_img, col_info = st.columns([1, 2])
-            with col_img:
-                st.image(str(imagen_path), use_container_width=True)
-            with col_info:
+            st.image(str(imagen_path), use_container_width=True)
+            st.markdown(f"""
+            <div style="background:var(--c-bg-card); border:1px solid var(--c-border-light);
+                border-left:3px solid var(--c-primary-light); border-radius:var(--radius-lg);
+                padding:1.3rem 1.6rem 1.5rem; box-sizing:border-box; margin-top:0.5rem;">
+                <div style="font-size:0.63rem; letter-spacing:0.26em; text-transform:uppercase;
+                    color:var(--c-primary-light); font-weight:700; margin-bottom:0.3rem;">{marca_safe}</div>
+                <div style="font-family:'Playfair Display',serif; font-size:1.65rem;
+                    color:var(--c-text); font-weight:600; letter-spacing:-0.02em; line-height:1.15;">{nombre_safe}</div>
+                {stock_html}
+                {'<hr style="border:none;border-top:1px solid var(--c-border-light);margin:0.8rem 0;">' if (notas_seccion or perfil_seccion) else ""}
+                {notas_seccion}{perfil_seccion}
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="background:var(--c-bg-card); border:1px solid var(--c-border-light);
+                border-left:3px solid var(--c-primary-light); border-radius:var(--radius-lg);
+                padding:1.3rem 1.6rem 1.5rem;">
+                <div style="font-size:0.63rem; letter-spacing:0.26em; text-transform:uppercase;
+                    color:var(--c-primary-light); font-weight:700; margin-bottom:0.3rem;">{marca_safe}</div>
+                <div style="font-family:'Playfair Display',serif; font-size:1.65rem;
+                    color:var(--c-text); font-weight:600; letter-spacing:-0.02em; line-height:1.15;">{nombre_safe}</div>
+                {stock_html}
+            </div>
+            """, unsafe_allow_html=True)
+            if notas_txt or perfil_txt:
                 st.markdown(f"""
-                <div style="background:var(--c-bg-card); border:1px solid var(--c-border-light);
-                    border-left:3px solid var(--c-primary-light); border-radius:var(--radius-lg);
-                    padding:1.3rem 1.6rem 1.5rem; height:100%; box-sizing:border-box;">
-                    <div style="font-size:0.63rem; letter-spacing:0.26em; text-transform:uppercase;
-                        color:var(--c-primary-light); font-weight:700; margin-bottom:0.3rem;">{marca_safe}</div>
-                    <div style="font-family:'Playfair Display',serif; font-size:1.65rem;
-                        color:var(--c-text); font-weight:600; letter-spacing:-0.02em; line-height:1.15;">{nombre_safe}</div>
-                    {stock_html}
-                    {'<hr style="border:none;border-top:1px solid var(--c-border-light);margin:0.8rem 0;">' if (notas_seccion or perfil_seccion) else ""}
+                <div style="background:linear-gradient(160deg,#fff9f5,#fdf3eb);
+                    border:1px solid var(--c-border-light); border-radius:var(--radius-lg);
+                    padding:1.2rem 1.4rem; margin-top:0.5rem; box-sizing:border-box;">
                     {notas_seccion}{perfil_seccion}
                 </div>
                 """, unsafe_allow_html=True)
-        else:
-            col_info, col_notas = st.columns([1, 1])
-            with col_info:
-                st.markdown(f"""
-                <div style="background:var(--c-bg-card); border:1px solid var(--c-border-light);
-                    border-left:3px solid var(--c-primary-light); border-radius:var(--radius-lg);
-                    padding:1.3rem 1.6rem 1.5rem; height:100%;">
-                    <div style="font-size:0.63rem; letter-spacing:0.26em; text-transform:uppercase;
-                        color:var(--c-primary-light); font-weight:700; margin-bottom:0.3rem;">{marca_safe}</div>
-                    <div style="font-family:'Playfair Display',serif; font-size:1.65rem;
-                        color:var(--c-text); font-weight:600; letter-spacing:-0.02em; line-height:1.15;">{nombre_safe}</div>
-                    {stock_html}
-                </div>
-                """, unsafe_allow_html=True)
-            with col_notas:
-                if notas_txt or perfil_txt:
-                    st.markdown(f"""
-                    <div style="background:linear-gradient(160deg,#fff9f5,#fdf3eb);
-                        border:1px solid var(--c-border-light); border-radius:var(--radius-lg);
-                        padding:1.2rem 1.4rem; height:100%; box-sizing:border-box;">
-                        {notas_seccion}{perfil_seccion}
-                    </div>
-                    """, unsafe_allow_html=True)
 
         _mostrar_todos_precios(perfume, PRECIOS_COLUMNAS)
 

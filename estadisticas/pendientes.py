@@ -2,7 +2,7 @@ import html
 import streamlit as st
 from config import COL_ESTADO_NUM, COLUMNAS_VENTAS, METODOS_PAGO, fmt_precio, fmt_fecha
 from data import marcar_pedido_entregado_batch, actualizar_ventas_multi_fila_batch
-from components import separador
+from components import separador, construir_catalogo_dict, nombre_por_id
 
 
 def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
@@ -26,14 +26,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         st.success("✅ No hay ventas pendientes")
         return
 
-    catalogo_dict = {}
-    if df_catalogo is not None:
-        catalogo_dict = dict(
-            zip(df_catalogo["ID_Perfume"].astype(str), df_catalogo["Nombre"])
-        )
-
-    def get_nombre_perfume(id_perfume):
-        return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
+    catalogo_dict = construir_catalogo_dict(df_catalogo)
 
     buscar = st.text_input(
         "🔍 Buscar", placeholder="Nombre o ID de compra...", key="pend_buscar"
@@ -92,7 +85,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                 f"<div style='display:flex; justify-content:space-between; align-items:center;"
                 f"padding:0.4rem 0; border-bottom:1px solid #f5ede6; font-size:0.88rem;'>"
                 f"<span style='color:#2c1a0e; font-weight:500;'>🌸 "
-                f"{html.escape(str(get_nombre_perfume(it.get('ID_Perfume',''))))}"
+                f"{html.escape(str(nombre_por_id(catalogo_dict, it.get('ID_Perfume',''))))}"
                 f" · {html.escape(str(it.get('Ml_Vendido','')))}ml</span>"
                 f"<span style='font-weight:700; color:#c8956c; font-family:Inter,sans-serif;"
                 f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(it.get('Precio_Cobrado', 0))}</span>"

@@ -1,6 +1,7 @@
 import html
 import streamlit as st
 import pandas as pd
+from components import construir_catalogo_dict, nombre_por_id
 from config import fmt_precio, fmt_fecha
 
 
@@ -82,14 +83,7 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
     st.markdown(f"**{len(df_mostrar)} cliente(s) encontrado(s)**")
     st.markdown("")
 
-    catalogo_dict = {}
-    if df_catalogo is not None:
-        catalogo_dict = dict(
-            zip(df_catalogo["ID_Perfume"].astype(str), df_catalogo["Nombre"])
-        )
-
-    def get_nombre_perfume(id_perfume):
-        return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
+    catalogo_dict = construir_catalogo_dict(df_catalogo)
 
     for cliente in df_mostrar.to_dict("records"):
         celular = str(cliente["Celular"])
@@ -152,7 +146,7 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
                 )
 
                 for item in grupo.to_dict("records"):
-                    nombre_perfume = get_nombre_perfume(item.get("ID_Perfume", ""))
+                    nombre_perfume = nombre_por_id(catalogo_dict, item.get("ID_Perfume", ""))
                     st.markdown(
                         f"&nbsp;&nbsp;&nbsp;&nbsp;🌸 {nombre_perfume} "
                         f"— {item.get('Ml_Vendido', '')}ml "

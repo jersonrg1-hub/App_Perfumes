@@ -1,7 +1,7 @@
 import html
 import streamlit as st
 
-from components import separador
+from components import separador, mostrar_placeholder_vacio
 from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html, stock_barra_html
 
 
@@ -86,21 +86,10 @@ def mostrar_tab_notas(df):
         modo_filtro = "Todas"
 
     if not notas_seleccionadas and not perfiles_seleccionados:
-        st.markdown(
-            """<div style="
-                text-align:center; padding:2.5rem 1.5rem; margin-top:1rem;
-                background:#ffffff; border:1px dashed #e0c9b4; border-radius:16px;
-            ">
-                <div style="font-size:2.2rem; margin-bottom:0.7rem;">🎵</div>
-                <div style="font-family:'Playfair Display',serif; font-size:1.05rem;
-                    color:#2c1a0e; font-weight:600; margin-bottom:0.3rem;">
-                    Elige una nota o perfil
-                </div>
-                <div style="font-size:0.83rem; color:#a07850;">
-                    Selecciona para filtrar los perfumes por aroma
-                </div>
-            </div>""",
-            unsafe_allow_html=True,
+        mostrar_placeholder_vacio(
+            "🎵",
+            "Elige una nota o perfil",
+            "Selecciona para filtrar los perfumes por aroma",
         )
         return
 

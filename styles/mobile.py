@@ -201,7 +201,7 @@ MOBILE = """
         /* ── Tabs más pequeñas pero cómodas ── */
         .stTabs [data-baseweb="tab"] {
             padding: 0.35rem 0.55rem !important;
-            font-size: 0.72rem !important;
+            font-size: 0.82rem !important;
         }
 
         /* ── 4 métricas → 2×2, 3 métricas → todas al 100% o 2+1 ── */
@@ -227,7 +227,7 @@ MOBILE = """
 
         /* ── Stepper del wizard de venta ── */
         .wiz-step-label {
-            font-size: 0.60rem !important;
+            font-size: 0.75rem !important;
             letter-spacing: 0.04em !important;
         }
 
@@ -290,7 +290,7 @@ MOBILE = """
         .stDateInput label,
         .stSelectbox label,
         .stNumberInput label {
-            font-size: 0.78rem !important;
+            font-size: 0.85rem !important;
             text-transform: none !important;
             letter-spacing: 0.02em !important;
             margin-bottom: 2px !important;
@@ -340,7 +340,7 @@ MOBILE = """
 
         .stTabs [data-baseweb="tab"] {
             padding: 0.3rem 0.45rem !important;
-            font-size: 0.68rem !important;
+            font-size: 0.75rem !important;
         }
 
         .perfume-card .nombre {

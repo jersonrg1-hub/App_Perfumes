@@ -99,6 +99,51 @@ STOCK_BAJO = 15     # ml
 TZ_PERU = pytz.timezone("America/Lima")
 ```
 
+## Sistema de diseño CSS
+
+Los estilos se inyectan via `st.markdown(..., unsafe_allow_html=True)` desde `styles/` y se concatenan en `styles.py`.
+
+### Archivos de estilos
+| Archivo | Contenido |
+|---|---|
+| `styles/base.py` | Variables CSS (`:root`), tipografía, botones, alertas, animaciones |
+| `styles/components.py` | `.perfume-card`, `.precio-chip`, `.precio-box`, `.perfume-item`, inputs, expanders |
+| `styles/tabs.py` | Barra de tabs, pestaña activa/inactiva, panel de contenido |
+| `styles/forms.py` | Estilos específicos de formularios |
+| `styles/mobile.py` | Media queries responsive |
+
+### Variables CSS clave (`:root` en `base.py`)
+```css
+--c-primary: #b8724a          /* terracota oscuro */
+--c-primary-light: #c8956c    /* terracota principal */
+--c-primary-pale: #f0ddd0     /* terracota suave (hover) */
+--c-gold: #c9a96e             /* dorado (perfil olfativo) */
+--c-bg: #faf4ed               /* fondo app */
+--c-bg-card: #ffffff          /* fondo tarjetas */
+--c-text: #1e1209             /* texto principal */
+--c-text-mid: #4a2e18         /* texto secundario */
+--c-text-muted: #8b6640       /* texto atenuado / labels */
+--c-text-faint: #b89878       /* texto muy claro / sin precio */
+--shadow-xs/sm/md/lg          /* escala de sombras */
+--radius-sm/md/lg/xl          /* escala de radios (8/12/16/20px) */
+```
+
+### Componentes visuales clave
+- **`.perfume-card`** — tarjeta con `border-left: 3px solid var(--c-primary-light)`, hover con elevación
+- **`.precio-chip`** — chip de precio con `flex:1` para ocupar ancho completo; `.chip-label` (ml) + `.chip-valor` (precio)
+- **`.precio-box`** — caja grande de precio en tab_nombre; usa `.separador-box` (línea dorada) y `.moneda` (S/)
+- **`.titulo-app`** — degradado via `background-clip: text` (-webkit)
+
+### Convenciones de notas/perfil olfativo
+- Label **"Notas"**: `color: var(--c-primary-light)` (terracota), `font-size: 0.7rem`, `font-weight: 700`, uppercase
+- Label **"Perfil olfativo"**: `color: var(--c-gold)` (dorado), misma tipografía que Notas
+- Texto de ambos: `color: var(--c-text-mid)`, `font-size: 0.92rem` (tab_marca) / `0.88rem` (tab_nombre), sin cursiva
+
+### Fuentes Google (cargadas en `app.py` o `base.py`)
+- `Playfair Display` — títulos, nombres de perfumes, precios grandes
+- `Lato` — cuerpo, labels, botones
+- `Inter` — valores numéricos (`font-variant-numeric: tabular-nums`)
+
 ## Tema visual
 
 Paleta terrosa/cálida (`.streamlit/config.toml`):

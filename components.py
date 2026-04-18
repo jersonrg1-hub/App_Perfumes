@@ -1,8 +1,9 @@
 import html as _html
+from datetime import timedelta
 
 import streamlit as st
 from urllib.parse import quote
-from config import fmt_precio
+from config import fmt_precio, TZ_PERU
 
 
 def mostrar_encabezado():
@@ -24,25 +25,32 @@ def mostrar_encabezado():
 
 
 def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, cesta, total):
+    from datetime import datetime
+    DIAS   = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+    MESES  = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+               "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    manana = datetime.now(TZ_PERU).date() + timedelta(days=1)
+    fecha_envio = f"{DIAS[manana.weekday()]} {manana.day} de {MESES[manana.month - 1]}"
+
     items_texto = "\n".join([
-        f"  🌸 *{i['marca']}* · {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
+        f"  🌸 *{i['marca']}* · {i['perfume']} · {i['ml']}ml"
         if i.get('marca') else
-        f"  🌸 {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
+        f"  🌸 {i['perfume']} · {i['ml']}ml"
         for i in cesta
     ])
     dir_linea = f"\n📍 *Dirección:* {direccion}" if direccion and direccion.strip() else ""
     mensaje = (
-        f"🌸 *Perfuteca — Comprobante {id_compra}*\n"
+        f"🌸 *Perfuteca — Pedido {id_compra}*\n"
         f"────────────────────\n"
         f"👤 *Comprador:* {comprador}\n"
         f"📱 *Celular:* {celular}\n"
         f"🚚 *Envío:* {tipo_envio}"
         f"{dir_linea}\n"
         f"────────────────────\n"
-        f"🛍️ *Productos:*\n"
+        f"🛍️ *Tu pedido:*\n"
         f"{items_texto}\n"
         f"────────────────────\n"
-        f"💰 *Total: S/ {fmt_precio(total)}*\n\n"
+        f"📦 Tu pedido estará siendo enviado el *{fecha_envio}*.\n\n"
         f"_¡Gracias por tu compra! 💛_"
     )
     return f"https://wa.me/?text={quote(mensaje)}"

@@ -184,14 +184,16 @@ def mostrar_historial_cotizaciones():
             # ── Acciones según estado ───────────────────────────────────────
             if estado not in ("Aceptada", "Rechazada"):
                 separador()
-                converting_key = f"converting_cot_{id_cot_raw}"
+                # Usamos fila_cot como key única (id_cot_raw puede repetirse en el Sheet)
+                uid = fila_cot
+                converting_key = f"converting_cot_{uid}"
 
                 if not st.session_state.get(converting_key):
                     col_ac, col_rech = st.columns(2)
                     with col_ac:
                         if st.button(
                             "✅ Convertir a Venta",
-                            key=f"ac_{id_cot_raw}",
+                            key=f"ac_{uid}",
                             use_container_width=True,
                             type="primary",
                         ):
@@ -200,7 +202,7 @@ def mostrar_historial_cotizaciones():
                     with col_rech:
                         if st.button(
                             "❌ Rechazada",
-                            key=f"rech_{id_cot_raw}",
+                            key=f"rech_{uid}",
                             use_container_width=True,
                         ):
                             try:
@@ -223,19 +225,19 @@ def mostrar_historial_cotizaciones():
                     comprador_raw = st.text_input(
                         "👤 Nombre del comprador",
                         placeholder="Nombre completo",
-                        key=f"comp_{id_cot_raw}",
+                        key=f"comp_{uid}",
                     )
                     comprador = comprador_raw.title() if comprador_raw else ""
-                    tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key=f"envio_{id_cot_raw}")
-                    direccion  = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key=f"dir_{id_cot_raw}")
-                    metodo_pago = st.selectbox("💳 Método de pago", METODOS_PAGO, key=f"pago_{id_cot_raw}")
-                    fecha_venta = st.date_input("📅 Fecha", value=hoy_peru(), format="DD/MM/YYYY", key=f"fecha_{id_cot_raw}")
+                    tipo_envio  = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key=f"envio_{uid}")
+                    direccion   = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key=f"dir_{uid}")
+                    metodo_pago = st.selectbox("💳 Método de pago", METODOS_PAGO, key=f"pago_{uid}")
+                    fecha_venta = st.date_input("📅 Fecha", value=hoy_peru(), format="DD/MM/YYYY", key=f"fecha_{uid}")
 
                     col_confirm, col_cancel = st.columns(2)
                     with col_confirm:
                         if st.button(
                             "✅ Confirmar y guardar venta",
-                            key=f"confirm_{id_cot_raw}",
+                            key=f"confirm_{uid}",
                             type="primary",
                             use_container_width=True,
                         ):
@@ -279,12 +281,12 @@ def mostrar_historial_cotizaciones():
                                         actualizar_estado_cotizacion(id_cot_raw, "Aceptada", fila_sheet=fila_cot)
                                         limpiar_cache_ventas()
                                         st.session_state[converting_key] = False
-                                        st.success(f"✅ Venta {id_compra} creada correctamente desde la cotización {id_cot_raw}")
+                                        st.success(f"✅ Venta {id_compra} creada desde cotización {id_cot_raw}")
                                         st.rerun()
                                     except Exception as e:
                                         st.error(f"Error al guardar: {e}")
 
                     with col_cancel:
-                        if st.button("✖ Cancelar", key=f"cancel_{id_cot_raw}", use_container_width=True):
+                        if st.button("✖ Cancelar", key=f"cancel_{uid}", use_container_width=True):
                             st.session_state[converting_key] = False
                             st.rerun()

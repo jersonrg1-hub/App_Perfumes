@@ -154,9 +154,8 @@ def guardar_venta(filas):
 
 
 def _extraer_ids_numericos(ids_col):
-    ids_datos = ids_col[1:] if len(ids_col) > 1 else []
     ids_numericos = []
-    for id_val in ids_datos:
+    for id_val in ids_col:
         match = re.search(r'(\d+)', str(id_val))
         if match:
             ids_numericos.append(int(match.group(1)))
@@ -164,18 +163,14 @@ def _extraer_ids_numericos(ids_col):
 
 
 def obtener_proximo_id():
-    try:
-        cargar_ventas.clear()  # siempre leer fresco para evitar IDs duplicados
-        df = cargar_ventas()
-        if df.empty or "ID_Compra" not in df.columns:
-            return "V001"
-        ids_numericos = _extraer_ids_numericos(df["ID_Compra"].tolist())
-        if not ids_numericos:
-            return "V001"
-        return f"V{max(ids_numericos) + 1:03d}"
-    except Exception as e:
-        log_error("obtener_proximo_id", e)
+    cargar_ventas.clear()
+    df = cargar_ventas()
+    if df.empty or "ID_Compra" not in df.columns:
         return "V001"
+    ids_numericos = _extraer_ids_numericos(df["ID_Compra"].tolist())
+    if not ids_numericos:
+        return "V001"
+    return f"V{max(ids_numericos) + 1:03d}"
 
 
 def marcar_pedido_entregado_batch(lista_filas, col_estado):
@@ -242,18 +237,14 @@ def actualizar_estado_cotizacion(id_cotizacion, nuevo_estado, fila_sheet):
 
 
 def _obtener_proximo_id_cotizacion():
-    try:
-        cargar_cotizaciones.clear()  # siempre leer fresco para evitar IDs duplicados
-        df = cargar_cotizaciones()
-        if df.empty or "ID_Cotizacion" not in df.columns:
-            return "C001"
-        ids_numericos = _extraer_ids_numericos(df["ID_Cotizacion"].tolist())
-        if not ids_numericos:
-            return "C001"
-        return f"C{max(ids_numericos) + 1:03d}"
-    except Exception as e:
-        log_error("_obtener_proximo_id_cotizacion", e)
+    cargar_cotizaciones.clear()
+    df = cargar_cotizaciones()
+    if df.empty or "ID_Cotizacion" not in df.columns:
         return "C001"
+    ids_numericos = _extraer_ids_numericos(df["ID_Cotizacion"].tolist())
+    if not ids_numericos:
+        return "C001"
+    return f"C{max(ids_numericos) + 1:03d}"
 
 
 def guardar_cotizacion(celular, cesta, total):

@@ -1,14 +1,55 @@
 import html
+import re
 import streamlit as st
 import pandas as pd
 from urllib.parse import quote
-from config import fmt_precio, hoy_peru
-from data import cargar_cotizaciones, actualizar_estado_cotizacion
+from config import fmt_precio, hoy_peru, METODOS_PAGO, TIPOS_ENVIO
+from data import (
+    cargar_cotizaciones, actualizar_estado_cotizacion, cargar_catalogo,
+    guardar_venta, obtener_proximo_id, actualizar_stock_perfumes_batch,
+    limpiar_cache_ventas,
+)
 from components import separador
+
+
+def _parsear_items_cotizacion(perfumes_txt, df_catalogo):
+    """
+    Convierte texto de cotización a lista de dicts usable por guardar_venta.
+    Formato esperado: "Nombre 5ml S/25.00 | Nombre2 10ml S/45.00"
+    """
+    items, errores = [], []
+    for parte in str(perfumes_txt).split(" | "):
+        parte = parte.strip()
+        if not parte:
+            continue
+        m = re.match(r"^(.+?) (\d+)ml S/(\d+\.?\d*)$", parte)
+        if not m:
+            errores.append(f"No se pudo leer: «{parte}»")
+            continue
+        nombre_perf = m.group(1).strip()
+        ml = int(m.group(2))
+        precio = float(m.group(3))
+
+        match_cat = df_catalogo[df_catalogo["Nombre"] == nombre_perf]
+        if match_cat.empty:
+            errores.append(f"Perfume no encontrado en catálogo: «{nombre_perf}»")
+            continue
+
+        row_cat = match_cat.iloc[0]
+        items.append({
+            "id_perfume": str(row_cat["ID_Perfume"]),
+            "perfume":    nombre_perf,
+            "marca":      str(row_cat.get("Marca", "")),
+            "ml":         ml,
+            "precio":     precio,
+            "metodo":     "",
+        })
+    return items, errores
 
 
 def mostrar_historial_cotizaciones():
     df = cargar_cotizaciones()
+    df_catalogo = cargar_catalogo()
 
     if df.empty:
         st.info("📭 No hay cotizaciones registradas todavía")
@@ -21,10 +62,10 @@ def mostrar_historial_cotizaciones():
 
     col1, col2, col3, col4 = st.columns(4)
     for col, valor, label, bg, color in [
-        (col1, total_cot, "Total", "#f5ede6", "#2c1a0e"),
+        (col1, total_cot,                  "Total",     "#f5ede6", "#2c1a0e"),
         (col2, f"S/ {fmt_precio(total_monto)}", "Monto", "#fef9c3", "#713f12"),
-        (col3, aceptadas, "Aceptadas", "#dcfce7", "#166534"),
-        (col4, rechazadas, "Rechazadas", "#fee2e2", "#991b1b"),
+        (col3, aceptadas,                  "Aceptadas", "#dcfce7", "#166534"),
+        (col4, rechazadas,                 "Rechazadas","#fee2e2", "#991b1b"),
     ]:
         with col:
             st.markdown(
@@ -65,26 +106,24 @@ def mostrar_historial_cotizaciones():
     st.markdown("")
 
     for row in df_mostrar.to_dict("records"):
-        id_cot = html.escape(str(row.get("ID_Cotizacion", "—")))
-        celular = html.escape(str(row.get("Celular", "—")))
-        fecha = row.get("Fecha")
-        fecha_str = fecha.strftime("%d/%m/%Y") if pd.notna(fecha) else "—"
-        total = row.get("Total", 0)
-        perfumes = html.escape(str(row.get("Perfumes", "—")))
-        estado = html.escape(str(row.get("Estado", "—")))
+        id_cot     = html.escape(str(row.get("ID_Cotizacion", "—")))
+        id_cot_raw = str(row.get("ID_Cotizacion", ""))
+        celular    = html.escape(str(row.get("Celular", "—")))
+        fecha      = row.get("Fecha")
+        fecha_str  = fecha.strftime("%d/%m/%Y") if pd.notna(fecha) else "—"
+        total      = row.get("Total", 0)
+        perfumes   = html.escape(str(row.get("Perfumes", "—")))
+        estado     = html.escape(str(row.get("Estado", "—")))
+        fila_cot   = int(row.get("fila_sheet", 0))
 
         if estado == "Enviado":
-            badge_bg, badge_color = "#fef9c3", "#713f12"
-            badge_icon = "📤"
+            badge_bg, badge_color, badge_icon = "#fef9c3", "#713f12", "📤"
         elif estado == "Aceptada":
-            badge_bg, badge_color = "#dcfce7", "#166534"
-            badge_icon = "✅"
+            badge_bg, badge_color, badge_icon = "#dcfce7", "#166534", "✅"
         elif estado == "Rechazada":
-            badge_bg, badge_color = "#fee2e2", "#991b1b"
-            badge_icon = "❌"
+            badge_bg, badge_color, badge_icon = "#fee2e2", "#991b1b", "❌"
         else:
-            badge_bg, badge_color = "#f5ede6", "#a07850"
-            badge_icon = "📋"
+            badge_bg, badge_color, badge_icon = "#f5ede6", "#a07850", "📋"
 
         header = f"{id_cot} · 📱 {celular} · {fecha_str} · S/ {fmt_precio(total)}"
 
@@ -116,8 +155,8 @@ def mostrar_historial_cotizaciones():
                 )
 
             st.markdown("")
-            wa_celular = str(row.get("Celular", ""))
-            items_wa = "\n".join([
+            wa_celular  = str(row.get("Celular", ""))
+            items_wa    = "\n".join([
                 f"  🌸 {item.strip()}"
                 for item in str(row.get("Perfumes", "")).split(" | ")
                 if item.strip()
@@ -133,43 +172,119 @@ def mostrar_historial_cotizaciones():
             )
             wa_url = f"https://wa.me/51{wa_celular}?text={quote(mensaje_wa)}"
             st.markdown(
-                f"""
-                <a href="{wa_url}" target="_blank"
-                   style="
-                       text-decoration:none;
-                       display:block;
-                       background:#25D366;
-                       color:white !important;
-                       padding:8px;
-                       border-radius:8px;
-                       text-align:center;
-                       font-weight:600;
-                       font-size:0.85rem;
-                   ">
+                f"""<a href="{wa_url}" target="_blank"
+                   style="text-decoration:none;display:block;background:#25D366;
+                       color:white !important;padding:8px;border-radius:8px;
+                       text-align:center;font-weight:600;font-size:0.85rem;">
                    📲 Escribir por WhatsApp
-                </a>
-                """,
+                </a>""",
                 unsafe_allow_html=True
             )
 
-            id_cot_raw = str(row.get("ID_Cotizacion", ""))
-            fila_cot = int(row.get("fila_sheet", 0))
+            # ── Acciones según estado ───────────────────────────────────────
             if estado not in ("Aceptada", "Rechazada"):
                 separador()
-                col_ac, col_rech = st.columns(2)
-                with col_ac:
-                    if st.button("✅ Aceptada", key=f"ac_{id_cot_raw}", use_container_width=True, type="primary"):
-                        try:
-                            actualizar_estado_cotizacion(id_cot_raw, "Aceptada", fila_sheet=fila_cot)
-                            st.success("✅ Marcada como Aceptada")
+                converting_key = f"converting_cot_{id_cot_raw}"
+
+                if not st.session_state.get(converting_key):
+                    col_ac, col_rech = st.columns(2)
+                    with col_ac:
+                        if st.button(
+                            "✅ Convertir a Venta",
+                            key=f"ac_{id_cot_raw}",
+                            use_container_width=True,
+                            type="primary",
+                        ):
+                            st.session_state[converting_key] = True
                             st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-                with col_rech:
-                    if st.button("❌ Rechazada", key=f"rech_{id_cot_raw}", use_container_width=True):
-                        try:
-                            actualizar_estado_cotizacion(id_cot_raw, "Rechazada", fila_sheet=fila_cot)
-                            st.success("❌ Marcada como Rechazada")
+                    with col_rech:
+                        if st.button(
+                            "❌ Rechazada",
+                            key=f"rech_{id_cot_raw}",
+                            use_container_width=True,
+                        ):
+                            try:
+                                actualizar_estado_cotizacion(id_cot_raw, "Rechazada", fila_sheet=fila_cot)
+                                st.success("❌ Marcada como Rechazada")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+
+                else:
+                    # ── Formulario de conversión ────────────────────────────
+                    st.markdown(
+                        '<div style="background:#f5ede6;border-left:3px solid #c8956c;'
+                        'border-radius:10px;padding:0.8rem 1rem;margin-bottom:0.7rem;">'
+                        '<div style="font-size:0.8rem;font-weight:700;color:#2c1a0e;">📝 Completar datos para registrar la venta</div>'
+                        '</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    comprador_raw = st.text_input(
+                        "👤 Nombre del comprador",
+                        placeholder="Nombre completo",
+                        key=f"comp_{id_cot_raw}",
+                    )
+                    comprador = comprador_raw.title() if comprador_raw else ""
+                    tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key=f"envio_{id_cot_raw}")
+                    direccion  = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key=f"dir_{id_cot_raw}")
+                    metodo_pago = st.selectbox("💳 Método de pago", METODOS_PAGO, key=f"pago_{id_cot_raw}")
+                    fecha_venta = st.date_input("📅 Fecha", value=hoy_peru(), format="DD/MM/YYYY", key=f"fecha_{id_cot_raw}")
+
+                    col_confirm, col_cancel = st.columns(2)
+                    with col_confirm:
+                        if st.button(
+                            "✅ Confirmar y guardar venta",
+                            key=f"confirm_{id_cot_raw}",
+                            type="primary",
+                            use_container_width=True,
+                        ):
+                            if not comprador:
+                                st.error("⚠️ Ingresa el nombre del comprador")
+                            elif tipo_envio != "Contraentrega" and not direccion.strip():
+                                st.error(f"⚠️ La dirección es requerida para {tipo_envio}")
+                            else:
+                                perfumes_txt = str(row.get("Perfumes", ""))
+                                items_venta, errores = _parsear_items_cotizacion(perfumes_txt, df_catalogo)
+
+                                if errores:
+                                    st.error("❌ " + " · ".join(errores))
+                                else:
+                                    for it in items_venta:
+                                        it["metodo"] = metodo_pago
+
+                                    try:
+                                        id_compra = obtener_proximo_id()
+                                        filas = [
+                                            [
+                                                id_compra,
+                                                str(fecha_venta),
+                                                comprador,
+                                                str(row.get("Celular", "")),
+                                                it["id_perfume"],
+                                                str(it["ml"]),
+                                                round(float(it["precio"]), 2),
+                                                metodo_pago,
+                                                tipo_envio,
+                                                direccion,
+                                                "Pendiente",
+                                            ]
+                                            for it in items_venta
+                                        ]
+                                        guardar_venta(filas)
+                                        try:
+                                            actualizar_stock_perfumes_batch(items_venta)
+                                        except Exception:
+                                            st.warning("⚠️ Venta guardada pero el stock no pudo actualizarse. Corrígelo manualmente.")
+                                        actualizar_estado_cotizacion(id_cot_raw, "Aceptada", fila_sheet=fila_cot)
+                                        limpiar_cache_ventas()
+                                        st.session_state[converting_key] = False
+                                        st.success(f"✅ Venta {id_compra} creada correctamente desde la cotización {id_cot_raw}")
+                                        st.rerun()
+                                    except Exception as e:
+                                        st.error(f"Error al guardar: {e}")
+
+                    with col_cancel:
+                        if st.button("✖ Cancelar", key=f"cancel_{id_cot_raw}", use_container_width=True):
+                            st.session_state[converting_key] = False
                             st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")

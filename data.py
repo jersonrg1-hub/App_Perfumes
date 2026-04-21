@@ -73,7 +73,7 @@ def get_hoja(worksheet_name):
         raise
 
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=1800)
 def cargar_catalogo():
     try:
         def _fetch():

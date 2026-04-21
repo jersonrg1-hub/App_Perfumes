@@ -63,6 +63,7 @@ def _mostrar_todos_precios(perfume, precios_columnas):
                 )
 
 
+@st.fragment
 def mostrar_tab_nombre(df):
     busqueda = st.text_input("🔍 Buscar perfume", placeholder="Escribe parte del nombre...", key="nombre_buscar")
     nombre_seleccionado = None

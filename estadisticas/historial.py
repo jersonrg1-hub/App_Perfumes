@@ -88,7 +88,15 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
         .index.tolist()
     )
 
-    for id_compra in orden_ids:
+    _PAGE = 20
+    _key = f"hist_pag_{buscar}_{mes_filtro}_{metodo_filtro}"
+    if st.session_state.get("_hist_filtro_prev") != _key:
+        st.session_state["_hist_filtro_prev"] = _key
+        st.session_state["hist_mostrados"] = _PAGE
+    mostrados = st.session_state.get("hist_mostrados", _PAGE)
+    ids_pagina = orden_ids[:mostrados]
+
+    for id_compra in ids_pagina:
         grupo = df_filtrado[df_filtrado["ID_Compra"] == id_compra]
         primera = grupo.iloc[0]
         total_compra = grupo["Precio_Cobrado"].sum()
@@ -147,3 +155,9 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
                 + "</div>",
                 unsafe_allow_html=True
             )
+
+    if mostrados < len(orden_ids):
+        restantes = len(orden_ids) - mostrados
+        if st.button(f"Ver más ({restantes} restantes)", key="hist_ver_mas"):
+            st.session_state["hist_mostrados"] = mostrados + _PAGE
+            st.rerun()

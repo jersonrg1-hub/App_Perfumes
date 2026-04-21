@@ -5,6 +5,7 @@ from components import mostrar_placeholder_vacio
 from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html, stock_barra_html
 
 
+@st.fragment
 def mostrar_tab_marca(df):
     marcas = sorted(df["Marca"].dropna().unique().tolist())
     marca_seleccionada = st.selectbox(

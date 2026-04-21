@@ -3,6 +3,7 @@ import pandas as pd
 
 from components import separador, construir_catalogo_dict, nombre_por_id
 from config import fmt_precio, fmt_fecha
+from costos import construir_costo_ml_dict, costo_por_item
 
 def mostrar_historial_ventas(df_ventas, df_catalogo=None):
     if df_ventas.empty:
@@ -77,6 +78,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
         return
 
     catalogo_dict = construir_catalogo_dict(df_catalogo)
+    costo_ml_dict = construir_costo_ml_dict(df_catalogo)
 
     orden_ids = (
         df_filtrado.groupby("ID_Compra")["Fecha"]
@@ -108,8 +110,18 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
             st.markdown("**🛍️ Productos:**")
             for item in grupo.to_dict("records"):
                 nombre = nombre_por_id(catalogo_dict, item.get("ID_Perfume", ""))
+                try:
+                    ml = int(item.get("Ml_Vendido", 0))
+                    precio_cob = float(item.get("Precio_Cobrado", 0))
+                    costo_ml = costo_ml_dict.get(str(item.get("ID_Perfume", "")), 0.0)
+                    costo_est = costo_por_item(ml) + costo_ml * ml
+                    gan = precio_cob - costo_est
+                    gan_txt = f" | 💰 gan. S/ {fmt_precio(gan)}"
+                except Exception:
+                    gan_txt = ""
                 st.markdown(
                     f"- 🌸 **{nombre}** — "
                     f"{item.get('Ml_Vendido', '')}ml "
                     f"| S/ {fmt_precio(item.get('Precio_Cobrado', 0))}"
+                    f"{gan_txt}"
                 )

@@ -115,17 +115,6 @@ def cargar_ventas():
 
         if not df.empty:
             if "Fecha" in df.columns:
-                def _parse_fecha(v):
-                    if v is None or v == "":
-                        return pd.NaT
-                    if isinstance(v, (int, float)):
-                        # Google Sheets devuelve fechas como serial numérico
-                        # (días desde el 30/12/1899)
-                        try:
-                            return pd.Timestamp(date_type(1899, 12, 30) + timedelta(days=int(v)))
-                        except Exception:
-                            return pd.NaT
-                    return pd.to_datetime(str(v).strip(), errors="coerce")
                 df["Fecha"] = df["Fecha"].apply(_parse_fecha)
 
             cols_numericas = ['Precio_Cobrado', 'Ml_Vendido', 'precio',
@@ -159,6 +148,18 @@ def guardar_venta(filas):
     except Exception as e:
         log_error("guardar_venta", e)
         raise
+
+
+def _parse_fecha(v):
+    """Convierte valor de Google Sheets a Timestamp. Acepta serial numérico o string."""
+    if v is None or v == "":
+        return pd.NaT
+    if isinstance(v, (int, float)):
+        try:
+            return pd.Timestamp(date_type(1899, 12, 30) + timedelta(days=int(v)))
+        except Exception:
+            return pd.NaT
+    return pd.to_datetime(str(v).strip(), errors="coerce")
 
 
 def _extraer_ids_numericos(ids_col):
@@ -212,7 +213,7 @@ def cargar_cotizaciones():
         if not df.empty:
             df["fila_sheet"] = range(2, len(df) + 2)
         if "Fecha" in df.columns:
-            df["Fecha"] = pd.to_datetime(df["Fecha"].astype(str).str.strip(), errors="coerce")
+            df["Fecha"] = df["Fecha"].apply(_parse_fecha)
         if "Total" in df.columns:
             df["Total"] = pd.to_numeric(df["Total"], errors="coerce").fillna(0)
         return df

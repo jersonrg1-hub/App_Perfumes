@@ -514,5 +514,6 @@ def mostrar_tab_venta(df):
     elif st.session_state.wiz_paso == 3:
         _paso_3_confirmar()
 
-    separador()
-    mostrar_seccion_cotizacion(df)
+    if st.session_state.wiz_paso == 1 and not st.session_state.get("venta_guardada"):
+        separador()
+        mostrar_seccion_cotizacion(df)

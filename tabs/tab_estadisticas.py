@@ -20,7 +20,7 @@ def mostrar_tab_estadisticas(df):
     if st.button("🔄 Recargar datos", key="reload"):
         limpiar_cache_ventas()
         limpiar_cache_catalogo()
-        st.rerun()
+        st.rerun(scope="app")
 
     st.markdown("---")
     try:

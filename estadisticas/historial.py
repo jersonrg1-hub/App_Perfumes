@@ -70,6 +70,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
         st.markdown(f"**{n_compras} compra(s) entregada(s)**")
     with col_b:
         st.markdown(f"**Total: S/ {fmt_precio(total_filtrado)}**")
+    costo_ml_dict = construir_costo_ml_dict(df_catalogo)
 
     separador()
 
@@ -78,7 +79,6 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
         return
 
     catalogo_dict = construir_catalogo_dict(df_catalogo)
-    costo_ml_dict = construir_costo_ml_dict(df_catalogo)
 
     orden_ids = (
         df_filtrado.groupby("ID_Compra")["Fecha"]
@@ -93,9 +93,22 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
         total_compra = grupo["Precio_Cobrado"].sum()
         fecha_str = fmt_fecha(primera.get("Fecha", "")) if pd.notna(primera.get("Fecha")) else "—"
 
+        # Calcular ganancia total de la compra
+        ganancia_compra = None
+        try:
+            costo_compra = sum(
+                costo_por_item(int(r["Ml_Vendido"])) + costo_ml_dict.get(str(r.get("ID_Perfume", "")), 0.0) * int(r["Ml_Vendido"])
+                for r in grupo.to_dict("records")
+            )
+            ganancia_compra = total_compra - costo_compra
+        except Exception:
+            pass
+
+        gan_header = f" | 💰 gan. S/ {fmt_precio(ganancia_compra)}" if ganancia_compra is not None else ""
+
         with st.expander(
             f"✅ {id_compra} — {primera.get('Comprador', '')} | "
-            f"{fecha_str} | S/ {fmt_precio(total_compra)}"
+            f"{fecha_str} | S/ {fmt_precio(total_compra)}{gan_header}"
         ):
             col1, col2 = st.columns(2)
             with col1:
@@ -124,4 +137,11 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
                     f"{item.get('Ml_Vendido', '')}ml "
                     f"| S/ {fmt_precio(item.get('Precio_Cobrado', 0))}"
                     f"{gan_txt}"
+                )
+
+            if ganancia_compra is not None:
+                st.markdown(
+                    f"<div style='text-align:right; margin-top:0.5rem; font-size:0.88rem;'>"
+                    f"💰 <b>Ganancia total: S/ {fmt_precio(ganancia_compra)}</b></div>",
+                    unsafe_allow_html=True
                 )

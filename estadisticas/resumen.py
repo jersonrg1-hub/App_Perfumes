@@ -66,12 +66,30 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         (df_ventas["Fecha"].dt.year == hoy.year)
     ]
 
+    # Tabla de costo_ml por ID_Perfume desde el catálogo
+    costo_ml_dict = {}
+    if not df_catalogo.empty and {"ID_Perfume", "Costo_Botella", "Ml_Botella"}.issubset(df_catalogo.columns):
+        for _, row in df_catalogo.iterrows():
+            try:
+                cb = float(row["Costo_Botella"])
+                mb = float(row["Ml_Botella"])
+                if mb > 0:
+                    costo_ml_dict[str(row["ID_Perfume"])] = cb / mb
+            except (TypeError, ValueError):
+                pass
+
     def _calcular_costo_df(df):
         if "Ml_Vendido" not in df.columns:
             return 0.0
-        return df["Ml_Vendido"].apply(
-            lambda ml: costo_por_item(int(ml)) if str(ml).isdigit() else 0.0
-        ).sum()
+        total = 0.0
+        for _, row in df.iterrows():
+            try:
+                ml = int(row["Ml_Vendido"])
+            except (TypeError, ValueError):
+                continue
+            costo_perfume = costo_ml_dict.get(str(row.get("ID_Perfume", "")), 0.0) * ml
+            total += costo_por_item(ml) + costo_perfume
+        return total
 
     st.markdown("#### 📊 Resumen")
     total_hoy = ventas_hoy["Precio_Cobrado"].sum()

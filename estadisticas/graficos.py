@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from datetime import timedelta
 from config import fmt_precio, hoy_peru
 
 COLORES = {
@@ -54,9 +55,9 @@ def _preparar_ventas(df_ventas):
 
 
 def _grafico_barras_dia(df):
-    hoy = pd.Timestamp(hoy_peru())
-    inicio = hoy - pd.Timedelta(days=29)
-    df_periodo = df[df["Fecha"].dt.normalize() >= inicio.normalize()]
+    hoy = hoy_peru()
+    inicio = hoy - timedelta(days=29)
+    df_periodo = df[df["Fecha"].dt.date >= inicio]
 
     if df_periodo.empty:
         st.info("Sin ventas en los últimos 30 días")

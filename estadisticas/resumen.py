@@ -53,10 +53,13 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
 
     df_ventas = df_ventas.copy()
     if df_ventas["Fecha"].dtype == object:
-        df_ventas["Fecha"] = pd.to_datetime(df_ventas["Fecha"].astype(str).str.strip(), errors="coerce")
+        df_ventas["Fecha"] = pd.to_datetime(
+            df_ventas["Fecha"].astype(str).str.strip(),
+            format="%Y-%m-%d", errors="coerce"
+        )
 
-    hoy = pd.Timestamp(hoy_peru())
-    ventas_hoy = df_ventas[df_ventas["Fecha"].dt.normalize() == hoy.normalize()]
+    hoy = hoy_peru()
+    ventas_hoy = df_ventas[df_ventas["Fecha"].dt.date == hoy]
     ventas_mes = df_ventas[
         (df_ventas["Fecha"].dt.month == hoy.month) &
         (df_ventas["Fecha"].dt.year == hoy.year)

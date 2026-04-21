@@ -139,9 +139,10 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
                     f"{gan_txt}"
                 )
 
-            if ganancia_compra is not None:
-                st.markdown(
-                    f"<div style='text-align:right; margin-top:0.5rem; font-size:0.88rem;'>"
-                    f"💰 <b>Ganancia total: S/ {fmt_precio(ganancia_compra)}</b></div>",
-                    unsafe_allow_html=True
-                )
+            st.markdown(
+                f"<div style='text-align:right; margin-top:0.5rem; font-size:0.88rem;'>"
+                f"🧾 <b>Total venta: S/ {fmt_precio(total_compra)}</b>"
+                + (f"&nbsp;&nbsp;|&nbsp;&nbsp;💰 <b>Ganancia: S/ {fmt_precio(ganancia_compra)}</b>" if ganancia_compra is not None else "")
+                + "</div>",
+                unsafe_allow_html=True
+            )

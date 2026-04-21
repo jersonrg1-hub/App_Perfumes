@@ -288,7 +288,8 @@ def actualizar_stock_perfumes_batch(items_vendidos):
     if not items_vendidos:
         return
     try:
-        # Usamos el df cacheado — evita un get_all_values() extra
+        # Siempre recargamos el catálogo fresco para que fila_sheet sea exacto
+        limpiar_cache_catalogo()
         df_cat = cargar_catalogo()
         if df_cat.empty or "fila_sheet" not in df_cat.columns:
             log_error("actualizar_stock_batch", "Catálogo vacío o sin fila_sheet")

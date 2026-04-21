@@ -84,12 +84,14 @@ def mostrar_historial_cotizaciones():
     with col_filtro:
         filtro_estado = st.selectbox(
             "Estado",
-            ["Todos", "Enviado", "Aceptada", "Rechazada"],
+            ["Activas", "Todos", "Enviado", "Aceptada", "Rechazada"],
             key="cot_estado_filtro"
         )
 
     df_mostrar = df.copy()
-    if filtro_estado != "Todos" and "Estado" in df_mostrar.columns:
+    if filtro_estado == "Activas" and "Estado" in df_mostrar.columns:
+        df_mostrar = df_mostrar[~df_mostrar["Estado"].isin(["Aceptada", "Rechazada"])]
+    elif filtro_estado != "Todos" and "Estado" in df_mostrar.columns:
         df_mostrar = df_mostrar[df_mostrar["Estado"] == filtro_estado]
     if buscar:
         mask = pd.Series(False, index=df_mostrar.index)

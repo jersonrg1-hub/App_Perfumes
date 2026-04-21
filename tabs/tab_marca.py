@@ -1,7 +1,7 @@
 import html
 import pandas as pd
 import streamlit as st
-from components import mostrar_placeholder_vacio
+from components import mostrar_placeholder_vacio, notas_pills_html
 from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html, stock_barra_html
 
 
@@ -45,7 +45,7 @@ def mostrar_tab_marca(df):
                 f"<div style='margin-top:0.45rem;'>"
                 f"<span style='color:var(--c-primary-light); font-size:0.7rem; font-weight:700;"
                 f"letter-spacing:0.14em; text-transform:uppercase;'>Notas</span>"
-                f"<div style='color:var(--c-text-mid); font-size:0.92rem; line-height:1.55; margin-top:0.1rem;'>{notas}</div>"
+                f"{notas_pills_html(row.get('Notas', ''))}"
                 f"</div>"
                 if notas else ""
             )
@@ -53,7 +53,7 @@ def mostrar_tab_marca(df):
                 f"<div style='margin-top:0.35rem;'>"
                 f"<span style='color:var(--c-gold); font-size:0.7rem; font-weight:700;"
                 f"letter-spacing:0.14em; text-transform:uppercase;'>Perfil olfativo</span>"
-                f"<div style='color:var(--c-text-mid); font-size:0.92rem; line-height:1.55; margin-top:0.1rem;'>{perfil}</div>"
+                f"{notas_pills_html(row.get('Perfil_Olfativo', ''), color_bg='#fdf8ee', color_border='#e8d5a8', color_text='#7a6020')}"
                 f"</div>"
                 if perfil else ""
             )

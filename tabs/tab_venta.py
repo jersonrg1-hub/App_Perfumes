@@ -163,6 +163,20 @@ def _paso_1_cliente(df):
 
 
 def _paso_2_perfumes(df):
+    if st.session_state.cesta:
+        total_actual = sum(float(i["precio"]) for i in st.session_state.cesta)
+        n = len(st.session_state.cesta)
+        st.markdown(f"""
+        <div style="background:linear-gradient(135deg,#2c1a0e 0%,#4a2e18 100%);
+            border-radius:12px; padding:0.75rem 1.2rem; margin-bottom:0.8rem;
+            display:flex; justify-content:space-between; align-items:center;">
+            <div style="color:#f5e6d8; font-size:0.85rem; font-weight:600;">
+                🛍️ {n} item{'s' if n != 1 else ''} en cesta
+            </div>
+            <div style="color:#c8956c; font-family:'Inter',sans-serif; font-size:1.25rem;
+                font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(total_actual)}</div>
+        </div>""", unsafe_allow_html=True)
+
     st.markdown("#### 🛒 Agregar perfumes")
 
     _k = st.session_state.get("perf_sel_count", 0)

@@ -1,7 +1,7 @@
 import html
 from pathlib import Path
 import streamlit as st
-from components import mostrar_placeholder_vacio
+from components import mostrar_placeholder_vacio, notas_pills_html
 from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html, stock_barra_html
 from errores import mostrar_sin_precio
 from costos import costo_total_item
@@ -118,13 +118,13 @@ def mostrar_tab_nombre(df):
         notas_seccion = (
             f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
             f"color:var(--c-primary-light); font-weight:700; margin-bottom:0.25rem;'>Notas</div>"
-            f"<div style='color:var(--c-text-muted); font-size:0.88rem; line-height:1.6;'>{notas_txt}</div>"
+            f"{notas_pills_html(perfume.get('Notas', ''))}"
             if notas_txt else ""
         )
         perfil_seccion = (
             f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
             f"color:var(--c-gold); font-weight:700; margin:0.55rem 0 0.2rem;'>Perfil olfativo</div>"
-            f"<div style='color:var(--c-text-mid); font-size:0.88rem; line-height:1.6;'>{perfil_txt}</div>"
+            f"{notas_pills_html(perfume.get('Perfil_Olfativo', ''), color_bg='#fdf8ee', color_border='#e8d5a8', color_text='#7a6020')}"
             if perfil_txt else ""
         )
 

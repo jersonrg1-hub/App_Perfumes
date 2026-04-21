@@ -1,18 +1,63 @@
 import html
 import streamlit as st
 from urllib.parse import quote
-from config import fmt_precio, ML_OPCIONES
+from config import fmt_precio, ML_OPCIONES, STOCK_CRITICO, STOCK_BAJO
 from data import guardar_cotizacion
+
+
+def _card_precio_cot(precio_catalogo, stock_val):
+    """Tarjeta de stock + precio, igual estilo que la de venta."""
+    try:
+        stock_num = float(stock_val) if stock_val not in (None, "", 0) else None
+    except (TypeError, ValueError):
+        stock_num = None
+
+    if stock_num is not None:
+        if stock_num <= STOCK_CRITICO:
+            bg, border, txt, num = "#fee2e2", "#dc2626", "#991b1b", "#7f1d1d"
+            label = f"🔴 Stock crítico — solo {stock_num:.0f}ml"
+        elif stock_num <= STOCK_BAJO:
+            bg, border, txt, num = "#fef9c3", "#ca8a04", "#854d0e", "#713f12"
+            label = f"🟡 Stock bajo — {stock_num:.0f}ml"
+        else:
+            bg, border, txt, num = "#dcfce7", "#16a34a", "#166534", "#14532d"
+            label = f"🟢 Stock: {stock_num:.0f}ml disponibles"
+    else:
+        bg, border, txt, num = "#dcfce7", "#16a34a", "#166534", "#14532d"
+        label = "🟢 Disponible"
+
+    st.markdown(
+        f"""<div style="background:{bg}; border-left:4px solid {border}; border-radius:10px;
+        padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;
+        margin-bottom:0.4rem;">
+        <span style="color:{txt}; font-weight:600;">{label}</span>
+        <span style="color:{num}; font-family:'Inter',sans-serif; font-size:1.6rem;
+        font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_catalogo)}</span>
+        </div>""",
+        unsafe_allow_html=True,
+    )
 
 
 def _generar_mensaje_cotizacion(celular, cesta_cotizacion):
     total = sum(float(i["precio"]) for i in cesta_cotizacion)
-    items = "\n".join([
-        f"  🌸 *{i['marca']}* · {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
-        if i.get('marca') else
-        f"  🌸 {i['perfume']} · {i['ml']}ml · S/ {fmt_precio(i['precio'])}"
-        for i in cesta_cotizacion
-    ])
+
+    lineas = []
+    for i in cesta_cotizacion:
+        precio_orig = i.get("precio_original")
+        precio_final = float(i["precio"])
+        marca = i.get("marca", "")
+
+        if precio_orig is not None and round(float(precio_orig), 2) != round(precio_final, 2):
+            precio_txt = f"~S/ {fmt_precio(precio_orig)}~ *S/ {fmt_precio(precio_final)}*"
+        else:
+            precio_txt = f"S/ {fmt_precio(precio_final)}"
+
+        if marca:
+            lineas.append(f"  🌸 *{marca}* · {i['perfume']} · {i['ml']}ml · {precio_txt}")
+        else:
+            lineas.append(f"  🌸 {i['perfume']} · {i['ml']}ml · {precio_txt}")
+
+    items = "\n".join(lineas)
     mensaje = (
         f"🌸 *Perfuteca — Cotización*\n"
         f"────────────────────\n"
@@ -46,10 +91,7 @@ def mostrar_seccion_cotizacion(df):
         nombres_opciones = ["— Elige un perfume —"] + sorted(
             df["Nombre"].dropna().unique().tolist()
         )
-        perfume_cot = st.selectbox(
-            "🌸 Perfume", nombres_opciones, key="perf_cot_sel"
-        )
-
+        perfume_cot = st.selectbox("🌸 Perfume", nombres_opciones, key="perf_cot_sel")
         ml_cot = st.selectbox("📏 Tamaño", ML_OPCIONES, key="ml_cot_sel")
 
         if perfume_cot != nombres_opciones[0]:
@@ -58,8 +100,10 @@ def mostrar_seccion_cotizacion(df):
             precio_catalogo = perfume_row.get(columna_precio, 0)
 
             if precio_catalogo not in (0, "", None):
+                _card_precio_cot(precio_catalogo, perfume_row.get("Stock_ml"))
+
                 precio_final_cot = st.number_input(
-                    "💰 Precio",
+                    "💰 Precio final",
                     min_value=0.0,
                     value=float(precio_catalogo),
                     step=0.5,
@@ -67,23 +111,13 @@ def mostrar_seccion_cotizacion(df):
                     key=f"precio_cot_{perfume_cot}_{ml_cot}",
                 )
 
-                if precio_final_cot != float(precio_catalogo):
-                    st.markdown(
-                        f'<div style="font-size:0.85rem; margin-bottom:0.3rem;">'
-                        f'<span style="text-decoration:line-through; color:#e57373; font-weight:600;">'
-                        f'S/ {fmt_precio(precio_catalogo)}</span>'
-                        f'<span style="color:#a07850;"> → </span>'
-                        f'<span style="color:#2c6e49; font-weight:700;">S/ {fmt_precio(precio_final_cot)}</span>'
-                        f'</div>',
-                        unsafe_allow_html=True,
-                    )
-
-                if st.button("➕ Agregar", key=f"add_cot_{perfume_cot}_{ml_cot}", use_container_width=True):
+                if st.button("➕ Agregar a la cotización", key=f"add_cot_{perfume_cot}_{ml_cot}", use_container_width=True):
                     st.session_state.cesta_cotizacion.append({
-                        "perfume": perfume_cot,
-                        "marca": str(perfume_row.get("Marca", "")),
-                        "ml": ml_cot,
-                        "precio": precio_final_cot,
+                        "perfume":         perfume_cot,
+                        "marca":           str(perfume_row.get("Marca", "")),
+                        "ml":              ml_cot,
+                        "precio":          precio_final_cot,
+                        "precio_original": float(precio_catalogo),
                     })
                     st.session_state.cotizacion_enviada = False
                     st.toast(f"Agregado: {perfume_cot}", icon="✅")

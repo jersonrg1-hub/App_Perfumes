@@ -34,9 +34,10 @@ def _calcular_mas_vendidos(df_ventas, df_catalogo):
         return pd.DataFrame()
     df = df_ventas.copy()
     df["ID_Perfume"] = df["ID_Perfume"].astype(str)
+    df["Ml_Vendido"] = pd.to_numeric(df["Ml_Vendido"], errors="coerce").fillna(0)
     mas_vendidos = (
-        df.groupby("ID_Perfume")
-        .size().reset_index(name="Cantidad")
+        df.groupby("ID_Perfume")["Ml_Vendido"]
+        .sum().reset_index(name="Cantidad")
         .sort_values("Cantidad", ascending=False).head(5)
     )
     return mas_vendidos.merge(
@@ -164,6 +165,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             nombre = html.escape(str(row.get("Nombre", "Desconocido")))
             marca  = html.escape(str(row.get("Marca", "")))
             cant   = int(row["Cantidad"])
+            cant_txt = f"{cant}ml"
 
             if pos == 1:
                 rank_bg, rank_color = "#2c1a0e", "white"
@@ -197,7 +199,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
                     font-family:'Inter','DM Sans',sans-serif;
                     font-size:0.85rem; font-weight:700; color:#2c1a0e;
                     flex-shrink:0;
-                ">{cant}x</div>
+                ">{cant_txt}</div>
             </div>
             """, unsafe_allow_html=True)
 

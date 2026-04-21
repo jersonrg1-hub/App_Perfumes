@@ -6,6 +6,7 @@ import pandas as pd
 
 from components import separador
 from config import fmt_precio, hoy_peru
+from costos import costo_por_item
 from pdf_generator import exportar_pdf_ventas_hoy, exportar_pdf_ventas_mes
 
 
@@ -65,11 +66,22 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         (df_ventas["Fecha"].dt.year == hoy.year)
     ]
 
+    def _calcular_costo_df(df):
+        if "Ml_Vendido" not in df.columns:
+            return 0.0
+        return df["Ml_Vendido"].apply(
+            lambda ml: costo_por_item(int(ml)) if str(ml).isdigit() else 0.0
+        ).sum()
+
     st.markdown("#### 📊 Resumen")
-    col1, col2, col3, col4 = st.columns(4)
     total_hoy = ventas_hoy["Precio_Cobrado"].sum()
     total_mes = ventas_mes["Precio_Cobrado"].sum()
+    costo_hoy = _calcular_costo_df(ventas_hoy)
+    costo_mes = _calcular_costo_df(ventas_mes)
+    ganancia_hoy = total_hoy - costo_hoy
+    ganancia_mes = total_mes - costo_mes
 
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.markdown(_metrica_card("Ventas hoy", len(ventas_hoy)), unsafe_allow_html=True)
     with col2:
@@ -78,6 +90,17 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         st.markdown(_metrica_card("Ventas mes", len(ventas_mes)), unsafe_allow_html=True)
     with col4:
         st.markdown(_metrica_card("Total mes", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
+
+    st.markdown("")
+    col5, col6, col7, col8 = st.columns(4)
+    with col5:
+        st.markdown(_metrica_card("Costo hoy", f"S/ {fmt_precio(costo_hoy)}"), unsafe_allow_html=True)
+    with col6:
+        st.markdown(_metrica_card("Ganancia hoy", f"S/ {fmt_precio(ganancia_hoy)}"), unsafe_allow_html=True)
+    with col7:
+        st.markdown(_metrica_card("Costo mes", f"S/ {fmt_precio(costo_mes)}"), unsafe_allow_html=True)
+    with col8:
+        st.markdown(_metrica_card("Ganancia mes", f"S/ {fmt_precio(ganancia_mes)}"), unsafe_allow_html=True)
 
     st.markdown("")
     col_pdf1, col_pdf2 = st.columns(2)

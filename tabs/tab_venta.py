@@ -395,6 +395,7 @@ def _paso_3_confirmar():
                 st.session_state.wiz_url_wa = url_wa
                 st.session_state.wiz_id_compra = id_compra
                 st.session_state.wiz_total = total
+                st.toast(f"✅ Venta {id_compra} guardada correctamente", icon="🌸")
                 st.balloons()
                 st.rerun()
             except Exception as e:

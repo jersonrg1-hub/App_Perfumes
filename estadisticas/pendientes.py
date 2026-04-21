@@ -45,12 +45,21 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
     COL_ENVIO  = COLUMNAS_VENTAS.index("Tipo_Envio") + 1
     COL_DIR    = COLUMNAS_VENTAS.index("Direccion") + 1
 
+    _ESTADO_EMOJI = {"Pendiente": "🟡", "En camino": "🔵", "Entregado": "🟢", "Anulado": "🔴"}
+    _ESTADO_COLOR = {
+        "Pendiente": ("background:#fff7ed; border:1px solid #f59e0b; color:#92400e;",),
+        "En camino": ("background:#eff6ff; border:1px solid #3b82f6; color:#1e40af;",),
+        "Entregado": ("background:#ecfdf5; border:1px solid #10b981; color:#065f46;",),
+        "Anulado":   ("background:#fff5f5; border:1px solid #ef4444; color:#7f1d1d;",),
+    }
+
     for id_compra, grupo in grupos:
         primera = grupo.iloc[0]
         total_compra = grupo["Precio_Cobrado"].sum()
         estado_actual = str(primera.get("Estado", "Pendiente"))
+        emoji_est = _ESTADO_EMOJI.get(estado_actual, "⚪")
 
-        with st.expander(f"📦 {id_compra} — {primera.get('Comprador', '')} | S/ {fmt_precio(total_compra)}"):
+        with st.expander(f"{emoji_est} {id_compra} — {primera.get('Comprador', '')} | S/ {fmt_precio(total_compra)}"):
 
             fecha_s   = html.escape(str(fmt_fecha(primera.get("Fecha", ""))))
             celular_s = html.escape(str(primera.get("Celular", "")))
@@ -92,6 +101,14 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                 f"</div>"
                 for it in grupo.to_dict("records")
             ])
+            est_style = _ESTADO_COLOR.get(estado_actual, ("background:#f5f5f5; border:1px solid #ccc; color:#555;",))[0]
+            st.markdown(
+                f"<div style='display:inline-block; {est_style} border-radius:20px;"
+                f"padding:0.2rem 0.75rem; font-size:0.72rem; font-weight:700;"
+                f"letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.6rem;'>"
+                f"{emoji_est} {html.escape(estado_actual)}</div>",
+                unsafe_allow_html=True
+            )
             st.markdown(
                 f"<div style='background:white; border:1px solid #ede0d4; border-radius:12px;"
                 f"padding:0.8rem 1.1rem; margin-bottom:0.5rem;'>"
@@ -131,6 +148,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                         try:
                             marcar_pedido_entregado_batch(filas, COL_ESTADO_NUM)
                             st.session_state.pop(modo_key, None)
+                            st.toast(f"✅ {id_compra} marcado como entregado", icon="🟢")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")
@@ -194,7 +212,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                                 for fila in grupo["fila_sheet"].tolist()
                             ])
                             st.session_state.pop(modo_key, None)
-                            st.success(f"🚫 {id_compra} anulado")
+                            st.toast(f"🚫 {id_compra} anulado", icon="🔴")
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")

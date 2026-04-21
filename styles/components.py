@@ -10,16 +10,18 @@ COMPONENTS = """
     padding: 1rem 1.4rem 1rem 1.2rem;
     margin-bottom: 0.65rem;
     box-shadow: var(--shadow-xs);
-    transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, border-left-color 0.22s ease;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease,
+                border-left-color 0.25s ease, background 0.25s ease;
     cursor: default;
     position: relative;
 }
 
 .perfume-card:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--c-border);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(200, 149, 108, 0.15);
+    border-color: var(--c-primary-pale);
     border-left-color: var(--c-primary);
+    background: linear-gradient(160deg, #fffaf7 0%, #fdf4ed 100%);
 }
 
 .perfume-card .marca {

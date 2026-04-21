@@ -158,7 +158,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
 
     if "ID_Perfume" in df_ventas.columns:
         mas_vendidos = _calcular_mas_vendidos(
-            df_ventas[["ID_Perfume"]],
+            df_ventas[["ID_Perfume", "Ml_Vendido"]],
             df_catalogo[["ID_Perfume", "Nombre", "Marca"]]
         )
         for pos, row in enumerate(mas_vendidos.to_dict("records"), 1):

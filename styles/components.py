@@ -128,10 +128,11 @@ COMPONENTS = """
 
 .precio-box .valor {
     color: var(--c-text);
-    font-family: 'Playfair Display', serif;
+    font-family: 'Inter', sans-serif;
     font-size: 2.6rem;
-    font-weight: 700;
+    font-weight: 800;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
     letter-spacing: -0.03em;
 }
 

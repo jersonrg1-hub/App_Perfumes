@@ -27,6 +27,22 @@ def mostrar_tab_estadisticas(df):
         with st.spinner("Cargando ventas..."):
             df_ventas = cargar_ventas()
 
+        with st.expander("🔍 Diagnóstico de datos", expanded=False):
+            from config import hoy_peru
+            st.write(f"**Hoy (Peru):** `{hoy_peru()}`")
+            st.write(f"**Filas cargadas:** `{len(df_ventas)}`")
+            if not df_ventas.empty:
+                st.write(f"**Columnas:** `{list(df_ventas.columns)}`")
+                st.write(f"**Tipo columna Fecha:** `{df_ventas['Fecha'].dtype if 'Fecha' in df_ventas.columns else 'NO EXISTE'}`")
+                if "Fecha" in df_ventas.columns:
+                    st.write(f"**Primeras fechas:** `{df_ventas['Fecha'].head(4).tolist()}`")
+            else:
+                st.warning("⚠️ df_ventas está vacío")
+            if st.session_state.get("error_log"):
+                st.markdown("**Errores:**")
+                for e in st.session_state["error_log"][-5:]:
+                    st.code(e)
+
         subtab1, subtab2, subtab3, subtab4 = st.tabs([
             "📊 Resumen",
             "📦 Ventas",

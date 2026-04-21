@@ -90,6 +90,26 @@ def mostrar_placeholder_vacio(emoji, titulo, subtitulo):
     )
 
 
+def notas_pills_html(notas_str, color_bg="#fdf0e8", color_border="#e8c9a8", color_text="#7a4520"):
+    """Convierte un string de notas separadas por comas en pills HTML."""
+    if not notas_str or str(notas_str).strip() in ("", "nan"):
+        return ""
+    notas = [
+        n.strip() for n in
+        str(notas_str).replace(";", ",").replace("|", ",").replace("/", ",").split(",")
+        if n.strip()
+    ]
+    if not notas:
+        return ""
+    pills = "".join([
+        f"<span style='display:inline-block; background:{color_bg}; border:1px solid {color_border};"
+        f"border-radius:20px; padding:0.15rem 0.65rem; font-size:0.72rem; color:{color_text};"
+        f"font-weight:600; margin:0.15rem 0.1rem; white-space:nowrap;'>{_html.escape(n)}</span>"
+        for n in notas
+    ])
+    return f"<div style='display:flex; flex-wrap:wrap; margin-top:0.25rem;'>{pills}</div>"
+
+
 def separador(simbolo="✦", texto=""):
     contenido = f"{simbolo} {texto} {simbolo}" if texto else f"{simbolo} &nbsp; {simbolo} &nbsp; {simbolo}"
     linea_izq = "flex:1;height:0.5px;background:linear-gradient(to right,transparent,#c8956c);"

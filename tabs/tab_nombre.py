@@ -4,6 +4,7 @@ import streamlit as st
 from components import mostrar_placeholder_vacio
 from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html, stock_barra_html
 from errores import mostrar_sin_precio
+from costos import costo_total_item
 
 
 def _mostrar_todos_precios(perfume, precios_columnas):
@@ -17,18 +18,36 @@ def _mostrar_todos_precios(perfume, precios_columnas):
     )
     cols = st.columns(len(precios_columnas))
 
+    try:
+        cb = float(perfume.get("Costo_Botella") or 0)
+        mb = float(perfume.get("Ml_Botella") or 0)
+    except (TypeError, ValueError):
+        cb, mb = 0.0, 0.0
+
     for i, (tamanio, columna) in enumerate(precios_columnas.items()):
         precio = perfume.get(columna, "")
         tamanio_safe = html.escape(str(tamanio))
 
         with cols[i]:
             if precio not in (0, "", None):
+                try:
+                    ml = int(tamanio.replace(" ml", ""))
+                    costo_est = costo_total_item(ml, cb, mb)
+                    gan = float(precio) - costo_est
+                    margen = (gan / float(precio) * 100) if float(precio) > 0 else 0
+                    margen_html = (
+                        f'<div style="text-align:center; margin-top:0.4rem; font-size:0.7rem;'
+                        f'color:#16a34a; font-weight:600;">💰 {margen:.0f}% margen</div>'
+                    )
+                except Exception:
+                    margen_html = ""
                 st.markdown(
                     f'<div class="precio-box">'
                     f'<div class="label">{tamanio_safe}</div>'
                     f'<div class="separador-box"></div>'
                     f'<div class="valor"><span class="moneda">S/</span>{fmt_precio(precio)}</div>'
-                    f'</div>',
+                    f'</div>'
+                    f'{margen_html}',
                     unsafe_allow_html=True
                 )
             else:

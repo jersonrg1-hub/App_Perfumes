@@ -88,7 +88,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
                 st.download_button(
                     label="📥 Descargar PDF del día",
                     data=pdf_bytes,
-                    file_name=f"ventas_{date.today()}.pdf",
+                    file_name=f"ventas_{hoy_peru()}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
                     key="dl_pdf_dia"
@@ -99,7 +99,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         if st.button("⬇️ PDF del mes", key="generar_pdf_mes", use_container_width=True):
             pdf_bytes = exportar_pdf_ventas_mes(df_ventas, df_catalogo)
             if pdf_bytes:
-                hoy_d = date.today()
+                hoy_d = hoy_peru()
                 st.download_button(
                     label="📥 Descargar PDF del mes",
                     data=pdf_bytes,

@@ -112,7 +112,7 @@ COMPONENTS = """
 
 .precio-box .label {
     color: var(--c-text-muted);
-    font-size: 0.68rem;
+    font-size: 0.82rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     margin-bottom: 0.5rem;

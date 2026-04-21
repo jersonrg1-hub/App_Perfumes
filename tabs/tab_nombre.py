@@ -89,7 +89,11 @@ def mostrar_tab_nombre(df):
             )
 
     if nombre_seleccionado is not None:
-        perfume = df[df["Nombre"] == nombre_seleccionado].iloc[0]
+        _matches = df[df["Nombre"] == nombre_seleccionado]
+        if _matches.empty:
+            st.warning("⚠️ El perfume ya no está en el catálogo. Recarga los datos.")
+            return
+        perfume = _matches.iloc[0]
         url_imagen = str(perfume.get("URL_imagen", "")).strip()
 
         tiene_notas = "Notas" in df.columns

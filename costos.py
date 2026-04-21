@@ -3,13 +3,14 @@
 #  Todos los valores están en SOLES (S/)
 #  Editar estos valores cuando cambien los precios
 # ─────────────────────────────────────────────
+import pandas as pd
 
 # Costo del vial según tamaño vendido
 COSTO_VIAL = {
     2:  1.00,   # Vial 2ml
     3:  1.20,   # Vial 3ml
     5:  1.50,   # Vial 5ml
-    10: 1.60,   # Vial 10ml
+    10: 3.00,   # Vial 10ml
 }
 
 # Costo fijo de empaque por cada item vendido (S/)
@@ -50,14 +51,12 @@ def construir_costo_ml_dict(df_catalogo) -> dict:
 
 
 def calcular_costo_ventas_df(df, df_catalogo) -> float:
-    """Calcula el costo total de un DataFrame de ventas."""
+    """Calcula el costo total de un DataFrame de ventas (vectorizado)."""
+    if df.empty:
+        return 0.0
     costo_ml_dict = construir_costo_ml_dict(df_catalogo)
-    total = 0.0
-    for _, row in df.iterrows():
-        try:
-            ml = int(row["Ml_Vendido"])
-        except (TypeError, ValueError):
-            continue
-        costo_perf = costo_ml_dict.get(str(row.get("ID_Perfume", "")), 0.0) * ml
-        total += costo_por_item(ml) + costo_perf
-    return total
+    ml = pd.to_numeric(df["Ml_Vendido"], errors="coerce").fillna(0).astype(int)
+    valid = (ml > 0).astype(float)
+    costo_perf = df["ID_Perfume"].astype(str).map(costo_ml_dict).fillna(0.0) * ml
+    costo_vial = ml.map(COSTO_VIAL).fillna(0.0)
+    return float((costo_perf + costo_vial + valid * COSTO_EMPAQUE).sum())

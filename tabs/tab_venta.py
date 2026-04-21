@@ -135,6 +135,7 @@ def _paso_1_cliente(df):
         cliente = _buscar_cliente(df_ventas, celular)
         if cliente and cliente["nombre"]:
             st.session_state._autocomplete_pendiente = cliente
+            st.session_state.autocomplete_aplicado = True  # evita loop si el fragment re-corre antes del handler
             st.rerun()
 
     if len(celular) != 9 or not celular.isdigit():
@@ -181,7 +182,11 @@ def _paso_2_perfumes(df):
     metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key="pago_sel")
 
     if perfume_venta is not None:
-        perfume_row = df[df["Nombre"] == perfume_venta].iloc[0]
+        _matches = df[df["Nombre"] == perfume_venta]
+        if _matches.empty:
+            st.warning("⚠️ Perfume no encontrado. Recarga los datos.")
+            return
+        perfume_row = _matches.iloc[0]
         id_perfume = perfume_row["ID_Perfume"]
         columna_precio = f"Precio_{ml_vendido}ml"
         precio_item = perfume_row.get(columna_precio, 0)

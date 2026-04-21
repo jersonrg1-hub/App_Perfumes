@@ -90,14 +90,18 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     if not ventas_semana.empty and "ID_Perfume" in ventas_semana.columns:
         st.markdown("")
 
-        top = (
+        conteo = (
             ventas_semana.assign(ID_Perfume=ventas_semana["ID_Perfume"].astype(str))
             .groupby("ID_Perfume")
             .size().reset_index(name="Cantidad")
             .sort_values("Cantidad", ascending=False)
-            .iloc[0]
         )
 
+        if conteo.empty:
+            st.info("Sin ventas esta semana aún")
+            return
+
+        top = conteo.iloc[0]
         match = df_catalogo[df_catalogo["ID_Perfume"].astype(str) == top["ID_Perfume"]]
         nombre_top = match.iloc[0]["Nombre"] if not match.empty else top["ID_Perfume"]
         nombre_top = html.escape(str(nombre_top))

@@ -1,7 +1,7 @@
 import html
 import streamlit as st
 
-from components import separador, mostrar_placeholder_vacio
+from components import separador, mostrar_placeholder_vacio, notas_pills_html
 from config import PRECIOS_COLUMNAS, fmt_precio, stock_badge_html, stock_barra_html
 
 
@@ -134,16 +134,22 @@ def mostrar_tab_notas(df):
         perfil_txt = row.get("Perfil_Olfativo", "") if tiene_perfil else ""
         marca = html.escape(str(row.get("Marca", "")))
         nombre = html.escape(str(row.get("Nombre", "")))
-        notas_txt = html.escape(str(notas_txt)) if notas_txt else ""
-        perfil_txt = html.escape(str(perfil_txt)) if perfil_txt else ""
         stock_badge = stock_badge_html(row.get("Stock_ml", None))
         stock_barra = stock_barra_html(row.get("Stock_ml", None))
         notas_html = (
-            f"<div style='font-size:0.82rem; color:#a07850; margin-top:0.3rem;'>🎵 {notas_txt}</div>"
+            f"<div style='margin-top:0.35rem;'>"
+            f"<span style='color:var(--c-primary-light); font-size:0.7rem; font-weight:700;"
+            f"letter-spacing:0.14em; text-transform:uppercase;'>Notas</span>"
+            f"{notas_pills_html(notas_txt)}"
+            f"</div>"
             if notas_txt else ""
         )
         perfil_html = (
-            f"<div style='font-size:0.82rem; color:#c8956c; margin-top:0.15rem;'>✨ {perfil_txt}</div>"
+            f"<div style='margin-top:0.3rem;'>"
+            f"<span style='color:var(--c-gold); font-size:0.7rem; font-weight:700;"
+            f"letter-spacing:0.14em; text-transform:uppercase;'>Perfil olfativo</span>"
+            f"{notas_pills_html(perfil_txt, color_bg='#fdf8ee', color_border='#e8d5a8', color_text='#7a6020')}"
+            f"</div>"
             if perfil_txt else ""
         )
         precios_html = ""

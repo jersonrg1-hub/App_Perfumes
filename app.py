@@ -37,13 +37,15 @@ mostrar_encabezado()
 try:
     df = cargar_catalogo()
 
-    # Mejora 2: precalentar caches de ventas y cotizaciones en el arranque.
-    # Al estar en cache, los tabs de Estadísticas y Cotizaciones cargan instantáneo.
+    # Precalentar caches + calcular badge de pedidos pendientes
+    _n_pend = 0
     try:
-        cargar_ventas()
+        _df_v = cargar_ventas()
         cargar_cotizaciones()
+        if not _df_v.empty and "Estado" in _df_v.columns and "ID_Compra" in _df_v.columns:
+            _n_pend = int(_df_v[~_df_v["Estado"].isin(["Entregado", "Anulado"])]["ID_Compra"].nunique())
     except Exception:
-        pass  # No bloquear el arranque si Sheets tarda en responder
+        pass
 
     if df.empty:
         mostrar_error_datos_vacios()
@@ -58,12 +60,13 @@ try:
             mostrar_error_columna(col)
         st.stop()
 
+    _label_stats = f"📊 Estadísticas ({_n_pend})" if _n_pend > 0 else "📊 Estadísticas"
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🏷️ Marca",
         "🔍 Nombre",
         "🎵 Notas",
         "📝 Venta",
-        "📊 Estadísticas",
+        _label_stats,
         "🔐 Sesión",
     ])
 

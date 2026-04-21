@@ -11,6 +11,8 @@ from estadisticas.clientes import mostrar_clientes_frecuentes
 from estadisticas.stock import mostrar_panel_stock
 from estadisticas.graficos import mostrar_graficos
 from estadisticas.historial_cotizaciones import mostrar_historial_cotizaciones
+from estadisticas.rentabilidad import mostrar_rentabilidad
+from estadisticas.backup import mostrar_backup
 
 
 @st.fragment
@@ -72,7 +74,7 @@ def mostrar_tab_estadisticas(df):
         with subtab4:
             seccion_analisis = st.radio(
                 "seccion_analisis",
-                ["📈 Gráficos", "🧪 Stock"],
+                ["📈 Gráficos", "🧪 Stock", "🏆 Rentabilidad", "💾 Backup"],
                 horizontal=True,
                 label_visibility="collapsed",
                 key="analisis_radio",
@@ -82,6 +84,10 @@ def mostrar_tab_estadisticas(df):
                 mostrar_graficos(df_ventas)
             elif seccion_analisis == "🧪 Stock":
                 mostrar_panel_stock(df)
+            elif seccion_analisis == "🏆 Rentabilidad":
+                mostrar_rentabilidad(df_ventas, df)
+            elif seccion_analisis == "💾 Backup":
+                mostrar_backup(df, df_ventas)
 
     except Exception as e:
         st.error(f"❌ Error cargando ventas: {e}")

@@ -117,7 +117,7 @@ def cargar_ventas():
             if "Fecha" in df.columns:
                 df["Fecha"] = pd.to_datetime(
                     df["Fecha"].astype(str).str.strip(),
-                    dayfirst=False, errors="coerce"
+                    format="%Y-%m-%d", errors="coerce"
                 )
 
             cols_numericas = ['Precio_Cobrado', 'Ml_Vendido', 'precio',

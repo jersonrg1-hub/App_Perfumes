@@ -109,25 +109,34 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
 
             if st.session_state[modo_key] == "normal":
                 col_ent, col_edit, col_anul = st.columns(3)
-
                 with col_ent:
-                    filas = grupo["fila_sheet"].tolist()
                     if st.button("✅ Marcar entregado", key=f"ent_{id_compra}", use_container_width=True):
-                        try:
-                            marcar_pedido_entregado_batch(filas, COL_ESTADO_NUM)
-                            st.success(f"✅ {id_compra} marcado como entregado")
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"Error: {e}")
-
+                        st.session_state[modo_key] = "confirmar_entrega"
+                        st.rerun()
                 with col_edit:
                     if st.button("✏️ Editar", key=f"edit_{id_compra}", use_container_width=True):
                         st.session_state[modo_key] = "editar"
                         st.rerun()
-
                 with col_anul:
                     if st.button("🚫 Anular", key=f"anul_{id_compra}", use_container_width=True):
                         st.session_state[modo_key] = "anular"
+                        st.rerun()
+
+            elif st.session_state[modo_key] == "confirmar_entrega":
+                st.success(f"¿Confirmas que **{id_compra}** fue entregado a **{primera.get('Comprador', '')}**?")
+                col_si, col_no = st.columns(2)
+                with col_si:
+                    filas = grupo["fila_sheet"].tolist()
+                    if st.button("✅ Sí, confirmar entrega", key=f"conf_ent_{id_compra}", type="primary", use_container_width=True):
+                        try:
+                            marcar_pedido_entregado_batch(filas, COL_ESTADO_NUM)
+                            st.session_state.pop(modo_key, None)
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                with col_no:
+                    if st.button("✖ Cancelar", key=f"canc_ent_{id_compra}", use_container_width=True):
+                        st.session_state[modo_key] = "normal"
                         st.rerun()
 
             elif st.session_state[modo_key] == "editar":

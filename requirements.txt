@@ -5,3 +5,4 @@ google-auth
 fpdf2
 pytz
 plotly
+openpyxl

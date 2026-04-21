@@ -3,7 +3,7 @@ import streamlit as st
 import gspread
 import gspread.exceptions
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, date as date_type, timedelta
 from google.oauth2.service_account import Credentials
 from config import (
     SCOPES, SHEET_NAME,
@@ -115,10 +115,18 @@ def cargar_ventas():
 
         if not df.empty:
             if "Fecha" in df.columns:
-                df["Fecha"] = pd.to_datetime(
-                    df["Fecha"].astype(str).str.strip(),
-                    format="%Y-%m-%d", errors="coerce"
-                )
+                def _parse_fecha(v):
+                    if v is None or v == "":
+                        return pd.NaT
+                    if isinstance(v, (int, float)):
+                        # Google Sheets devuelve fechas como serial numérico
+                        # (días desde el 30/12/1899)
+                        try:
+                            return pd.Timestamp(date_type(1899, 12, 30) + timedelta(days=int(v)))
+                        except Exception:
+                            return pd.NaT
+                    return pd.to_datetime(str(v).strip(), errors="coerce")
+                df["Fecha"] = df["Fecha"].apply(_parse_fecha)
 
             cols_numericas = ['Precio_Cobrado', 'Ml_Vendido', 'precio',
                               'cantidad', 'total', 'ml']

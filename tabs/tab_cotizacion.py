@@ -88,8 +88,18 @@ def mostrar_seccion_cotizacion(df):
 
         st.markdown("#### 🛒 Armar cotización")
 
+        marcas_opciones = sorted(df["Marca"].dropna().unique().tolist())
+        marca_cot = st.selectbox(
+            "🏷️ Marca (opcional)",
+            marcas_opciones,
+            index=None,
+            placeholder="— Todas las marcas —",
+            key="marca_cot_sel",
+        )
+        df_cot = df[df["Marca"] == marca_cot] if marca_cot else df
+
         nombres_opciones = ["— Elige un perfume —"] + sorted(
-            df["Nombre"].dropna().unique().tolist()
+            df_cot["Nombre"].dropna().unique().tolist()
         )
         perfume_cot = st.selectbox("🌸 Perfume", nombres_opciones, key="perf_cot_sel")
         ml_cot = st.selectbox("📏 Tamaño", ML_OPCIONES, key="ml_cot_sel")

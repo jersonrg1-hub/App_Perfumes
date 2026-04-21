@@ -30,6 +30,7 @@ def _tiene_alguno(valor_str, seleccionados):
     return any(s in valores for s in seleccionados)
 
 
+@st.fragment
 def mostrar_tab_notas(df):
     st.markdown("### 🎵 Buscar por Nota y Perfil")
     separador()

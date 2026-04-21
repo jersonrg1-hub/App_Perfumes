@@ -37,7 +37,7 @@ def _mostrar_todos_precios(perfume, precios_columnas):
                     margen = (gan / float(precio) * 100) if float(precio) > 0 else 0
                     margen_html = (
                         f'<div style="text-align:center; margin-top:0.4rem; font-size:0.72rem;'
-                        f'font-family:Lato,sans-serif; font-variant-numeric:tabular-nums;'
+                        f'font-family:Lato,sans-serif;'
                         f'color:#16a34a; font-weight:700; letter-spacing:0.22em; text-transform:uppercase;">'
                         f'💰 {margen:.0f}% margen</div>'
                     )

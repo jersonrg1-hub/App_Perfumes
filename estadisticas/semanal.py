@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 from config import fmt_precio, hoy_peru
 from estadisticas.resumen import _metrica_card
+from costos import calcular_costo_ventas_df
 
 
 @st.cache_data(ttl=120)
@@ -65,10 +66,12 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
         unsafe_allow_html=True
     )
 
-    col1, col2, col3 = st.columns(3)
     total_semana = ventas_semana["Precio_Cobrado"].sum()
     num_ventas = len(ventas_semana)
+    costo_semana = calcular_costo_ventas_df(ventas_semana, df_catalogo)
+    ganancia_semana = total_semana - costo_semana
 
+    col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(_metrica_card("Ventas semana", num_ventas), unsafe_allow_html=True)
     with col2:
@@ -76,6 +79,13 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     with col3:
         promedio = total_semana / num_ventas if num_ventas > 0 else 0
         st.markdown(_metrica_card("Promedio", f"S/ {fmt_precio(promedio)}"), unsafe_allow_html=True)
+
+    st.markdown("")
+    col4, col5 = st.columns(2)
+    with col4:
+        st.markdown(_metrica_card("Costo semana", f"S/ {fmt_precio(costo_semana)}"), unsafe_allow_html=True)
+    with col5:
+        st.markdown(_metrica_card("Ganancia semana", f"S/ {fmt_precio(ganancia_semana)}"), unsafe_allow_html=True)
 
     if not ventas_semana.empty and "ID_Perfume" in ventas_semana.columns:
         st.markdown("")

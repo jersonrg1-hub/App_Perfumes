@@ -1,6 +1,7 @@
 import html
 import streamlit as st
 from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO
+from costos import costo_total_item
 from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfumes_batch
 from components import generar_url_whatsapp, separador
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
@@ -187,6 +188,21 @@ def _paso_2_perfumes(df):
 
         if precio_item not in (0, "", None):
             _card_stock(precio_item, perfume_row.get("Stock_ml", None), ml_vendido)
+
+            try:
+                cb = float(perfume_row.get("Costo_Botella") or 0)
+                mb = float(perfume_row.get("Ml_Botella") or 0)
+                costo_est = costo_total_item(ml_vendido, cb, mb)
+                gan_est = float(precio_item) - costo_est
+                st.markdown(
+                    f"<div style='font-size:0.78rem; color:#6b7280; margin:0.3rem 0 0.5rem;'>"
+                    f"💸 Costo estimado: <b>S/ {fmt_precio(costo_est)}</b>"
+                    f"&nbsp;&nbsp;|&nbsp;&nbsp;💰 Ganancia: <b style='color:#16a34a'>S/ {fmt_precio(gan_est)}</b>"
+                    f"</div>",
+                    unsafe_allow_html=True
+                )
+            except Exception:
+                pass
 
             precio_final = st.number_input(
                 "💰 Precio final",

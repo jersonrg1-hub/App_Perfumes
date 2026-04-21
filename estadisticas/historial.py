@@ -3,7 +3,7 @@ import pandas as pd
 
 from components import separador, construir_catalogo_dict, nombre_por_id
 from config import fmt_precio, fmt_fecha
-from costos import construir_costo_ml_dict, costo_por_item
+from costos import construir_costo_ml_dict, costo_por_item, COSTO_VIAL, COSTO_EMPAQUE
 
 def mostrar_historial_ventas(df_ventas, df_catalogo=None):
     if df_ventas.empty:
@@ -25,6 +25,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
             entregadas["Fecha"].astype(str).str.strip(), errors="coerce"
         )
 
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
@@ -41,7 +42,7 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
             if "Metodo_Pago" in entregadas.columns else ["Todos"]
         metodo_filtro = st.selectbox("💳 Pago", metodos, key="hist_pago")
 
-    df_filtrado = entregadas.copy()
+    df_filtrado = entregadas
 
     if buscar:
         df_filtrado = df_filtrado[
@@ -93,13 +94,13 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
         total_compra = grupo["Precio_Cobrado"].sum()
         fecha_str = fmt_fecha(primera.get("Fecha", "")) if pd.notna(primera.get("Fecha")) else "—"
 
-        # Calcular ganancia total de la compra
+        # Calcular ganancia total de la compra (vectorizado)
         ganancia_compra = None
         try:
-            costo_compra = sum(
-                costo_por_item(int(r["Ml_Vendido"])) + costo_ml_dict.get(str(r.get("ID_Perfume", "")), 0.0) * int(r["Ml_Vendido"])
-                for r in grupo.to_dict("records")
-            )
+            ml_s = pd.to_numeric(grupo["Ml_Vendido"], errors="coerce").fillna(0).astype(int)
+            costo_perf_s = grupo["ID_Perfume"].astype(str).map(costo_ml_dict).fillna(0.0) * ml_s
+            costo_vial_s = ml_s.map(COSTO_VIAL).fillna(0.0)
+            costo_compra = float((costo_perf_s + costo_vial_s + (ml_s > 0).astype(float) * COSTO_EMPAQUE).sum())
             ganancia_compra = total_compra - costo_compra
         except Exception:
             pass

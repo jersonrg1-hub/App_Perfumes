@@ -50,28 +50,43 @@ def mostrar_seccion_cotizacion(df):
             "🌸 Perfume", nombres_opciones, key="perf_cot_sel"
         )
 
-        col_ml, col_add = st.columns([2, 1])
-        with col_ml:
-            ml_cot = st.selectbox("📏 Tamaño", ML_OPCIONES, key="ml_cot_sel")
+        ml_cot = st.selectbox("📏 Tamaño", ML_OPCIONES, key="ml_cot_sel")
 
         if perfume_cot != nombres_opciones[0]:
             perfume_row = df[df["Nombre"] == perfume_cot].iloc[0]
             columna_precio = f"Precio_{ml_cot}ml"
-            precio_cot = perfume_row.get(columna_precio, 0)
+            precio_catalogo = perfume_row.get(columna_precio, 0)
 
-            if precio_cot not in (0, "", None):
-                st.success(f"S/ {fmt_precio(precio_cot)}")
-                with col_add:
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    if st.button("➕ Agregar", key=f"add_cot_{perfume_cot}_{ml_cot}", use_container_width=True):
-                        st.session_state.cesta_cotizacion.append({
-                            "perfume": perfume_cot,
-                            "marca": str(perfume_row.get("Marca", "")),
-                            "ml": ml_cot,
-                            "precio": precio_cot
-                        })
-                        st.session_state.cotizacion_enviada = False
-                        st.toast(f"Agregado: {perfume_cot}", icon="✅")
+            if precio_catalogo not in (0, "", None):
+                precio_final_cot = st.number_input(
+                    "💰 Precio",
+                    min_value=0.0,
+                    value=float(precio_catalogo),
+                    step=0.5,
+                    format="%.2f",
+                    key=f"precio_cot_{perfume_cot}_{ml_cot}",
+                )
+
+                if precio_final_cot != float(precio_catalogo):
+                    st.markdown(
+                        f'<div style="font-size:0.85rem; margin-bottom:0.3rem;">'
+                        f'<span style="text-decoration:line-through; color:#e57373; font-weight:600;">'
+                        f'S/ {fmt_precio(precio_catalogo)}</span>'
+                        f'<span style="color:#a07850;"> → </span>'
+                        f'<span style="color:#2c6e49; font-weight:700;">S/ {fmt_precio(precio_final_cot)}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                if st.button("➕ Agregar", key=f"add_cot_{perfume_cot}_{ml_cot}", use_container_width=True):
+                    st.session_state.cesta_cotizacion.append({
+                        "perfume": perfume_cot,
+                        "marca": str(perfume_row.get("Marca", "")),
+                        "ml": ml_cot,
+                        "precio": precio_final_cot,
+                    })
+                    st.session_state.cotizacion_enviada = False
+                    st.toast(f"Agregado: {perfume_cot}", icon="✅")
             else:
                 st.warning("⚠️ Sin precio para ese tamaño")
 

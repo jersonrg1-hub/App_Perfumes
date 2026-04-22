@@ -22,7 +22,7 @@ def _parsear_items_cotizacion(perfumes_txt, df_catalogo):
         parte = parte.strip()
         if not parte:
             continue
-        m = re.match(r"^(.+?) (\d+)ml S/(\d+\.?\d*)$", parte)
+        m = re.match(r"^(.+?)\s+(\d+)\s*ml\s+S/\s*(\d+(?:\.\d+)?)$", parte)
         if not m:
             errores.append(f"No se pudo leer: «{parte}»")
             continue

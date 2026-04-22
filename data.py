@@ -179,7 +179,11 @@ def obtener_proximo_id():
     ids_numericos = _extraer_ids_numericos(df["ID_Compra"].tolist())
     if not ids_numericos:
         return "V001"
-    return f"V{max(ids_numericos) + 1:03d}"
+    ids_set = set(ids_numericos)
+    siguiente = max(ids_numericos) + 1
+    while siguiente in ids_set:
+        siguiente += 1
+    return f"V{siguiente:03d}"
 
 
 def marcar_pedido_entregado_batch(lista_filas, col_estado):
@@ -311,7 +315,11 @@ def actualizar_stock_perfumes_batch(items_vendidos):
         for _, row in df_cat[df_cat["ID_Perfume"].astype(str).isin(ml_por_id)].iterrows():
             id_fila = str(row["ID_Perfume"])
             valor_actual = float(row["Stock_ml"]) if row["Stock_ml"] else 0.0
-            nuevo_valor = max(0.0, valor_actual - ml_por_id[id_fila])
+            ml_necesario = ml_por_id[id_fila]
+            if valor_actual < ml_necesario:
+                log_error("actualizar_stock_batch",
+                          f"Stock insuficiente ID {id_fila}: disponible={valor_actual}ml, vendido={ml_necesario}ml — se fija en 0")
+            nuevo_valor = max(0.0, valor_actual - ml_necesario)
             fila_num = int(row["fila_sheet"])
             peticiones.append({
                 "range": gspread.utils.rowcol_to_a1(fila_num, col_stock),

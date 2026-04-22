@@ -47,6 +47,7 @@ def _layout(title):
     )
 
 
+@st.cache_data(ttl=120)
 def _preparar_ventas(df_ventas):
     df = df_ventas.copy()
     if df["Fecha"].dtype == object:

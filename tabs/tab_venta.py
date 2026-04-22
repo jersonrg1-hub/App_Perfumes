@@ -130,16 +130,21 @@ def _paso_1_cliente(df):
     comprador = comprador_raw.title() if comprador_raw else ""
     celular = st.text_input("📱 Celular", max_chars=9, key="cel_in")
 
-    if len(celular) == 9 and celular.isdigit() and not st.session_state.get("autocomplete_aplicado"):
-        df_ventas = cargar_ventas()
-        cliente = _buscar_cliente(df_ventas, celular)
-        if cliente and cliente["nombre"]:
-            st.session_state._autocomplete_pendiente = cliente
-            st.session_state.autocomplete_aplicado = True  # evita loop si el fragment re-corre antes del handler
-            st.rerun()
-
-    if len(celular) != 9 or not celular.isdigit():
+    if len(celular) == 9 and celular.isdigit():
+        ultimo_cel = st.session_state.get("autocomplete_celular", "")
+        if celular != ultimo_cel:
+            st.session_state.autocomplete_aplicado = False
+        if not st.session_state.get("autocomplete_aplicado"):
+            df_ventas = cargar_ventas()
+            cliente = _buscar_cliente(df_ventas, celular)
+            if cliente and cliente["nombre"]:
+                st.session_state._autocomplete_pendiente = cliente
+                st.session_state.autocomplete_aplicado = True
+                st.session_state.autocomplete_celular = celular
+                st.rerun()
+    else:
         st.session_state.autocomplete_aplicado = False
+        st.session_state.autocomplete_celular = ""
 
     direccion = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key="dir_in")
 

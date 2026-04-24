@@ -12,6 +12,14 @@ class ItemCesta(TypedDict):
     precio: float
     metodo: str
 
+
+class DatosCliente(TypedDict):
+    comprador: str
+    celular: str
+    direccion: str
+    tipo_envio: str
+    fecha: str
+
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"

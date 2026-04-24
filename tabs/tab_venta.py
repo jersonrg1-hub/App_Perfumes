@@ -1,8 +1,8 @@
 import html
 import streamlit as st
-from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO, ItemCesta
+from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO, ItemCesta, DatosCliente
 from costos import costo_total_item
-from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfumes_batch
+from data import cargar_ventas, registrar_venta_completa, StockUpdateError
 from components import generar_url_whatsapp, separador
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
 
@@ -377,48 +377,39 @@ def _paso_3_confirmar():
             st.rerun()
     with col_guar:
         if st.button("✅ Guardar venta", key="guardar_venta", type="primary", use_container_width=True):
+            cliente: DatosCliente = {
+                "comprador": st.session_state.wiz_comprador,
+                "celular": st.session_state.wiz_celular,
+                "direccion": st.session_state.wiz_direccion,
+                "tipo_envio": st.session_state.wiz_tipo_envio,
+                "fecha": st.session_state.wiz_fecha.strftime("%Y-%m-%d"),
+            }
             try:
                 with st.status("🚀 Procesando...", expanded=False) as status:
-                    id_compra = obtener_proximo_id()
-                    filas = []
-                    for item in st.session_state.cesta:
-                        filas.append([
-                            id_compra,
-                            st.session_state.wiz_fecha.strftime("%Y-%m-%d"),
-                            st.session_state.wiz_comprador,
-                            st.session_state.wiz_celular,
-                            str(item["id_perfume"]), str(item["ml"]),
-                            round(float(item["precio"]), 2),
-                            item["metodo"],
-                            st.session_state.wiz_tipo_envio,
-                            st.session_state.wiz_direccion,
-                            "Pendiente"
-                        ])
-                    guardar_venta(filas)
+                    id_compra = registrar_venta_completa(st.session_state.cesta, cliente)
                     status.update(label="✅ ¡Venta guardada!", state="complete")
-
-                try:
-                    actualizar_stock_perfumes_batch(st.session_state.cesta)
-                except Exception as e_stock:
-                    st.warning(
-                        f"⚠️ Venta guardada ({id_compra}), pero el stock no pudo actualizarse. "
-                        f"Corrígelo manualmente en el catálogo. ({type(e_stock).__name__})"
-                    )
-
-                url_wa = generar_url_whatsapp(
-                    id_compra, st.session_state.wiz_comprador,
-                    st.session_state.wiz_celular, st.session_state.wiz_direccion,
-                    st.session_state.wiz_tipo_envio, st.session_state.cesta, total
+            except StockUpdateError as e:
+                id_compra = e.id_compra
+                st.warning(
+                    f"⚠️ Venta guardada ({id_compra}), pero el stock no pudo actualizarse. "
+                    f"Corrígelo manualmente en el catálogo. ({type(e.causa).__name__})"
                 )
-                st.session_state.venta_guardada = True
-                st.session_state.wiz_url_wa = url_wa
-                st.session_state.wiz_id_compra = id_compra
-                st.session_state.wiz_total = total
-                st.toast(f"✅ Venta {id_compra} guardada correctamente", icon="🌸")
-                st.balloons()
-                st.rerun()
             except Exception as e:
                 st.error(f"Error al guardar: {e}")
+                st.stop()
+
+            url_wa = generar_url_whatsapp(
+                id_compra, st.session_state.wiz_comprador,
+                st.session_state.wiz_celular, st.session_state.wiz_direccion,
+                st.session_state.wiz_tipo_envio, st.session_state.cesta, total
+            )
+            st.session_state.venta_guardada = True
+            st.session_state.wiz_url_wa = url_wa
+            st.session_state.wiz_id_compra = id_compra
+            st.session_state.wiz_total = total
+            st.toast(f"✅ Venta {id_compra} guardada correctamente", icon="🌸")
+            st.balloons()
+            st.rerun()
 
 
 def _mostrar_venta_guardada():

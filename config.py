@@ -1,6 +1,16 @@
 import pytz
 import pandas as pd
 from datetime import datetime
+from typing import TypedDict
+
+
+class ItemCesta(TypedDict):
+    perfume: str
+    marca: str
+    id_perfume: str
+    ml: int
+    precio: float
+    metodo: str
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",

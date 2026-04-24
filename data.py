@@ -8,7 +8,7 @@ from google.oauth2.service_account import Credentials
 from config import (
     SCOPES, SHEET_NAME,
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
-    hoy_peru, fmt_precio, ItemCesta
+    hoy_peru, fmt_precio, ItemCesta, DatosCliente
 )
 
 
@@ -354,3 +354,48 @@ def actualizar_ventas_multi_fila_batch(filas_cambios: list[tuple[int, dict[int, 
     except Exception as e:
         log_error("actualizar_ventas_multi_fila_batch", e)
         raise
+
+
+def registrar_venta_completa(cesta: list[ItemCesta], cliente: DatosCliente) -> str:
+    """Operación atómica: asigna ID, guarda filas en Sheets y descuenta stock.
+
+    Retorna el id_compra asignado (ej. 'V042').
+    El stock se intenta actualizar después de guardar; si falla, propaga
+    StockUpdateError para que la UI pueda mostrar la advertencia sin perder la venta.
+    """
+    id_compra = obtener_proximo_id()
+
+    filas = [
+        [
+            id_compra,
+            cliente["fecha"],
+            cliente["comprador"],
+            cliente["celular"],
+            str(item["id_perfume"]),
+            str(item["ml"]),
+            round(float(item["precio"]), 2),
+            item["metodo"],
+            cliente["tipo_envio"],
+            cliente["direccion"],
+            "Pendiente",
+        ]
+        for item in cesta
+    ]
+
+    guardar_venta(filas)
+
+    try:
+        actualizar_stock_perfumes_batch(cesta)
+    except Exception as e:
+        log_error("registrar_venta_completa/stock", e)
+        raise StockUpdateError(id_compra, e)
+
+    return id_compra
+
+
+class StockUpdateError(Exception):
+    """La venta se guardó correctamente pero el descuento de stock falló."""
+    def __init__(self, id_compra: str, causa: Exception):
+        self.id_compra = id_compra
+        self.causa = causa
+        super().__init__(str(causa))

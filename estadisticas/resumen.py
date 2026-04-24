@@ -38,7 +38,7 @@ def _calcular_mas_vendidos(df_ventas, df_catalogo):
     mas_vendidos = (
         df.groupby("ID_Perfume")["Ml_Vendido"]
         .sum().reset_index(name="Cantidad")
-        .sort_values("Cantidad", ascending=False).head(5)
+        .sort_values("Cantidad", ascending=False)
     )
     return mas_vendidos.merge(
         df_catalogo[["ID_Perfume", "Nombre", "Marca"]].assign(
@@ -144,7 +144,12 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             df_ventas[["ID_Perfume", "Ml_Vendido"]],
             df_catalogo[["ID_Perfume", "Nombre", "Marca"]]
         )
-        for pos, row in enumerate(mas_vendidos.to_dict("records"), 1):
+        _LIMIT = 5
+        if "mv_ver_todos" not in st.session_state:
+            st.session_state.mv_ver_todos = False
+        filas_mv = mas_vendidos.to_dict("records")
+        mostrar_mv = filas_mv if st.session_state.mv_ver_todos else filas_mv[:_LIMIT]
+        for pos, row in enumerate(mostrar_mv, 1):
             nombre = html.escape(str(row.get("Nombre", "Desconocido")))
             marca  = html.escape(str(row.get("Marca", "")))
             cant   = int(row["Cantidad"])
@@ -185,6 +190,12 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
                 ">{cant_txt}</div>
             </div>
             """, unsafe_allow_html=True)
+
+        if len(filas_mv) > _LIMIT:
+            label = f"▲ Ver menos" if st.session_state.mv_ver_todos else f"▼ Ver más ({len(filas_mv) - _LIMIT} más)"
+            if st.button(label, key="btn_mv_toggle", use_container_width=True):
+                st.session_state.mv_ver_todos = not st.session_state.mv_ver_todos
+                st.rerun()
 
     st.markdown("")
     st.markdown("#### 📋 Historial completo")

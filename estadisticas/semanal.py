@@ -67,7 +67,7 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     )
 
     total_semana = ventas_semana["Precio_Cobrado"].sum()
-    num_ventas = len(ventas_semana)
+    num_ventas = ventas_semana["ID_Compra"].nunique() if "ID_Compra" in ventas_semana.columns else len(ventas_semana)
     costo_semana = calcular_costo_ventas_df(ventas_semana, df_catalogo)
     ganancia_semana = total_semana - costo_semana
 

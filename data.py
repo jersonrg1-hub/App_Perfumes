@@ -10,6 +10,7 @@ from config import (
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
     hoy_peru, fmt_precio, ItemCesta, DatosCliente
 )
+from costos import MERMA_PCT
 
 
 def log_error(contexto: str, error: object) -> None:
@@ -309,7 +310,8 @@ def actualizar_stock_perfumes_batch(items_vendidos: list[ItemCesta]) -> None:
         ml_por_id = {}
         for item in items_vendidos:
             id_perf = str(item["id_perfume"])
-            ml_por_id[id_perf] = ml_por_id.get(id_perf, 0) + float(item["ml"])
+            ml_con_merma = float(item["ml"]) * (1 + MERMA_PCT)
+            ml_por_id[id_perf] = ml_por_id.get(id_perf, 0) + ml_con_merma
 
         peticiones = []
         for _, row in df_cat[df_cat["ID_Perfume"].astype(str).isin(ml_por_id)].iterrows():
@@ -318,7 +320,7 @@ def actualizar_stock_perfumes_batch(items_vendidos: list[ItemCesta]) -> None:
             ml_necesario = ml_por_id[id_fila]
             if valor_actual < ml_necesario:
                 log_error("actualizar_stock_batch",
-                          f"Stock insuficiente ID {id_fila}: disponible={valor_actual}ml, vendido={ml_necesario}ml — se fija en 0")
+                          f"Stock insuficiente ID {id_fila}: disponible={valor_actual}ml, vendido={ml_necesario}ml (incl. merma {MERMA_PCT:.0%}) — se fija en 0")
             nuevo_valor = max(0.0, valor_actual - ml_necesario)
             fila_num = int(row["fila_sheet"])
             peticiones.append({

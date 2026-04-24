@@ -5,6 +5,7 @@ import gspread.exceptions
 import pandas as pd
 from datetime import datetime, date as date_type, timedelta
 from google.oauth2.service_account import Credentials
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception
 from config import (
     SCOPES, SHEET_NAME,
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
@@ -21,23 +22,42 @@ def log_error(contexto: str, error: object) -> None:
         st.session_state.error_log = log[-50:]
 
 
-# ── Mejora 3: reconexión automática ──────────────────────────────────────────
-
-def _limpiar_conexion():
-    """Limpia el cache de conexiones para forzar una reconexión limpia."""
+def _limpiar_conexion() -> None:
     get_cliente.clear()
     get_spreadsheet.clear()
     get_hoja.clear()
 
 
-def _ejecutar_con_reintento(fn, contexto):
-    """Ejecuta fn(). Si falla por cualquier error de red/API, reconecta y reintenta una vez."""
-    try:
+def _es_rate_limit(exc: Exception) -> bool:
+    return (
+        isinstance(exc, gspread.exceptions.APIError)
+        and getattr(getattr(exc, "response", None), "status_code", None) == 429
+    )
+
+
+def _ejecutar_con_reintento(fn, contexto: str):
+    """Ejecuta fn() con resiliencia ante errores de la API de Google:
+    - 429 Rate Limit: backoff exponencial (2s → 4s → 8s → ... hasta 5 intentos)
+    - Otros errores de red/API: reconecta y reintenta una vez
+    """
+    @retry(
+        retry=retry_if_exception(_es_rate_limit),
+        wait=wait_exponential(multiplier=1, min=2, max=60),
+        stop=stop_after_attempt(5),
+        reraise=True,
+    )
+    def _intentar():
         return fn()
+
+    try:
+        return _intentar()
     except Exception as e:
+        if _es_rate_limit(e):
+            log_error(contexto, "Rate limit persistente tras 5 intentos con backoff")
+            raise
         log_error(contexto, f"{type(e).__name__} — reconectando y reintentando...")
         _limpiar_conexion()
-        return fn()  # propaga si vuelve a fallar
+        return fn()
 
 
 # ─────────────────────────────────────────────────────────────────────────────

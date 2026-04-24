@@ -1,6 +1,6 @@
 import html
 import streamlit as st
-from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO
+from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO, ItemCesta
 from costos import costo_total_item
 from data import guardar_venta, obtener_proximo_id, cargar_ventas, actualizar_stock_perfumes_batch
 from components import generar_url_whatsapp, separador
@@ -22,7 +22,7 @@ def _buscar_cliente(df_ventas, celular):
     }
 
 
-def _items_cesta_html(cesta):
+def _items_cesta_html(cesta: list[ItemCesta]) -> str:
     return "".join([
         f"<div style='display:flex; justify-content:space-between; align-items:center;"
         f"padding:0.45rem 0; border-bottom:1px solid #f5ede6; font-size:0.88rem;'>"

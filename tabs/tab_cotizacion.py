@@ -1,7 +1,7 @@
 import html
 import streamlit as st
 from urllib.parse import quote
-from config import fmt_precio, ML_OPCIONES, STOCK_CRITICO, STOCK_BAJO
+from config import fmt_precio, ML_OPCIONES, STOCK_CRITICO, STOCK_BAJO, ItemCesta
 from costos import costo_total_item
 from data import guardar_cotizacion
 
@@ -39,7 +39,7 @@ def _card_precio_cot(precio_catalogo, stock_val):
     )
 
 
-def _generar_mensaje_cotizacion(celular, cesta_cotizacion):
+def _generar_mensaje_cotizacion(celular: str, cesta_cotizacion: list[ItemCesta]) -> str:
     total = sum(float(i["precio"]) for i in cesta_cotizacion)
 
     lineas = []

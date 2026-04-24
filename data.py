@@ -8,11 +8,11 @@ from google.oauth2.service_account import Credentials
 from config import (
     SCOPES, SHEET_NAME,
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
-    hoy_peru, fmt_precio
+    hoy_peru, fmt_precio, ItemCesta
 )
 
 
-def log_error(contexto, error):
+def log_error(contexto: str, error: object) -> None:
     log = st.session_state.setdefault("error_log", [])
     now = datetime.now().strftime("%H:%M:%S")
     log.append(f"[{now}] [{contexto}] {str(error)}")
@@ -139,7 +139,7 @@ def limpiar_cache_ventas():
     cargar_ventas.clear()
 
 
-def guardar_venta(filas):
+def guardar_venta(filas: list[list]) -> None:
     try:
         def _write():
             get_hoja(WORKSHEET_VENTAS).append_rows(filas, value_input_option='USER_ENTERED')
@@ -171,7 +171,7 @@ def _extraer_ids_numericos(ids_col):
     return ids_numericos
 
 
-def obtener_proximo_id():
+def obtener_proximo_id() -> str:
     cargar_ventas.clear()
     df = cargar_ventas()
     if df.empty or "ID_Compra" not in df.columns:
@@ -186,7 +186,7 @@ def obtener_proximo_id():
     return f"V{siguiente:03d}"
 
 
-def marcar_pedido_entregado_batch(lista_filas, col_estado):
+def marcar_pedido_entregado_batch(lista_filas: list[int], col_estado: int) -> None:
     try:
         peticiones = [
             {'range': gspread.utils.rowcol_to_a1(fila, col_estado), 'values': [['Entregado']]}
@@ -230,7 +230,7 @@ def limpiar_cache_cotizaciones():
     cargar_cotizaciones.clear()
 
 
-def actualizar_estado_cotizacion(id_cotizacion, nuevo_estado, fila_sheet):
+def actualizar_estado_cotizacion(id_cotizacion: str, nuevo_estado: str, fila_sheet: int) -> None:
     try:
         def _write():
             hoja = get_hoja(WORKSHEET_COTIZACIONES)
@@ -260,7 +260,7 @@ def _obtener_proximo_id_cotizacion():
     return f"C{max(ids_numericos) + 1:03d}"
 
 
-def guardar_cotizacion(celular, cesta, total):
+def guardar_cotizacion(celular: str, cesta: list[ItemCesta], total: float) -> str:
     try:
         id_cotizacion = _obtener_proximo_id_cotizacion()
 
@@ -288,7 +288,7 @@ def guardar_cotizacion(celular, cesta, total):
         raise
 
 
-def actualizar_stock_perfumes_batch(items_vendidos):
+def actualizar_stock_perfumes_batch(items_vendidos: list[ItemCesta]) -> None:
     if not items_vendidos:
         return
     try:
@@ -337,7 +337,7 @@ def actualizar_stock_perfumes_batch(items_vendidos):
         raise
 
 
-def actualizar_ventas_multi_fila_batch(filas_cambios):
+def actualizar_ventas_multi_fila_batch(filas_cambios: list[tuple[int, dict[int, object]]]) -> None:
     try:
         peticiones = []
         for fila_sheet, cambios in filas_cambios:

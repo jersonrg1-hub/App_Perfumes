@@ -47,6 +47,15 @@ def login_seccion(key_suffix="default"):
     if intentos_restantes < MAX_INTENTOS:
         st.caption(f"Intentos restantes: {intentos_restantes}")
 
+    # Verificar que los secrets estén disponibles antes de mostrar el form
+    try:
+        app_password = st.secrets["APP_PASSWORD"]
+    except (KeyError, FileNotFoundError):
+        st.error("⚠️ La app acaba de reiniciarse. Presiona el botón para recargar y vuelve a intentarlo.")
+        if st.button("🔄 Recargar app", key=f"reload_{key_suffix}", use_container_width=True):
+            st.rerun()
+        return False
+
     with st.form(key=f"login_form_{key_suffix}"):
         password = st.text_input(
             "Contraseña de Administrador",
@@ -58,12 +67,6 @@ def login_seccion(key_suffix="default"):
         if submit:
             if not password:
                 st.warning("Ingresa la contraseña.")
-                return False
-
-            try:
-                app_password = st.secrets["APP_PASSWORD"]
-            except KeyError:
-                st.warning("⚠️ Configuración incompleta: falta 'APP_PASSWORD' en secrets.")
                 return False
 
             if hmac.compare_digest(password, app_password):

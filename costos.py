@@ -13,6 +13,10 @@ COSTO_VIAL = {
     10: 3.00,   # Vial 10ml
 }
 
+# Porcentaje de líquido que se pierde por extracción (jeringa, atomización, etc.)
+# Ajustar según experiencia real. Ej: 0.04 = 4% → venta de 10ml descuenta 10.4ml del stock.
+MERMA_PCT = 0.04
+
 # Costo fijo de empaque por cada item vendido (S/)
 # Incluye: etiqueta (0.16) + jeringa (0.03) + adaptador (0.05) + teflón (0.02)
 #          + caja envío (0.68) + tarjeta (0.10) + sticker (0.40) + viruta (0.56)

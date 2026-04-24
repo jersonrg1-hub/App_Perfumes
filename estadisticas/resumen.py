@@ -54,6 +54,11 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         return
 
     df_ventas = df_ventas.copy()
+    if "Estado" in df_ventas.columns:
+        df_ventas = df_ventas[df_ventas["Estado"] == "Entregado"]
+    if df_ventas.empty:
+        st.info("📭 No hay ventas entregadas todavía")
+        return
     if df_ventas["Fecha"].dtype == object:
         df_ventas["Fecha"] = pd.to_datetime(
             df_ventas["Fecha"].astype(str).str.strip(),

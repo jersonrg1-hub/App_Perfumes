@@ -81,12 +81,15 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     ganancia_mes = total_mes - costo_mes
 
     col1, col2, col3, col4 = st.columns(4)
+    n_hoy = ventas_hoy["ID_Compra"].nunique() if "ID_Compra" in ventas_hoy.columns else len(ventas_hoy)
+    n_mes = ventas_mes["ID_Compra"].nunique() if "ID_Compra" in ventas_mes.columns else len(ventas_mes)
+
     with col1:
-        st.markdown(_metrica_card("Ventas hoy", len(ventas_hoy)), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Ventas hoy", n_hoy), unsafe_allow_html=True)
     with col2:
         st.markdown(_metrica_card("Total hoy", f"S/ {fmt_precio(total_hoy)}"), unsafe_allow_html=True)
     with col3:
-        st.markdown(_metrica_card("Ventas mes", len(ventas_mes)), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Ventas mes", n_mes), unsafe_allow_html=True)
     with col4:
         st.markdown(_metrica_card("Total mes", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
 

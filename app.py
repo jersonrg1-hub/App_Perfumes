@@ -32,6 +32,25 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.markdown(get_styles(), unsafe_allow_html=True)
 
+st.markdown("""
+<script>
+(function() {
+    var hiddenAt = null;
+    var LIMITE_MS = 3 * 60 * 1000;
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            hiddenAt = Date.now();
+        } else {
+            if (hiddenAt !== null && (Date.now() - hiddenAt) > LIMITE_MS) {
+                window.location.reload();
+            }
+            hiddenAt = null;
+        }
+    });
+})();
+</script>
+""", unsafe_allow_html=True)
+
 mostrar_encabezado()
 
 try:

@@ -107,34 +107,34 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     st.markdown("")
     col_pdf1, col_pdf2 = st.columns(2)
     with col_pdf1:
-        if st.button("⬇️ PDF del día", key="generar_pdf_dia", use_container_width=True):
-            pdf_bytes = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
-            if pdf_bytes:
-                st.download_button(
-                    label="📥 Descargar PDF del día",
-                    data=pdf_bytes,
-                    file_name=f"ventas_{hoy_peru()}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="dl_pdf_dia"
-                )
-            else:
-                st.warning("⚠️ No hay ventas hoy")
+        pdf_bytes_hoy = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
+        if pdf_bytes_hoy:
+            st.download_button(
+                label="⬇️ PDF del día",
+                data=pdf_bytes_hoy,
+                file_name=f"ventas_{hoy_peru()}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="dl_pdf_dia",
+            )
+        else:
+            st.button("⬇️ PDF del día", disabled=True, use_container_width=True, key="dl_pdf_dia_off")
+            st.caption("Sin ventas hoy")
     with col_pdf2:
-        if st.button("⬇️ PDF del mes", key="generar_pdf_mes", use_container_width=True):
-            pdf_bytes = exportar_pdf_ventas_mes(df_ventas, df_catalogo)
-            if pdf_bytes:
-                hoy_d = hoy_peru()
-                st.download_button(
-                    label="📥 Descargar PDF del mes",
-                    data=pdf_bytes,
-                    file_name=f"ventas_{hoy_d.year}_{hoy_d.month:02d}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="dl_pdf_mes"
-                )
-            else:
-                st.warning("⚠️ No hay ventas este mes")
+        pdf_bytes_mes = exportar_pdf_ventas_mes(df_ventas, df_catalogo)
+        if pdf_bytes_mes:
+            hoy_d = hoy_peru()
+            st.download_button(
+                label="⬇️ PDF del mes",
+                data=pdf_bytes_mes,
+                file_name=f"ventas_{hoy_d.year}_{hoy_d.month:02d}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="dl_pdf_mes",
+            )
+        else:
+            st.button("⬇️ PDF del mes", disabled=True, use_container_width=True, key="dl_pdf_mes_off")
+            st.caption("Sin ventas este mes")
 
     separador()
     st.markdown("#### 🏆 Perfumes más vendidos")

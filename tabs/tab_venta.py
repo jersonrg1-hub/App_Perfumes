@@ -124,8 +124,21 @@ def _barra_progreso(paso_actual):
 def _paso_1_cliente(df):
     st.markdown("#### 👤 Datos del comprador")
 
+    st.markdown(
+        "<div style='font-size:0.68rem; color:#a07850; text-transform:uppercase; font-weight:700;"
+        "letter-spacing:0.12em; padding-bottom:0.4rem; border-bottom:1px solid #ede0d4;"
+        "margin:0.3rem 0 0.6rem;'>📦 Pedido</div>",
+        unsafe_allow_html=True,
+    )
     fecha = st.date_input("📅 Fecha", format="DD/MM/YYYY", key="fecha_venta")
     tipo_envio = st.selectbox("🚚 Tipo de Envío", TIPOS_ENVIO, key="envio_sel")
+
+    st.markdown(
+        "<div style='font-size:0.68rem; color:#a07850; text-transform:uppercase; font-weight:700;"
+        "letter-spacing:0.12em; padding-bottom:0.4rem; border-bottom:1px solid #ede0d4;"
+        "margin:0.8rem 0 0.6rem;'>👤 Comprador</div>",
+        unsafe_allow_html=True,
+    )
     comprador_raw = st.text_input("👤 Nombre", placeholder="Comprador", key="comp_in")
     comprador = comprador_raw.title() if comprador_raw else ""
     celular = st.text_input("📱 Celular", max_chars=9, key="cel_in")
@@ -134,14 +147,19 @@ def _paso_1_cliente(df):
         ultimo_cel = st.session_state.get("autocomplete_celular", "")
         if celular != ultimo_cel:
             st.session_state.autocomplete_aplicado = False
+            st.session_state.autocomplete_celular = celular
         if not st.session_state.get("autocomplete_aplicado"):
             df_ventas = cargar_ventas()
             cliente = _buscar_cliente(df_ventas, celular)
             if cliente and cliente["nombre"]:
                 st.session_state._autocomplete_pendiente = cliente
-                st.session_state.autocomplete_aplicado = True
-                st.session_state.autocomplete_celular = celular
-                st.rerun()
+                if st.button(
+                    f"✨ Cargar datos de {cliente['nombre']}",
+                    key="btn_autocomplete",
+                    use_container_width=True,
+                ):
+                    st.session_state.autocomplete_aplicado = True
+                    st.rerun()
     else:
         st.session_state.autocomplete_aplicado = False
         st.session_state.autocomplete_celular = ""
@@ -149,9 +167,7 @@ def _paso_1_cliente(df):
     direccion = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key="dir_in")
 
     st.markdown("")
-    col_btn, _ = st.columns([1, 2])
-    with col_btn:
-        if st.button("Siguiente →", key="paso1_siguiente", type="primary", use_container_width=True):
+    if st.button("Siguiente →", key="paso1_siguiente", type="primary", use_container_width=True):
             requiere_direccion = tipo_envio != "Contraentrega"
             if not comprador or len(celular) != 9 or not celular.isdigit():
                 st.error("⚠️ Completa Nombre y Celular (9 dígitos numéricos)")
@@ -228,6 +244,11 @@ def _paso_2_perfumes(df):
             except Exception:
                 pass
 
+            editar_precio = st.toggle(
+                "✏️ Editar precio",
+                key=f"edit_toggle_{perfume_venta}_{ml_vendido}",
+                value=False,
+            )
             precio_final = st.number_input(
                 "💰 Precio final",
                 min_value=0.0,
@@ -235,6 +256,7 @@ def _paso_2_perfumes(df):
                 step=0.5,
                 format="%.2f",
                 key=f"precio_edit_{perfume_venta}_{ml_vendido}",
+                disabled=not editar_precio,
             )
             if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", use_container_width=True):
                 st.session_state.cesta.append({
@@ -257,7 +279,7 @@ def _paso_2_perfumes(df):
         for i, item in enumerate(st.session_state.cesta):
             nombre_item = html.escape(str(item["perfume"]))
             metodo_item = html.escape(str(item["metodo"]))
-            col_item, col_del = st.columns([10, 1])
+            col_item, col_del = st.columns([6, 1])
             with col_item:
                 st.markdown(
                     f"""<div style="
@@ -282,7 +304,6 @@ def _paso_2_perfumes(df):
                     unsafe_allow_html=True
                 )
             with col_del:
-                st.markdown("<div style='padding-top:4px;'>", unsafe_allow_html=True)
                 if st.button("🗑️", key=f"del_{i}"):
                     st.session_state.cesta.pop(i)
                     st.rerun()
@@ -477,7 +498,9 @@ def _mostrar_venta_guardada():
     url_wa = st.session_state.get("wiz_url_wa", "")
     if url_wa:
         st.markdown(
-            f"""<a href="{url_wa}" target="_blank" style="text-decoration:none;">
+            f"""<a href="{url_wa}"
+                onclick="window.open(this.href,'_blank','noopener,noreferrer'); return false;"
+                target="_blank" rel="noopener noreferrer" style="text-decoration:none;">
             <div style="background:#25D366; color:white; padding:14px; border-radius:10px;
             text-align:center; font-weight:700; margin-bottom:0.8rem; font-size:1rem;">
                 📲 Enviar Comprobante por WhatsApp

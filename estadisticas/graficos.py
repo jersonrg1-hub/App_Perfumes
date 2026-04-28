@@ -17,8 +17,8 @@ def _layout(title):
     return dict(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor=COLORES["bg"],
-        font=dict(family="Lato, sans-serif", color=COLORES["primary"], size=13),
-        margin=dict(l=60, r=40, t=60, b=60),
+        font=dict(family="Lato, sans-serif", color=COLORES["primary"], size=12),
+        margin=dict(l=30, r=20, t=40, b=60),
         title=dict(text=title, font=dict(size=15, color=COLORES["primary"]), x=0),
         xaxis=dict(
             gridcolor=COLORES["grid"],
@@ -101,7 +101,7 @@ def _grafico_barras_dia(df):
     layout["bargap"] = 0.3
 
     fig.update_layout(**layout)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"responsive": True})
 
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -169,7 +169,7 @@ def _grafico_linea_mensual(df):
     layout["xaxis"]["tickangle"] = -30
 
     fig.update_layout(**layout)
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"responsive": True})
 
     mejor = mensual.loc[mensual["Total"].idxmax()]
     col1, col2 = st.columns(2)

@@ -183,6 +183,21 @@ def _paso_1_cliente(df):
                 st.rerun()
 
 
+@st.dialog("Quitar de la cesta")
+def _dialog_eliminar(idx):
+    item = st.session_state.cesta[idx]
+    nombre = html.escape(str(item["perfume"]))
+    st.markdown(f"¿Quitar **{nombre} · {item['ml']}ml** de la cesta?")
+    col_si, col_no = st.columns(2)
+    with col_si:
+        if st.button("🗑️ Sí, quitar", type="primary", use_container_width=True, key="dialog_si"):
+            st.session_state.cesta.pop(idx)
+            st.rerun()
+    with col_no:
+        if st.button("Cancelar", use_container_width=True, key="dialog_no"):
+            st.rerun()
+
+
 def _paso_2_perfumes(df):
     if st.session_state.cesta:
         total_actual = sum(float(i["precio"]) for i in st.session_state.cesta)
@@ -265,6 +280,7 @@ def _paso_2_perfumes(df):
                     "id_perfume": id_perfume,
                     "ml": ml_vendido, "precio": precio_final, "metodo": metodo_pago
                 })
+                st.session_state.ultimo_metodo_pago = metodo_pago
                 st.toast(f"Agregado: {perfume_venta}", icon="✅")
                 st.session_state.perf_sel_count += 1
                 st.rerun()
@@ -305,8 +321,7 @@ def _paso_2_perfumes(df):
                 )
             with col_del:
                 if st.button("🗑️", key=f"del_{i}"):
-                    st.session_state.cesta.pop(i)
-                    st.rerun()
+                    _dialog_eliminar(idx=i)
 
         total = sum(float(i["precio"]) for i in st.session_state.cesta)
         st.markdown(
@@ -519,9 +534,12 @@ def _resetear_wizard():
     st.session_state.venta_guardada = False
     for key in ["comp_in", "cel_in", "dir_in"]:
         st.session_state[key] = ""
+    _ultimo_pago = st.session_state.get("ultimo_metodo_pago")
     for key in ["ml_sel", "pago_sel", "envio_sel"]:
         if key in st.session_state:
             del st.session_state[key]
+    if _ultimo_pago and _ultimo_pago in METODOS_PAGO:
+        st.session_state.pago_sel = _ultimo_pago
     st.session_state.perf_sel_count = 0
     st.session_state.fecha_venta = hoy_peru()
     st.session_state.wiz_comprador = ""
@@ -532,6 +550,22 @@ def _resetear_wizard():
 @st.fragment
 def mostrar_tab_venta(df):
     st.markdown("### 📝 Registrar Nueva Venta")
+
+    try:
+        _df_pend = cargar_ventas()
+        if not _df_pend.empty and "Estado" in _df_pend.columns and "ID_Compra" in _df_pend.columns:
+            _n_pend = int(_df_pend[~_df_pend["Estado"].isin(["Entregado", "Anulado"])]["ID_Compra"].nunique())
+            if _n_pend > 0:
+                _s = "s" if _n_pend != 1 else ""
+                st.markdown(
+                    f"<div style='background:#fff7ed; border-left:4px solid #f59e0b; border-radius:8px;"
+                    f"padding:0.5rem 0.9rem; margin-bottom:0.7rem; font-size:0.85rem;"
+                    f"color:#92400e; font-weight:600;'>"
+                    f"📦 {_n_pend} pedido{_s} pendiente{_s} — revísalos en 📊 Estadísticas</div>",
+                    unsafe_allow_html=True,
+                )
+    except Exception:
+        pass
 
     if "cesta" not in st.session_state:
         st.session_state.cesta = []

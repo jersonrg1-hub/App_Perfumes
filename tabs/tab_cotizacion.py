@@ -192,10 +192,10 @@ def mostrar_seccion_cotizacion(df):
             st.markdown("**📋 Cotización:**")
 
             for i, item in enumerate(st.session_state.cesta_cotizacion):
-                c1, c2, c3 = st.columns([3, 1, 0.5])
+                c1, c2, c3 = st.columns([3, 1, 1])
                 c1.write(f"🌸 {item['perfume']} ({item['ml']}ml)")
                 c2.write(f"**S/ {fmt_precio(item['precio'])}**")
-                if c3.button("🗑️", key=f"del_cot_{i}"):
+                if c3.button("🗑️ Quitar", key=f"del_cot_{i}", use_container_width=True):
                     st.session_state.cesta_cotizacion.pop(i)
                     st.session_state.cotizacion_enviada = False
                     st.rerun()

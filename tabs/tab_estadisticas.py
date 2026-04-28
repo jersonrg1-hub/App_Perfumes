@@ -29,6 +29,13 @@ def mostrar_tab_estadisticas(df):
         with st.spinner("Cargando ventas..."):
             df_ventas = cargar_ventas()
 
+        error_log = st.session_state.get("error_log", [])
+        if df_ventas.empty and any("cargar_ventas" in entry for entry in error_log):
+            st.warning(
+                "⚠️ Los datos de ventas pueden estar incompletos — "
+                "hubo un error al cargar. Presiona **Recargar datos** para intentar de nuevo."
+            )
+
         subtab1, subtab2, subtab3, subtab4 = st.tabs([
             "📊 Resumen",
             "📦 Ventas",

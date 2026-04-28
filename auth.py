@@ -4,7 +4,7 @@ import streamlit as st
 from data import cargar_ventas
 
 MAX_INTENTOS = 3
-BLOQUEO_SEGUNDOS = 60  # 1 minuto de bloqueo tras agotar intentos
+BLOQUEO_SEGUNDOS = 60
 
 
 def inicializar_auth():
@@ -32,7 +32,7 @@ def login_seccion(key_suffix="default"):
     st.markdown("---")
     st.info("### 🔒 Acceso Restringido\nEsta sección contiene información sensible de costos o inventario.")
 
-    # Bloqueo temporal
+    # Bloqueo temporal por intentos fallidos
     seg = _segundos_restantes()
     if seg > 0:
         minutos = int(seg // 60)
@@ -47,15 +47,19 @@ def login_seccion(key_suffix="default"):
     if intentos_restantes < MAX_INTENTOS:
         st.caption(f"Intentos restantes: {intentos_restantes}")
 
-    # Verificar que los secrets estén disponibles antes de mostrar el form
+    # Verificar secrets
+    app_password = None
+    secrets_ok = False
     try:
         app_password = st.secrets["APP_PASSWORD"]
+        secrets_ok = True
     except (KeyError, FileNotFoundError):
-        st.error("⚠️ La app acaba de reiniciarse. Presiona el botón para recargar y vuelve a intentarlo.")
+        st.warning("⚠️ La app acaba de reiniciarse. Presiona el botón para recargar y vuelve a intentarlo.")
         if st.button("🔄 Recargar app", key=f"reload_{key_suffix}", use_container_width=True):
             st.rerun()
-        return False
+        # ✅ NO retornamos False aquí — dejamos que el form aparezca igual
 
+    # Siempre mostramos el formulario (incluso si secrets falló momentáneamente)
     with st.form(key=f"login_form_{key_suffix}"):
         password = st.text_input(
             "Contraseña de Administrador",
@@ -69,11 +73,16 @@ def login_seccion(key_suffix="default"):
                 st.warning("Ingresa la contraseña.")
                 return False
 
+            # Si al momento de enviar los secrets siguen sin cargar
+            if not secrets_ok:
+                st.error("⚠️ Secrets aún no disponibles. Espera unos segundos y recarga la página.")
+                return False
+
             if hmac.compare_digest(password, app_password):
                 st.session_state.autenticado = True
                 st.session_state.intentos_login = 0
                 st.session_state.bloqueado_hasta = 0.0
-                cargar_ventas()  # precalentar cache para estadísticas
+                cargar_ventas()
                 st.success("✅ Acceso concedido")
                 st.rerun()
             else:

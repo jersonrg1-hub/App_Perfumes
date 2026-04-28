@@ -58,6 +58,89 @@ st.markdown("""
     _fixInputModes();
     new MutationObserver(_fixInputModes).observe(document.body, { childList: true, subtree: true });
 })();
+
+// Vibración táctil al agregar a cesta (detecta aparición de toast)
+(function() {
+    new MutationObserver(function(mutations) {
+        mutations.forEach(function(mut) {
+            mut.addedNodes.forEach(function(node) {
+                if (node.nodeType !== 1) return;
+                var isToast = (node.dataset && node.dataset.testid === 'stToast') ||
+                              node.querySelector && node.querySelector('[data-testid="stToast"]');
+                if (isToast && navigator.vibrate) navigator.vibrate(40);
+            });
+        });
+    }).observe(document.body, { childList: true, subtree: true });
+})();
+
+// Swipe para eliminar items de la cesta (deslizar izquierda revela botón rojo)
+(function() {
+    function setupSwipeDelete() {
+        document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function(row) {
+            if (row._swipeSetup) return;
+            var cols = row.querySelectorAll(':scope > [data-testid="column"]');
+            if (cols.length < 2) return;
+            var lastCol = cols[cols.length - 1];
+            var btn = lastCol.querySelector('button');
+            if (!btn || btn.textContent.trim() !== '🗑️') return;
+            row._swipeSetup = true;
+            var firstCol = cols[0];
+            var startX = 0, startY = 0, dx = 0;
+            var REVEAL = 64, THRESH = 38;
+            var revealed = false;
+
+            row.style.position = 'relative';
+            row.style.overflow = 'hidden';
+            lastCol.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:' + REVEAL + 'px;'
+                + 'background:#dc2626;border-radius:0 10px 10px 0;'
+                + 'display:flex;align-items:center;justify-content:center;'
+                + 'transform:translateX(' + REVEAL + 'px);transition:transform 0.22s ease;z-index:2;';
+            btn.style.cssText = 'background:transparent;border:none;color:white;'
+                + 'font-size:1.35rem;cursor:pointer;width:100%;height:100%;min-height:44px;';
+            firstCol.style.transition = 'transform 0.22s ease';
+
+            function snap(show) {
+                revealed = show;
+                firstCol.style.transform = show ? 'translateX(-' + REVEAL + 'px)' : 'translateX(0)';
+                lastCol.style.transform = show ? 'translateX(0)' : 'translateX(' + REVEAL + 'px)';
+            }
+
+            firstCol.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+                dx = 0;
+                firstCol.style.transition = 'none';
+                lastCol.style.transition = 'none';
+            }, { passive: true });
+
+            firstCol.addEventListener('touchmove', function(e) {
+                dx = e.touches[0].clientX - startX;
+                var dy = e.touches[0].clientY - startY;
+                if (Math.abs(dy) > Math.abs(dx)) return;
+                if (dx > 0 && !revealed) return;
+                var base = revealed ? -REVEAL : 0;
+                var clamped = Math.max(Math.min(base + dx, 0), -REVEAL);
+                firstCol.style.transform = 'translateX(' + clamped + 'px)';
+                lastCol.style.transform = 'translateX(' + (REVEAL + clamped) + 'px)';
+            }, { passive: true });
+
+            firstCol.addEventListener('touchend', function() {
+                firstCol.style.transition = 'transform 0.22s ease';
+                lastCol.style.transition = 'transform 0.22s ease';
+                if (!revealed && dx < -THRESH) snap(true);
+                else if (revealed && dx > THRESH / 2) snap(false);
+                else snap(revealed);
+            });
+
+            document.addEventListener('touchstart', function(e) {
+                if (revealed && !row.contains(e.target)) snap(false);
+            }, { passive: true });
+        });
+    }
+    setupSwipeDelete();
+    new MutationObserver(function() { setupSwipeDelete(); })
+        .observe(document.body, { childList: true, subtree: true });
+})();
 </script>
 """, unsafe_allow_html=True)
 

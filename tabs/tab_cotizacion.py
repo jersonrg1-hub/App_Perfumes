@@ -138,7 +138,11 @@ def mostrar_seccion_cotizacion(df):
         ml_cot = st.selectbox("📏 Tamaño", ML_OPCIONES, key="ml_cot_sel")
 
         if perfume_cot != nombres_opciones[0]:
-            perfume_row = df[df["Nombre"] == perfume_cot].iloc[0]
+            _matches = df[df["Nombre"] == perfume_cot]
+            if _matches.empty:
+                st.warning("⚠️ No se encontró ese perfume en el catálogo.")
+                return
+            perfume_row = _matches.iloc[0]
             columna_precio = f"Precio_{ml_cot}ml"
             precio_catalogo = perfume_row.get(columna_precio, 0)
 

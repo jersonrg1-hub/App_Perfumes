@@ -67,7 +67,7 @@ def _generar_mensaje_cotizacion(
         nombre = i.get("perfume", "")
         ml = i.get("ml", "")
 
-        marca_txt = f" · _{marca}_" if marca else ""
+        nombre_completo = f"{marca} {nombre}".strip() if marca else nombre
 
         if precio_orig is not None and round(float(precio_orig), 2) != round(precio_final, 2):
             precio_txt = f"~S/ {fmt_precio(precio_orig)}~ ➜ *S/ {fmt_precio(precio_final)}* 🏷️"
@@ -75,7 +75,7 @@ def _generar_mensaje_cotizacion(
             precio_txt = f"💰 *S/ {fmt_precio(precio_final)}*"
 
         bloques.append(
-            f"*{idx}.* 🌸 *{nombre}*{marca_txt}\n"
+            f"*{idx}.* 🌸 *{nombre_completo}*\n"
             f"     📏 {ml}ml  ·  {precio_txt}"
         )
 
@@ -88,12 +88,6 @@ def _generar_mensaje_cotizacion(
         total_final = total + COSTO_DELIVERY
         delivery_line = f"🛵 Delivery: +S/ {fmt_precio(COSTO_DELIVERY)}\n"
 
-    cta = (
-        "_¿Te interesa? Con gusto te lo aparto_ 😊"
-        if len(cesta_cotizacion) == 1
-        else "_¿Cuál te interesa? Dime el número y te lo aparto_ 😊"
-    )
-
     mensaje = (
         f"✨ *Tu cotización — Perfuteca* ✨\n"
         f"{sep}\n\n"
@@ -102,7 +96,7 @@ def _generar_mensaje_cotizacion(
         f"{delivery_line}"
         f"💰 *Total: S/ {fmt_precio(total_final)}*\n"
         f"{sep}\n\n"
-        f"{cta}"
+        f"_¿Los separamos para ti? Escríbeme y los aparto_ 😊"
     )
     return f"https://wa.me/51{celular}?text={quote(mensaje)}"
 

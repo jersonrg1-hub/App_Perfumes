@@ -129,9 +129,10 @@ except ConnectionError:
         st.rerun()
 
 except Exception as e:
+    log = st.session_state.setdefault("error_log", [])
+    from datetime import datetime
+    log.append(f"[{datetime.now().strftime('%H:%M:%S')}] [app] {type(e).__name__}: {e}")
     mostrar_error_conexion()
-    with st.expander("🔍 Ver detalle del error"):
-        st.code(str(e))
     if st.button("🔄 Reintentar", key="retry_exc"):
         limpiar_cache_catalogo()
         st.rerun()

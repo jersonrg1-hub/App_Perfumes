@@ -170,11 +170,12 @@ def mostrar_tab_nombre(df):
                 </div>
                 """, unsafe_allow_html=True)
 
-        _mostrar_todos_precios(perfume, PRECIOS_COLUMNAS)
+        with st.spinner("Cargando precios..."):
+            _mostrar_todos_precios(perfume, PRECIOS_COLUMNAS)
 
-        sin_precios = [t for t, c in PRECIOS_COLUMNAS.items() if not perfume.get(c)]
-        if len(sin_precios) == len(PRECIOS_COLUMNAS):
-            mostrar_sin_precio(perfume["Nombre"], "ningún tamaño")
+            sin_precios = [t for t, c in PRECIOS_COLUMNAS.items() if not perfume.get(c)]
+            if len(sin_precios) == len(PRECIOS_COLUMNAS):
+                mostrar_sin_precio(perfume["Nombre"], "ningún tamaño")
 
     else:
         mostrar_placeholder_vacio(

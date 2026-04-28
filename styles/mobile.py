@@ -173,6 +173,38 @@ MOBILE = """
 
 
     /* ═══════════════════════════════════════════
+       BREAKPOINT INTERMEDIO — 540px
+       Android medianos (Samsung A, Moto G, etc.)
+    ═══════════════════════════════════════════ */
+    @media (max-width: 540px) {
+
+        .titulo-app {
+            font-size: 1.85rem !important;
+        }
+
+        .header-wrapper {
+            padding: 0.7rem 0.5rem 0.15rem !important;
+        }
+
+        .subtitulo-app {
+            font-size: 0.68rem !important;
+        }
+
+        /* ── Columnas: forzar 2×2 desde este tamaño ── */
+        [data-testid="column"] {
+            min-width: 45% !important;
+            flex: 1 1 45% !important;
+        }
+
+        /* ── Tabs ligeramente más compactas ── */
+        .stTabs [data-baseweb="tab"] {
+            padding: 0.38rem 0.6rem !important;
+            font-size: 0.8rem !important;
+        }
+    }
+
+
+    /* ═══════════════════════════════════════════
        BREAKPOINT MÓVIL — 480px
        Móviles estándar (iPhone, Android)
     ═══════════════════════════════════════════ */

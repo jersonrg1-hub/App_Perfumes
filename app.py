@@ -35,6 +35,7 @@ st.markdown(get_styles(), unsafe_allow_html=True)
 st.markdown("""
 <script>
 (function() {
+    // Auto-recarga si vuelve del segundo plano tras 3 minutos
     var hiddenAt = null;
     var LIMITE_MS = 3 * 60 * 1000;
     document.addEventListener('visibilitychange', function() {
@@ -47,6 +48,15 @@ st.markdown("""
             hiddenAt = null;
         }
     });
+
+    // Teclado decimal en móvil para todos los inputs numéricos
+    function _fixInputModes() {
+        document.querySelectorAll('input[type="number"]').forEach(function(el) {
+            el.setAttribute('inputmode', 'decimal');
+        });
+    }
+    _fixInputModes();
+    new MutationObserver(_fixInputModes).observe(document.body, { childList: true, subtree: true });
 })();
 </script>
 """, unsafe_allow_html=True)

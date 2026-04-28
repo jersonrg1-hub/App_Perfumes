@@ -79,7 +79,7 @@ MOBILE = """
             padding: 0.4rem 0.65rem !important;
             font-size: 0.78rem !important;
             white-space: nowrap !important;
-            min-height: 40px !important;
+            min-height: 44px !important;
         }
 
         /* ── Métricas: 2 columnas en vez de 4 ── */
@@ -343,6 +343,11 @@ MOBILE = """
             font-size: 0.75rem !important;
         }
 
+        /* ── Recortar espacio del header en pantallas muy pequeñas ── */
+        .header-linea {
+            margin: 0.1rem auto 0.4rem !important;
+        }
+
         .perfume-card .nombre {
             font-size: 0.95rem !important;
         }
@@ -366,6 +371,11 @@ MOBILE = """
         /* ── Stepper: ocultar labels en pantallas muy pequeñas ── */
         .wiz-step-label {
             display: none !important;
+        }
+
+        /* ── Chips de precio: ancho mínimo para no aplastarse ── */
+        .precio-chip {
+            min-width: 56px !important;
         }
     }
 """

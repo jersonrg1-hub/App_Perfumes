@@ -59,39 +59,50 @@ def _generar_mensaje_cotizacion(
 ) -> str:
     total = sum(float(i["precio"]) for i in cesta_cotizacion)
 
-    lineas = []
-    for i in cesta_cotizacion:
+    bloques = []
+    for idx, i in enumerate(cesta_cotizacion, 1):
         precio_orig = i.get("precio_original")
         precio_final = float(i["precio"])
         marca = i.get("marca", "")
+        nombre = i.get("perfume", "")
+        ml = i.get("ml", "")
+
+        marca_txt = f" · _{marca}_" if marca else ""
 
         if precio_orig is not None and round(float(precio_orig), 2) != round(precio_final, 2):
-            precio_txt = f"~S/ {fmt_precio(precio_orig)}~ *S/ {fmt_precio(precio_final)}*"
+            precio_txt = f"~S/ {fmt_precio(precio_orig)}~ ➜ *S/ {fmt_precio(precio_final)}* 🏷️"
         else:
-            precio_txt = f"S/ {fmt_precio(precio_final)}"
+            precio_txt = f"💰 *S/ {fmt_precio(precio_final)}*"
 
-        if marca:
-            lineas.append(f"  🌸 *{marca}* · {i['perfume']} · {i['ml']}ml · {precio_txt}")
-        else:
-            lineas.append(f"  🌸 {i['perfume']} · {i['ml']}ml · {precio_txt}")
+        bloques.append(
+            f"*{idx}.* 🌸 *{nombre}*{marca_txt}\n"
+            f"     📏 {ml}ml  ·  {precio_txt}"
+        )
 
-    items = "\n".join(lineas)
+    items = "\n\n".join(bloques)
 
+    sep = "────────────────────"
     delivery_line = ""
     total_final = total
     if con_delivery:
         total_final = total + COSTO_DELIVERY
-        delivery_line = f"🛵 *Delivery: S/ {fmt_precio(COSTO_DELIVERY)}*\n"
+        delivery_line = f"🛵 Delivery: +S/ {fmt_precio(COSTO_DELIVERY)}\n"
+
+    cta = (
+        "_¿Te interesa? Con gusto te lo aparto_ 😊"
+        if len(cesta_cotizacion) == 1
+        else "_¿Cuál te interesa? Dime el número y te lo aparto_ 😊"
+    )
 
     mensaje = (
-        f"🌸 *Perfuteca — Cotización*\n"
-        f"────────────────────\n"
-        f"📋 *Perfumes disponibles:*\n"
-        f"{items}\n"
-        f"────────────────────\n"
+        f"✨ *Tu cotización — Perfuteca* ✨\n"
+        f"{sep}\n\n"
+        f"{items}\n\n"
+        f"{sep}\n"
         f"{delivery_line}"
-        f"💰 *Total: S/ {fmt_precio(total_final)}*\n\n"
-        f"_¿Te interesa alguno? Con gusto te lo reservo 😊_"
+        f"💰 *Total: S/ {fmt_precio(total_final)}*\n"
+        f"{sep}\n\n"
+        f"{cta}"
     )
     return f"https://wa.me/51{celular}?text={quote(mensaje)}"
 

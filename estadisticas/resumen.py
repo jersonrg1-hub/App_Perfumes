@@ -79,30 +79,36 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     costo_mes = calcular_costo_ventas_df(ventas_mes, df_catalogo)
     ganancia_hoy = total_hoy - costo_hoy
     ganancia_mes = total_mes - costo_mes
-
-    col1, col2, col3, col4 = st.columns(4)
     n_hoy = ventas_hoy["ID_Compra"].nunique() if "ID_Compra" in ventas_hoy.columns else len(ventas_hoy)
     n_mes = ventas_mes["ID_Compra"].nunique() if "ID_Compra" in ventas_mes.columns else len(ventas_mes)
 
-    with col1:
-        st.markdown(_metrica_card("Ventas hoy", n_hoy), unsafe_allow_html=True)
-    with col2:
-        st.markdown(_metrica_card("Total hoy", f"S/ {fmt_precio(total_hoy)}"), unsafe_allow_html=True)
-    with col3:
-        st.markdown(_metrica_card("Ventas mes", n_mes), unsafe_allow_html=True)
-    with col4:
-        st.markdown(_metrica_card("Total mes", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
+    def _label_periodo(texto):
+        return (
+            f"<div style='font-size:0.72rem; text-transform:uppercase; font-weight:700;"
+            f"color:#a07850; letter-spacing:0.1em; margin:0.6rem 0 0.4rem;'>{texto}</div>"
+        )
 
-    st.markdown("")
+    st.markdown(_label_periodo("☀️ Hoy"), unsafe_allow_html=True)
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(_metrica_card("Ventas", n_hoy), unsafe_allow_html=True)
+    with col2:
+        st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total_hoy)}"), unsafe_allow_html=True)
+    with col3:
+        st.markdown(_metrica_card("Costo", f"S/ {fmt_precio(costo_hoy)}"), unsafe_allow_html=True)
+    with col4:
+        st.markdown(_metrica_card("Ganancia", f"S/ {fmt_precio(ganancia_hoy)}"), unsafe_allow_html=True)
+
+    st.markdown(_label_periodo("📅 Este mes"), unsafe_allow_html=True)
     col5, col6, col7, col8 = st.columns(4)
     with col5:
-        st.markdown(_metrica_card("Costo hoy", f"S/ {fmt_precio(costo_hoy)}"), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Ventas", n_mes), unsafe_allow_html=True)
     with col6:
-        st.markdown(_metrica_card("Ganancia hoy", f"S/ {fmt_precio(ganancia_hoy)}"), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
     with col7:
-        st.markdown(_metrica_card("Costo mes", f"S/ {fmt_precio(costo_mes)}"), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Costo", f"S/ {fmt_precio(costo_mes)}"), unsafe_allow_html=True)
     with col8:
-        st.markdown(_metrica_card("Ganancia mes", f"S/ {fmt_precio(ganancia_mes)}"), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Ganancia", f"S/ {fmt_precio(ganancia_mes)}"), unsafe_allow_html=True)
 
     st.markdown("")
     col_pdf1, col_pdf2 = st.columns(2)

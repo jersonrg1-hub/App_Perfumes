@@ -1,9 +1,73 @@
+import html
 import streamlit as st
 import pandas as pd
 
 from components import separador, construir_catalogo_dict, nombre_por_id
 from config import fmt_precio, fmt_fecha
-from costos import construir_costo_ml_dict, costo_por_item, COSTO_VIAL, COSTO_EMPAQUE
+from costos import construir_costo_ml_dict, costo_por_item, COSTO_VIAL, COSTO_EMPAQUE, calcular_costo_ventas_df
+
+
+def _card_hist(titulo, valor):
+    t = html.escape(str(titulo))
+    v = html.escape(str(valor))
+    return f"""
+    <div style="background:white; border-radius:12px; padding:1rem;
+        text-align:center; border:1px solid #ede0d4;
+        border-top:3px solid #c8956c;
+        box-shadow:0 2px 8px rgba(200,149,108,0.08);">
+        <div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;
+            font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">{t}</div>
+        <div style="color:#c8956c; font-size:1.5rem; font-weight:700;
+            font-family:Inter,sans-serif;
+            font-variant-numeric:tabular-nums;
+            white-space:nowrap;">{v}</div>
+    </div>
+    """
+
+
+def _mostrar_resumen_total(entregadas, df_catalogo):
+    st.markdown("#### 📈 Resumen histórico total")
+
+    total_compras = entregadas["ID_Compra"].nunique() if "ID_Compra" in entregadas.columns else len(entregadas)
+    total_facturado = float(entregadas["Precio_Cobrado"].sum()) if "Precio_Cobrado" in entregadas.columns else 0.0
+    total_costo = calcular_costo_ventas_df(entregadas, df_catalogo)
+    total_ganancia = total_facturado - total_costo
+    ticket_prom = total_facturado / total_compras if total_compras > 0 else 0.0
+    total_ml = int(pd.to_numeric(entregadas.get("Ml_Vendido", pd.Series(dtype=float)), errors="coerce").fillna(0).sum())
+    margen = (total_ganancia / total_facturado * 100) if total_facturado > 0 else 0.0
+
+    mejor_mes = "—"
+    if "Fecha" in entregadas.columns and "Precio_Cobrado" in entregadas.columns:
+        fechas_ok = entregadas["Fecha"].dropna()
+        if not fechas_ok.empty:
+            por_mes = entregadas.loc[fechas_ok.index].groupby(
+                entregadas.loc[fechas_ok.index, "Fecha"].dt.to_period("M")
+            )["Precio_Cobrado"].sum()
+            if not por_mes.empty:
+                mejor_mes = str(por_mes.idxmax())
+
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.markdown(_card_hist("Total compras", total_compras), unsafe_allow_html=True)
+    with col2:
+        st.markdown(_card_hist("Total facturado", f"S/ {fmt_precio(total_facturado)}"), unsafe_allow_html=True)
+    with col3:
+        st.markdown(_card_hist("Total costo", f"S/ {fmt_precio(total_costo)}"), unsafe_allow_html=True)
+    with col4:
+        st.markdown(_card_hist("Total ganancia", f"S/ {fmt_precio(total_ganancia)}"), unsafe_allow_html=True)
+
+    st.markdown("")
+    col5, col6, col7, col8 = st.columns(4)
+    with col5:
+        st.markdown(_card_hist("Ticket promedio", f"S/ {fmt_precio(ticket_prom)}"), unsafe_allow_html=True)
+    with col6:
+        st.markdown(_card_hist("Total ml vendidos", f"{total_ml} ml"), unsafe_allow_html=True)
+    with col7:
+        st.markdown(_card_hist("Margen promedio", f"{margen:.1f}%"), unsafe_allow_html=True)
+    with col8:
+        st.markdown(_card_hist("Mejor mes", mejor_mes), unsafe_allow_html=True)
+
+    st.markdown("")
 
 def mostrar_historial_ventas(df_ventas, df_catalogo=None):
     if df_ventas.empty:
@@ -25,6 +89,8 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
             entregadas["Fecha"].astype(str).str.strip(), errors="coerce"
         )
 
+    _mostrar_resumen_total(entregadas, df_catalogo)
+    separador()
 
     col1, col2, col3 = st.columns(3)
 

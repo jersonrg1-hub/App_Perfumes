@@ -12,7 +12,7 @@ def _calcular_stats_mensuales(df_ventas):
     df = df_ventas[df_ventas["Precio_Cobrado"].notna() & df_ventas["Fecha"].notna()].copy()
     agrupado = (
         df.groupby(df["Fecha"].dt.to_period("M").astype(str))
-        .agg(total=("Precio_Cobrado", "sum"), num=("Precio_Cobrado", "count"))
+        .agg(total=("Precio_Cobrado", "sum"), num=("ID_Compra", "nunique"))
     )
     agrupado["prom"] = agrupado["total"] / agrupado["num"].where(agrupado["num"] > 0, 1)
     return agrupado.to_dict("index")
@@ -150,7 +150,7 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
                         font-weight:600; text-transform:uppercase;">{dia}</div>
                     <div style="color:#2c1a0e; font-size:0.9rem; font-weight:700;
                         font-family:'Inter','DM Sans',sans-serif;
-                        font-variant-numeric:tabular-nums;">{len(ventas_dia)}</div>
+                        font-variant-numeric:tabular-nums;">{ventas_dia["ID_Compra"].nunique() if "ID_Compra" in ventas_dia.columns else len(ventas_dia)}</div>
                     <div style="color:#a07850; font-size:0.65rem;
                         font-family:'Inter','DM Sans',sans-serif;">
                         S/{fmt_precio(total_dia)}</div>
@@ -178,7 +178,8 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
         mes2 = st.selectbox("📅 Mes 2", opciones_meses,
             index=max(0, len(opciones_meses) - 2), key="mes2_comp")
 
-    stats_dict = _calcular_stats_mensuales(df_ventas[["Fecha", "Precio_Cobrado"]])
+    cols_stats = [c for c in ["Fecha", "Precio_Cobrado", "ID_Compra"] if c in df_ventas.columns]
+    stats_dict = _calcular_stats_mensuales(df_ventas[cols_stats])
     total_m1, num_m1, prom_m1 = _stats_mes(stats_dict, mes1)
     total_m2, num_m2, prom_m2 = _stats_mes(stats_dict, mes2)
 

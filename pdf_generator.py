@@ -142,3 +142,22 @@ def exportar_pdf_ventas_mes(df_ventas, df_catalogo):
         titulo=f"Ventas de {nombre_mes} {hoy.year}",
         subtitulo=f"Generado el {hoy.strftime('%d/%m/%Y')}"
     )
+
+
+MESES_ES = [
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"
+]
+
+
+def exportar_pdf_mes_especifico(df_ventas, df_catalogo, anio: int, mes: int):
+    """Genera un PDF con las ventas de un mes y año específicos."""
+    df = df_ventas.copy()
+    df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
+    filtrado = df[(df["Fecha"].dt.month == mes) & (df["Fecha"].dt.year == anio)]
+    nombre_mes = MESES_ES[mes - 1].capitalize()
+    return _construir_pdf(
+        filtrado, df_catalogo,
+        titulo=f"Ventas de {nombre_mes} {anio}",
+        subtitulo=f"Generado el {date.today().strftime('%d/%m/%Y')}"
+    )

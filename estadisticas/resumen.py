@@ -7,7 +7,7 @@ import pandas as pd
 from components import separador
 from config import fmt_precio, hoy_peru
 from costos import calcular_costo_ventas_df
-from pdf_generator import exportar_pdf_ventas_hoy, exportar_pdf_ventas_mes
+from pdf_generator import exportar_pdf_ventas_hoy, exportar_pdf_ventas_mes, exportar_pdf_mes_especifico, MESES_ES
 
 
 def _metrica_card(titulo, valor):
@@ -141,6 +141,42 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         else:
             st.button("⬇️ PDF del mes", disabled=True, use_container_width=True, key="dl_pdf_mes_off")
             st.caption("Sin ventas este mes")
+
+    # ── PDF de mes específico ────────────────────────────────────────────
+    periodos = sorted(
+        df_ventas["Fecha"].dropna().dt.to_period("M").unique().tolist(),
+        reverse=True,
+    )
+    if periodos:
+        st.markdown("")
+        opciones = {
+            f"{MESES_ES[p.month - 1].capitalize()} {p.year}": (p.year, p.month)
+            for p in periodos
+        }
+        col_sel, col_dl = st.columns([2, 1])
+        with col_sel:
+            mes_elegido = st.selectbox(
+                "📆 Descargar PDF de otro mes",
+                list(opciones.keys()),
+                key="pdf_mes_especifico_sel",
+            )
+        with col_dl:
+            anio_sel, mes_sel = opciones[mes_elegido]
+            pdf_esp = exportar_pdf_mes_especifico(df_ventas, df_catalogo, anio_sel, mes_sel)
+            st.markdown("<div style='margin-top:1.6rem'></div>", unsafe_allow_html=True)
+            if pdf_esp:
+                st.download_button(
+                    label="⬇️ Descargar",
+                    data=pdf_esp,
+                    file_name=f"ventas_{anio_sel}_{mes_sel:02d}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    key="dl_pdf_esp",
+                )
+            else:
+                st.button("⬇️ Descargar", disabled=True, use_container_width=True, key="dl_pdf_esp_off")
+                st.caption("Sin ventas ese mes")
+    # ────────────────────────────────────────────────────────────────────
 
     separador()
     st.markdown("#### 🏆 Perfumes más vendidos")

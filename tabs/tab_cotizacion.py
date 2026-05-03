@@ -108,7 +108,7 @@ def mostrar_seccion_cotizacion(df):
     if "cotizacion_enviada" not in st.session_state:
         st.session_state.cotizacion_enviada = False
 
-    with st.expander("💰 Enviar Cotización por WhatsApp", expanded=False):
+    with st.expander("💰 Enviar Cotización por WhatsApp", expanded=True):
 
         celular_raw = st.text_input(
             "📱 Celular del cliente",

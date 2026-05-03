@@ -1,7 +1,6 @@
 import hmac
 import time
 import streamlit as st
-import streamlit.components.v1 as components
 from data import cargar_ventas
 
 MAX_INTENTOS = 3
@@ -53,20 +52,7 @@ def login_seccion(key_suffix="default"):
     try:
         app_password = st.secrets["APP_PASSWORD"]
     except (KeyError, FileNotFoundError):
-        st.markdown(
-            '<div style="text-align:center;padding:1.5rem;background:#fff7ed;'
-            'border-radius:12px;border:1px solid #f59e0b;">'
-            '<div style="font-size:2rem;margin-bottom:0.5rem;">⏳</div>'
-            '<div style="font-weight:700;color:#92400e;font-size:1rem;">App iniciando...</div>'
-            '<div style="color:#b45309;font-size:0.85rem;margin-top:0.3rem;">'
-            'La página se recargará sola en unos segundos...</div>'
-            '</div>',
-            unsafe_allow_html=True,
-        )
-        components.html(
-            "<script>setTimeout(function(){ window.parent.location.reload(); }, 4000);</script>",
-            height=0,
-        )
+        st.error("⚠️ Error de configuración: no se encontró APP_PASSWORD en los secrets de la app. Revisa la configuración en Streamlit Cloud.")
         return False
 
     with st.form(key=f"login_form_{key_suffix}"):

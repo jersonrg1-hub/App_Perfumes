@@ -55,6 +55,45 @@ st.markdown("""
 })();
 
 (function() {
+    // Banner prominente cuando Streamlit pierde conexión
+    var banner = null;
+
+    function crearBanner() {
+        if (banner) return;
+        banner = document.createElement('div');
+        banner.style.cssText = [
+            'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:99999',
+            'background:#dc2626', 'color:white', 'text-align:center',
+            'padding:16px 20px', 'font-weight:700', 'font-size:1.05rem',
+            'cursor:pointer', 'box-shadow:0 3px 10px rgba(0,0,0,0.4)',
+            'letter-spacing:0.02em'
+        ].join(';');
+        banner.textContent = '⚠️ App desconectada — Toca aquí para reconectar';
+        banner.onclick = function() { window.location.reload(); };
+        document.body.appendChild(banner);
+    }
+
+    function quitarBanner() {
+        if (banner) { banner.remove(); banner = null; }
+    }
+
+    function verificarConexion() {
+        var desconectado =
+            document.querySelector('[data-testid="stConnectionStatus"]') ||
+            document.querySelector('[class*="StatusWidget"]') ||
+            document.querySelector('[class*="connectionStatus"]');
+        if (desconectado) { crearBanner(); } else { quitarBanner(); }
+    }
+
+    new MutationObserver(verificarConexion)
+        .observe(document.body, { childList: true, subtree: true });
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) { setTimeout(verificarConexion, 2500); }
+    });
+})();
+
+(function() {
     // Teclado decimal en móvil para todos los inputs numéricos
     function _fixInputModes() {
         document.querySelectorAll('input[type="number"]').forEach(function(el) {

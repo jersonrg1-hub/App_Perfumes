@@ -1,5 +1,6 @@
 import html
 import streamlit as st
+from urllib.parse import quote
 from config import COL_ESTADO_NUM, COLUMNAS_VENTAS, METODOS_PAGO, fmt_precio, fmt_fecha
 from data import marcar_pedido_entregado_batch, actualizar_ventas_multi_fila_batch
 from components import separador, construir_catalogo_dict, nombre_por_id
@@ -119,6 +120,34 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
             )
 
             separador()
+
+            items_lineas = "\n".join([
+                f"  • {nombre_por_id(catalogo_dict, it.get('ID_Perfume',''))} "
+                f"{it.get('Ml_Vendido','')}ml — S/ {fmt_precio(it.get('Precio_Cobrado',0))}"
+                for it in grupo.to_dict("records")
+            ])
+            dir_linea = f"\n📍 *Dirección:* {dir_s}" if primera.get("Direccion") else ""
+            msg_comunidad = (
+                f"📦 *Pedido Nuevo — {html.escape(str(id_compra))}*\n"
+                f"────────────────────\n"
+                f"👤 *Cliente:* {html.escape(str(primera.get('Comprador','')))} \n"
+                f"📱 *Celular:* {celular_s}\n"
+                f"🚚 *Envío:* {envio_s}"
+                f"{dir_linea}\n"
+                f"────────────────────\n"
+                f"🌸 *Perfumes:*\n{items_lineas}\n"
+                f"────────────────────\n"
+                f"💰 *Total: S/ {fmt_precio(total_compra)}*\n"
+                f"💳 *Pago:* {pago_s}"
+            )
+            st.markdown(
+                f'<a href="https://wa.me/?text={quote(msg_comunidad)}" target="_blank"'
+                f' style="text-decoration:none;display:block;background:#128C7E;'
+                f'color:white !important;padding:10px;border-radius:8px;'
+                f'text-align:center;font-weight:700;font-size:0.85rem;margin-bottom:0.6rem;">'
+                f'📲 Enviar pedido a comunidad</a>',
+                unsafe_allow_html=True,
+            )
 
             modo_key = f"modo_{id_compra}"
             if modo_key not in st.session_state:

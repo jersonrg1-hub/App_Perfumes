@@ -641,6 +641,33 @@ def _mostrar_venta_guardada():
             </div></a>""", unsafe_allow_html=True
         )
 
+    items_lineas = "\n".join([
+        f"  • {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
+        for it in cesta
+    ])
+    dir_linea = f"\n📍 *Dirección:* {st.session_state.get('wiz_direccion', '')}" if st.session_state.get("wiz_direccion") else ""
+    msg_comunidad = (
+        f"📦 *Pedido Nuevo — {id_compra}*\n"
+        f"────────────────────\n"
+        f"👤 *Cliente:* {comprador}\n"
+        f"📱 *Celular:* {celular}\n"
+        f"🚚 *Envío:* {tipo_envio}"
+        f"{dir_linea}\n"
+        f"────────────────────\n"
+        f"🌸 *Perfumes:*\n{items_lineas}\n"
+        f"────────────────────\n"
+        f"💰 *Total: S/ {fmt_precio(total)}*\n"
+        f"💳 *Pago:* {cesta[0]['metodo'] if cesta else ''}"
+    )
+    st.markdown(
+        f'<a href="https://wa.me/?text={quote(msg_comunidad)}" target="_blank"'
+        f' style="text-decoration:none;display:block;background:#128C7E;'
+        f'color:white !important;padding:12px;border-radius:10px;'
+        f'text-align:center;font-weight:700;font-size:1rem;margin-top:0.5rem;">'
+        f'📲 Enviar pedido a comunidad</a>',
+        unsafe_allow_html=True,
+    )
+
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("📋 Ver detalle de la venta"):
         items_html = _items_cesta_html(cesta)

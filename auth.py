@@ -3,6 +3,8 @@ import time
 import streamlit as st
 from data import cargar_ventas
 
+_MAX_ESPERA_SECRETS = 15
+
 MAX_INTENTOS = 3
 BLOQUEO_SEGUNDOS = 60
 
@@ -47,19 +49,38 @@ def login_seccion(key_suffix="default"):
     if intentos_restantes < MAX_INTENTOS:
         st.caption(f"Intentos restantes: {intentos_restantes}")
 
-    # Verificar secrets
+    # Verificar secrets — si no están listos, esperar automáticamente
     app_password = None
-    secrets_ok = False
     try:
         app_password = st.secrets["APP_PASSWORD"]
-        secrets_ok = True
     except (KeyError, FileNotFoundError):
-        st.warning("⚠️ La app acaba de reiniciarse. Presiona el botón para recargar y vuelve a intentarlo.")
-        if st.button("🔄 Recargar app", key=f"reload_{key_suffix}", use_container_width=True):
-            st.rerun()
-        # ✅ NO retornamos False aquí — dejamos que el form aparezca igual
+        inicio = st.session_state.get("_secrets_espera_inicio", time.time())
+        st.session_state["_secrets_espera_inicio"] = inicio
+        esperado = time.time() - inicio
 
-    # Siempre mostramos el formulario (incluso si secrets falló momentáneamente)
+        st.markdown(
+            '<div style="text-align:center;padding:1.5rem;background:#fff7ed;'
+            'border-radius:12px;border:1px solid #f59e0b;">'
+            '<div style="font-size:2rem;margin-bottom:0.5rem;">⏳</div>'
+            '<div style="font-weight:700;color:#92400e;font-size:1rem;">App iniciando...</div>'
+            '<div style="color:#b45309;font-size:0.85rem;margin-top:0.3rem;">'
+            'Cargando configuración, espera un momento.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+        if esperado > _MAX_ESPERA_SECRETS:
+            st.error("❌ La app tardó demasiado en cargar. Recarga la página manualmente.")
+            if st.button("🔄 Recargar", key=f"reload_{key_suffix}", use_container_width=True):
+                st.session_state.pop("_secrets_espera_inicio", None)
+                st.rerun()
+        else:
+            time.sleep(2)
+            st.rerun()
+        return False
+
+    st.session_state.pop("_secrets_espera_inicio", None)
+
     with st.form(key=f"login_form_{key_suffix}"):
         password = st.text_input(
             "Contraseña de Administrador",
@@ -71,11 +92,6 @@ def login_seccion(key_suffix="default"):
         if submit:
             if not password:
                 st.warning("Ingresa la contraseña.")
-                return False
-
-            # Si al momento de enviar los secrets siguen sin cargar
-            if not secrets_ok:
-                st.error("⚠️ Secrets aún no disponibles. Espera unos segundos y recarga la página.")
                 return False
 
             if hmac.compare_digest(password, app_password):

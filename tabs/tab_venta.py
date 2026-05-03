@@ -609,15 +609,15 @@ def mostrar_tab_venta(df):
         _mostrar_venta_guardada()
         return
 
-    _barra_progreso(st.session_state.wiz_paso)
+    mostrar_seccion_cotizacion(df)
+    separador()
 
-    if st.session_state.wiz_paso == 1:
-        _paso_1_cliente(df)
-    elif st.session_state.wiz_paso == 2:
-        _paso_2_perfumes(df)
-    elif st.session_state.wiz_paso == 3:
-        _paso_3_confirmar()
+    with st.expander("🛒 Registrar Venta Directa", expanded=st.session_state.wiz_paso > 1):
+        _barra_progreso(st.session_state.wiz_paso)
 
-    if st.session_state.wiz_paso == 1 and not st.session_state.get("venta_guardada"):
-        separador()
-        mostrar_seccion_cotizacion(df)
+        if st.session_state.wiz_paso == 1:
+            _paso_1_cliente(df)
+        elif st.session_state.wiz_paso == 2:
+            _paso_2_perfumes(df)
+        elif st.session_state.wiz_paso == 3:
+            _paso_3_confirmar()

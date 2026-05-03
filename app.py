@@ -35,6 +35,26 @@ st.markdown(get_styles(), unsafe_allow_html=True)
 st.markdown("""
 <script>
 (function() {
+    // Recarga solo si vuelve del segundo plano tras 25 min Y hay error de conexión
+    var hiddenAt = null;
+    var LIMITE_MS = 25 * 60 * 1000;
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            hiddenAt = Date.now();
+        } else if (hiddenAt !== null && (Date.now() - hiddenAt) > LIMITE_MS) {
+            hiddenAt = null;
+            setTimeout(function() {
+                var hayError = document.querySelector('[data-testid="stConnectionStatus"]') ||
+                               document.querySelector('.stException');
+                if (hayError) { window.location.reload(); }
+            }, 2000);
+        } else {
+            hiddenAt = null;
+        }
+    });
+})();
+
+(function() {
     // Teclado decimal en móvil para todos los inputs numéricos
     function _fixInputModes() {
         document.querySelectorAll('input[type="number"]').forEach(function(el) {

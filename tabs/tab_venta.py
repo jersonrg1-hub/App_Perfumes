@@ -1,10 +1,145 @@
 import html
+import re
+import pandas as pd
 import streamlit as st
+from urllib.parse import quote
 from config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, fmt_precio, hoy_peru, STOCK_CRITICO, STOCK_BAJO, ItemCesta, DatosCliente
 from costos import costo_total_item
-from data import cargar_ventas, registrar_venta_completa, StockUpdateError
+from data import (cargar_ventas, registrar_venta_completa, StockUpdateError,
+                  cargar_cotizaciones, obtener_proximo_id, guardar_venta,
+                  actualizar_stock_perfumes_batch, actualizar_estado_cotizacion,
+                  limpiar_cache_ventas)
 from components import generar_url_whatsapp, separador
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
+from estadisticas.historial_cotizaciones import _parsear_items_cotizacion
+
+
+def _cotizaciones_hoy(df_catalogo):
+    df_cot = cargar_cotizaciones()
+    if df_cot.empty:
+        return
+
+    hoy = hoy_peru()
+    df_hoy = df_cot[
+        df_cot["Fecha"].apply(lambda f: f.date() if pd.notna(f) else None) == hoy
+    ]
+    df_hoy = df_hoy[~df_hoy["Estado"].isin(["Aceptada", "Rechazada"])]
+
+    if df_hoy.empty:
+        return
+
+    st.markdown(
+        '<div style="font-size:0.75rem;color:#a07850;text-transform:uppercase;font-weight:700;'
+        'letter-spacing:0.12em;padding-bottom:0.4rem;border-bottom:1px solid #ede0d4;'
+        'margin-bottom:0.7rem;">📋 Cotizaciones de hoy</div>',
+        unsafe_allow_html=True,
+    )
+
+    for row in df_hoy.sort_values("Fecha", ascending=False).to_dict("records"):
+        id_cot     = str(row.get("ID_Cotizacion", ""))
+        celular    = str(row.get("Celular", ""))
+        perfumes_txt = str(row.get("Perfumes", ""))
+        total      = float(row.get("Total", 0))
+        fila_cot   = int(row.get("fila_sheet", 0))
+        uid        = f"hoy_{fila_cot}"
+        conv_key   = f"conv_hoy_{fila_cot}"
+
+        preview = " · ".join(
+            re.sub(r"\s+S/.*$", "", i.strip()) for i in perfumes_txt.split(" | ") if i.strip()
+        )
+        st.markdown(
+            f'<div style="background:#f5ede6;border-left:3px solid #c8956c;border-radius:10px;'
+            f'padding:0.6rem 0.9rem;margin-bottom:0.5rem;">'
+            f'<div style="display:flex;justify-content:space-between;align-items:center;">'
+            f'<span style="font-weight:700;color:#2c1a0e;">📱 {html.escape(celular)}</span>'
+            f'<span style="font-weight:700;color:#c8956c;font-family:Inter,sans-serif;">'
+            f'S/ {fmt_precio(total)}</span></div>'
+            f'<div style="font-size:0.78rem;color:#6b4226;margin-top:0.2rem;">'
+            f'{html.escape(preview)}</div></div>',
+            unsafe_allow_html=True,
+        )
+
+        if not st.session_state.get(conv_key):
+            if st.button("✅ Convertir a Venta", key=f"conv_btn_{uid}",
+                         use_container_width=True, type="primary"):
+                st.session_state[conv_key] = True
+                st.rerun()
+        else:
+            comprador_raw = st.text_input("👤 Nombre", placeholder="Nombre completo", key=f"comp_{uid}")
+            comprador     = comprador_raw.title() if comprador_raw else ""
+            tipo_envio    = st.selectbox("🚚 Envío", TIPOS_ENVIO, key=f"envio_{uid}")
+            direccion     = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key=f"dir_{uid}")
+            metodo_pago   = st.selectbox("💳 Pago", METODOS_PAGO, key=f"pago_{uid}")
+
+            col_ok, col_cancel = st.columns(2)
+            with col_ok:
+                if st.button("✅ Confirmar", key=f"ok_{uid}", type="primary", use_container_width=True):
+                    if not comprador:
+                        st.error("⚠️ Ingresa el nombre")
+                    elif tipo_envio != "Contraentrega" and not direccion.strip():
+                        st.error(f"⚠️ Dirección requerida para {tipo_envio}")
+                    else:
+                        items_venta, errores = _parsear_items_cotizacion(perfumes_txt, df_catalogo)
+                        if errores:
+                            st.error("❌ " + " · ".join(errores))
+                        else:
+                            for it in items_venta:
+                                it["metodo"] = metodo_pago
+                            try:
+                                id_compra = obtener_proximo_id()
+                                filas = [
+                                    [id_compra, str(hoy_peru()), comprador, celular,
+                                     it["id_perfume"], str(it["ml"]),
+                                     round(float(it["precio"]), 2),
+                                     metodo_pago, tipo_envio, direccion, "Pendiente"]
+                                    for it in items_venta
+                                ]
+                                guardar_venta(filas)
+                                try:
+                                    actualizar_stock_perfumes_batch(items_venta)
+                                except Exception:
+                                    st.warning("⚠️ Stock no pudo actualizarse, corrígelo manualmente.")
+                                actualizar_estado_cotizacion(id_cot, "Aceptada", fila_sheet=fila_cot)
+                                limpiar_cache_ventas()
+                                st.session_state[conv_key] = False
+
+                                items_lineas = "\n".join([
+                                    f"  • {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
+                                    for it in items_venta
+                                ])
+                                dir_linea = f"\n📍 *Dirección:* {direccion}" if direccion.strip() else ""
+                                msg = (
+                                    f"📦 *Pedido Nuevo — {id_compra}*\n"
+                                    f"────────────────────\n"
+                                    f"👤 *Cliente:* {comprador}\n"
+                                    f"📱 *Celular:* {celular}\n"
+                                    f"🚚 *Envío:* {tipo_envio}"
+                                    f"{dir_linea}\n"
+                                    f"────────────────────\n"
+                                    f"🌸 *Perfumes:*\n{items_lineas}\n"
+                                    f"────────────────────\n"
+                                    f"💰 *Total: S/ {fmt_precio(total)}*\n"
+                                    f"💳 *Pago:* {metodo_pago}"
+                                )
+                                st.success(f"✅ Venta {id_compra} registrada")
+                                st.markdown(
+                                    f'<a href="https://wa.me/?text={quote(msg)}" target="_blank"'
+                                    f' style="text-decoration:none;display:block;background:#25D366;'
+                                    f'color:white !important;padding:10px;border-radius:8px;'
+                                    f'text-align:center;font-weight:700;font-size:0.9rem;margin:8px 0;">'
+                                    f'📲 Enviar pedido a comunidad</a>',
+                                    unsafe_allow_html=True,
+                                )
+                                if st.button("✖ Cerrar", key=f"cerrar_{uid}", use_container_width=True):
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Error: {e}")
+            with col_cancel:
+                if st.button("✖ Cancelar", key=f"cancel_{uid}", use_container_width=True):
+                    st.session_state[conv_key] = False
+                    st.rerun()
+
+    separador()
 
 
 def _buscar_cliente(df_ventas, celular):
@@ -609,6 +744,7 @@ def mostrar_tab_venta(df):
         _mostrar_venta_guardada()
         return
 
+    _cotizaciones_hoy(df)
     mostrar_seccion_cotizacion(df)
     separador()
 

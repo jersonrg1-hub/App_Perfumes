@@ -35,20 +35,6 @@ st.markdown(get_styles(), unsafe_allow_html=True)
 st.markdown("""
 <script>
 (function() {
-    // Auto-recarga si vuelve del segundo plano tras 3 minutos
-    var hiddenAt = null;
-    var LIMITE_MS = 3 * 60 * 1000;
-    document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-            hiddenAt = Date.now();
-        } else {
-            if (hiddenAt !== null && (Date.now() - hiddenAt) > LIMITE_MS) {
-                window.location.reload();
-            }
-            hiddenAt = null;
-        }
-    });
-
     // Teclado decimal en móvil para todos los inputs numéricos
     function _fixInputModes() {
         document.querySelectorAll('input[type="number"]').forEach(function(el) {

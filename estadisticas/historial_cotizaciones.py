@@ -283,8 +283,41 @@ def mostrar_historial_cotizaciones():
                                         actualizar_estado_cotizacion(id_cot_raw, "Aceptada", fila_sheet=fila_cot)
                                         limpiar_cache_ventas()
                                         st.session_state[converting_key] = False
-                                        st.success(f"✅ Venta {id_compra} creada desde cotización {id_cot_raw}")
-                                        st.rerun()
+
+                                        items_lineas = "\n".join([
+                                            f"  • {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
+                                            for it in items_venta
+                                        ])
+                                        dir_linea = f"\n📍 *Dirección:* {direccion}" if direccion.strip() else ""
+                                        mensaje_comunidad = (
+                                            f"📦 *Pedido Nuevo — {id_compra}*\n"
+                                            f"────────────────────\n"
+                                            f"👤 *Cliente:* {comprador}\n"
+                                            f"📱 *Celular:* {row.get('Celular', '')}\n"
+                                            f"🚚 *Envío:* {tipo_envio}"
+                                            f"{dir_linea}\n"
+                                            f"────────────────────\n"
+                                            f"🌸 *Perfumes:*\n"
+                                            f"{items_lineas}\n"
+                                            f"────────────────────\n"
+                                            f"💰 *Total: S/ {fmt_precio(total)}*\n"
+                                            f"💳 *Pago:* {metodo_pago}"
+                                        )
+                                        wa_comunidad_url = f"https://wa.me/?text={quote(mensaje_comunidad)}"
+
+                                        st.success(f"✅ Venta {id_compra} registrada correctamente")
+                                        st.markdown(
+                                            f"""<a href="{wa_comunidad_url}" target="_blank"
+                                               style="text-decoration:none;display:block;background:#25D366;
+                                                   color:white !important;padding:10px;border-radius:8px;
+                                                   text-align:center;font-weight:700;font-size:0.9rem;
+                                                   margin:8px 0;">
+                                               📲 Enviar pedido a comunidad de WhatsApp
+                                            </a>""",
+                                            unsafe_allow_html=True,
+                                        )
+                                        if st.button("✖ Cerrar", key=f"cerrar_{uid}", use_container_width=True):
+                                            st.rerun()
                                     except Exception as e:
                                         st.error(f"Error al guardar: {e}")
 

@@ -1,6 +1,7 @@
 import hmac
 import time
 import streamlit as st
+import streamlit.components.v1 as components
 from data import cargar_ventas
 
 MAX_INTENTOS = 3
@@ -58,12 +59,14 @@ def login_seccion(key_suffix="default"):
             '<div style="font-size:2rem;margin-bottom:0.5rem;">⏳</div>'
             '<div style="font-weight:700;color:#92400e;font-size:1rem;">App iniciando...</div>'
             '<div style="color:#b45309;font-size:0.85rem;margin-top:0.3rem;">'
-            'Espera unos segundos y toca Recargar.</div>'
+            'La página se recargará sola en unos segundos...</div>'
             '</div>',
             unsafe_allow_html=True,
         )
-        if st.button("🔄 Recargar", key=f"reload_{key_suffix}", use_container_width=True):
-            st.rerun()
+        components.html(
+            "<script>setTimeout(function(){ window.parent.location.reload(); }, 4000);</script>",
+            height=0,
+        )
         return False
 
     with st.form(key=f"login_form_{key_suffix}"):

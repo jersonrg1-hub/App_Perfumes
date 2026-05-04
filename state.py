@@ -122,6 +122,7 @@ def reset_venta() -> None:
     state["cesta"] = []
     state["busqueda"] = {"metodo": ultimo_metodo}
     state["autocomplete"] = {"aplicado": False, "celular_buscado": ""}
+    state["conv_activas"] = {}
 
     for k in CLIENTE_WIDGET_KEYS + BUSQUEDA_WIDGET_KEYS:
         st.session_state.pop(k, None)
@@ -157,6 +158,7 @@ def reset_cotizacion() -> None:
         "guardada": False,
         "id": "",
         "url_wa": "",
+        "_last_precio_key": "",
     }
     for k in ("cot_cel", "cot_marca", "cot_perf", "cot_ml", "cot_delivery",
                "cot_precio"):

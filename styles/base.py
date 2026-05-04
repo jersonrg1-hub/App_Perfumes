@@ -73,6 +73,8 @@ h1, h2, h3, h4 {
     padding: 1.8rem 1rem 0.6rem;
     margin-bottom: 0.5rem;
     position: relative;
+    /* Sticky top-bar en móvil para tener siempre el nombre visible */
+    background: var(--c-bg);
 }
 
 .header-ornamento {
@@ -193,7 +195,9 @@ h1, h2, h3, h4 {
 }
 
 .stButton > button:active {
-    transform: scale(0.97) !important;
+    transform: scale(0.95) !important;
+    box-shadow: none !important;
+    transition: transform 0.10s ease !important;
 }
 
 [data-testid="stVerticalBlockBorderWrapper"] {

@@ -31,7 +31,7 @@ from data import (
     registrar_venta_completa, StockUpdateError,
     obtener_proximo_id, guardar_venta,
     actualizar_stock_perfumes_batch, actualizar_estado_cotizacion,
-    limpiar_cache_ventas,
+    limpiar_cache_ventas, limpiar_cache_cotizaciones,
 )
 from components import generar_url_whatsapp, separador
 from tabs.tab_cotizacion import mostrar_seccion_cotizacion
@@ -232,6 +232,8 @@ def _on_eliminar_item(state: dict, item_id: str) -> None:
 
 def _on_guardar_venta(state: dict) -> None:
     """Persiste la venta en Google Sheets y actualiza el estado post-guardado."""
+    if state["venta"]["guardada"]:
+        return
     cliente: DatosCliente = {
         "comprador": state["cliente"]["comprador"],
         "celular":   state["cliente"]["celular"],
@@ -416,6 +418,7 @@ def _ejecutar_conversion(
             st.warning("⚠️ Stock no pudo actualizarse, corrígelo manualmente.")
         actualizar_estado_cotizacion(id_cot, "Aceptada", fila_sheet=fila_cot)
         limpiar_cache_ventas()
+        limpiar_cache_cotizaciones()
         state["conv_activas"][conv_key] = False
 
         items_lineas = "\n".join([
@@ -644,9 +647,15 @@ def _render_paso_2(df: pd.DataFrame, state: dict) -> None:
                 except Exception:
                     pass
 
-                # Toggle edición — clave fija "v_editar"
-                # Se elimina de session_state en reset_busqueda(), así que
-                # value=False se aplica correctamente en cada item nuevo.
+                # Si el usuario cambia perfume o ml sin agregar, v_precio y v_editar
+                # quedarían con valores del perfume anterior (value= es ignorado
+                # cuando la clave existe en session_state). Los purgamos al detectar cambio.
+                _perf_ml_key = f"{perfume_sel}|{ml_sel}"
+                if state["busqueda"].get("_last_perf_ml") != _perf_ml_key:
+                    state["busqueda"]["_last_perf_ml"] = _perf_ml_key
+                    st.session_state.pop("v_precio", None)
+                    st.session_state.pop("v_editar", None)
+
                 st.toggle("✏️ Editar precio", key="v_editar", value=False)
                 editar = st.session_state.get("v_editar", False)
                 st.number_input(

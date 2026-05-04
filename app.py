@@ -274,6 +274,105 @@ window.__perfuteObsInstalled = true;
     arrancar();
 })();
 
+
+(function() {
+    // ── FAB (Floating Action Button) — "Nueva Venta" ──
+    // Inyecta el botón flotante y lo muestra solo en pantallas ≤430px
+    // cuando el usuario NO está ya en la pestaña de Venta.
+
+    function _fabGetVentaTab() {
+        var tabs = document.querySelectorAll('[data-baseweb="tab"]');
+        for (var i = 0; i < tabs.length; i++) {
+            if (tabs[i].textContent.indexOf('Venta') !== -1) return tabs[i];
+        }
+        return null;
+    }
+
+    function _fabUpdate() {
+        var fab = document.getElementById('perfute-fab');
+        if (!fab) return;
+
+        var esMobil = window.innerWidth <= 430;
+        var ventaTab = _fabGetVentaTab();
+        var enVenta  = ventaTab && ventaTab.getAttribute('aria-selected') === 'true';
+
+        if (esMobil && !enVenta) {
+            fab.classList.remove('fab-hidden');
+        } else {
+            fab.classList.add('fab-hidden');
+        }
+    }
+
+    function _fabCreate() {
+        if (document.getElementById('perfute-fab')) return;
+
+        var fab = document.createElement('button');
+        fab.id = 'perfute-fab';
+        fab.setAttribute('aria-label', 'Nueva Venta');
+        fab.setAttribute('title', 'Nueva Venta');
+        fab.textContent = '+';
+        fab.classList.add('fab-hidden'); // empieza oculto; _fabUpdate lo mostrará
+
+        fab.addEventListener('click', function() {
+            var ventaTab = _fabGetVentaTab();
+            if (ventaTab) {
+                ventaTab.click();
+                // Scroll al inicio para mostrar el wizard desde el principio
+                setTimeout(function() {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 80);
+            }
+        });
+
+        document.body.appendChild(fab);
+        _fabUpdate();
+    }
+
+    // Crear y actualizar en cada mutación del DOM (Streamlit re-renders)
+    _fabCreate();
+    _fabUpdate();
+
+    var _fabRAF = null;
+    new MutationObserver(function() {
+        if (_fabRAF) return;
+        _fabRAF = requestAnimationFrame(function() {
+            _fabRAF = null;
+            _fabCreate();  // re-inyectar si Streamlit eliminó el nodo
+            _fabUpdate();  // actualizar visibilidad según tab activa
+        });
+    }).observe(document.body, { childList: true, subtree: true, attributes: true,
+                                 attributeFilter: ['aria-selected'] });
+
+    window.addEventListener('resize', _fabUpdate);
+})();
+
+(function() {
+    // ── Scroll al inicio al cambiar de tab ──
+    // Simula comportamiento nativo de apps (cada sección empieza desde arriba).
+    var tabs = null;
+
+    function _setupTabScrollReset() {
+        var newTabs = document.querySelectorAll('[data-baseweb="tab"]');
+        if (!newTabs.length) return;
+        newTabs.forEach(function(tab) {
+            if (tab._scrollResetSetup) return;
+            tab._scrollResetSetup = true;
+            tab.addEventListener('click', function() {
+                setTimeout(function() {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }, 60);
+            });
+        });
+    }
+
+    _setupTabScrollReset();
+    var _srRAF = null;
+    new MutationObserver(function() {
+        if (_srRAF) return;
+        _srRAF = requestAnimationFrame(function() { _srRAF = null; _setupTabScrollReset(); });
+    }).observe(document.body, { childList: true, subtree: true });
+})();
+
 } // fin guard __perfuteObsInstalled
 </script>
 """, unsafe_allow_html=True)

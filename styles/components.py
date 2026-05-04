@@ -24,6 +24,14 @@ COMPONENTS = """
     background: linear-gradient(160deg, #fffaf7 0%, #fdf4ed 100%);
 }
 
+.perfume-card:active {
+    transform: scale(0.988);
+    background: linear-gradient(160deg, #fff0e6 0%, #fde8d8 100%);
+    box-shadow: 0 2px 8px rgba(184, 114, 74, 0.15);
+    border-left-color: var(--c-primary);
+    transition: transform 0.10s ease, background 0.10s ease;
+}
+
 .perfume-card .marca {
     font-size: 0.65rem;
     letter-spacing: 0.24em;
@@ -62,6 +70,14 @@ COMPONENTS = """
     background: var(--c-primary-pale);
     transform: translateY(-2px);
     box-shadow: var(--shadow-sm);
+}
+
+.precio-chip:active {
+    transform: scale(0.93);
+    background: var(--c-primary-pale);
+    border-color: var(--c-primary-light);
+    box-shadow: none;
+    transition: transform 0.10s ease;
 }
 
 .precio-chip .chip-label {
@@ -110,6 +126,13 @@ COMPONENTS = """
     transform: translateY(-3px);
     border-color: var(--c-primary-light);
     box-shadow: var(--shadow-sm);
+}
+
+.precio-box:active {
+    transform: scale(0.97);
+    border-color: var(--c-primary-light);
+    box-shadow: none;
+    transition: transform 0.10s ease;
 }
 
 .precio-box .label {
@@ -181,6 +204,13 @@ COMPONENTS = """
     border-left-color: var(--c-primary-light);
     transform: translateY(-1px);
     box-shadow: var(--shadow-sm);
+}
+
+.perfume-item:active {
+    transform: scale(0.985);
+    background: #fff6ef;
+    border-left-color: var(--c-primary-light);
+    transition: transform 0.10s ease;
 }
 
 .perfume-item .pf-nombre {
@@ -433,6 +463,12 @@ div[data-baseweb="select"] {
     box-shadow: 0 4px 14px rgba(200, 149, 108, 0.3) !important;
 }
 
+.stFormSubmitButton > button:active {
+    transform: scale(0.95) !important;
+    box-shadow: none !important;
+    transition: transform 0.10s ease !important;
+}
+
 /* ── Forzar color blanco en botones HTML dentro de links ── */
 .stMarkdown a div,
 .stMarkdown a div span,
@@ -488,15 +524,28 @@ textarea:focus {
 .stMarkdown a[href*="wa.me"] {
     display: block;
     background: #25D366;
-    padding: 10px;
-    border-radius: 10px;
+    padding: 14px 10px;
+    border-radius: 14px;
     text-align: center;
     font-weight: 600;
-    transition: transform 0.15s ease, filter 0.15s ease;
+    font-size: 1rem;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
 }
 
 .stMarkdown a[href*="wa.me"]:hover {
-    filter: brightness(0.92);
+    filter: brightness(0.94);
     transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(37, 211, 102, 0.42);
+}
+
+.stMarkdown a[href*="wa.me"]:active {
+    transform: scale(0.96);
+    filter: brightness(0.90);
+    box-shadow: none;
 }
 """

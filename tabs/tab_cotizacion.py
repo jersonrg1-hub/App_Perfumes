@@ -1,16 +1,30 @@
+"""
+tabs/tab_cotizacion.py — Sección de cotizaciones por WhatsApp.
+
+Estado: state.get_state()["cotizacion"] — sin claves sueltas en session_state.
+Items de la cesta con UUID para eliminación sin bugs de index-shift.
+Widget keys fijos: cot_cel, cot_marca, cot_perf, cot_ml, cot_precio, cot_delivery.
+"""
 import html
+import uuid
 import re
 import streamlit as st
 from urllib.parse import quote
-from config import fmt_precio, ML_OPCIONES, STOCK_CRITICO, STOCK_BAJO, ItemCesta
+
+from config import fmt_precio, ML_OPCIONES, STOCK_CRITICO, STOCK_BAJO
 from costos import costo_total_item
 from data import guardar_cotizacion
+from state import get_state, reset_cotizacion
 
 COSTO_DELIVERY = 10.0
 
+# Claves de widgets del formulario de cotización
+_COT_WIDGET_KEYS = ("cot_cel", "cot_marca", "cot_perf", "cot_ml",
+                    "cot_delivery", "cot_precio")
+
 
 def _limpiar_celular(raw: str) -> str:
-    """Extrae los 9 dígitos del celular desde formatos como +51 987 654 321 o 987654321."""
+    """Extrae 9 dígitos del celular desde formatos como +51 987 654 321."""
     digits = re.sub(r'\D', '', raw)
     if digits.startswith('51') and len(digits) == 11:
         digits = digits[2:]
@@ -21,8 +35,20 @@ def _limpiar_marca(marca: str) -> str:
     return marca.strip().strip('*').strip()
 
 
-def _card_precio_cot(precio_catalogo, stock_val):
-    """Tarjeta de stock + precio, igual estilo que la de venta."""
+def _construir_item_cot(perfume_cot: str, marca_limpia: str, ml_cot: str,
+                        precio_final: float, precio_catalogo: float) -> dict:
+    """Crea un item de cotización con UUID para eliminación segura."""
+    return {
+        "id": str(uuid.uuid4()),
+        "perfume": perfume_cot,
+        "marca": marca_limpia,
+        "ml": ml_cot,
+        "precio": round(float(precio_final), 2),
+        "precio_original": round(float(precio_catalogo), 2),
+    }
+
+
+def _card_precio_cot(precio_catalogo: float, stock_val) -> None:
     try:
         stock_num = float(stock_val) if stock_val not in (None, "", 0) else None
     except (TypeError, ValueError):
@@ -43,31 +69,25 @@ def _card_precio_cot(precio_catalogo, stock_val):
         label = "🟢 Disponible"
 
     st.markdown(
-        f"""<div style="background:{bg}; border-left:4px solid {border}; border-radius:10px;
-        padding:0.8rem 1.2rem; display:flex; justify-content:space-between; align-items:center;
+        f"""<div style="background:{bg};border-left:4px solid {border};border-radius:10px;
+        padding:0.8rem 1.2rem;display:flex;justify-content:space-between;align-items:center;
         margin-bottom:0.4rem;">
-        <span style="color:{txt}; font-weight:600;">{label}</span>
-        <span style="color:{num}; font-family:'Inter',sans-serif; font-size:1.6rem;
-        font-weight:800; font-variant-numeric:tabular-nums;">S/ {fmt_precio(precio_catalogo)}</span>
+        <span style="color:{txt};font-weight:600;">{label}</span>
+        <span style="color:{num};font-family:'Inter',sans-serif;font-size:1.6rem;
+        font-weight:800;font-variant-numeric:tabular-nums;">
+        S/ {fmt_precio(precio_catalogo)}</span>
         </div>""",
         unsafe_allow_html=True,
     )
 
 
-def _generar_mensaje_cotizacion(
-    celular: str, cesta_cotizacion: list[ItemCesta], con_delivery: bool = False
-) -> str:
-    total = sum(float(i["precio"]) for i in cesta_cotizacion)
-
+def _generar_url_wa(celular: str, cesta: list, con_delivery: bool = False) -> str:
+    total = sum(float(i["precio"]) for i in cesta)
     bloques = []
-    for idx, i in enumerate(cesta_cotizacion, 1):
+    for idx, i in enumerate(cesta, 1):
         precio_orig = i.get("precio_original")
         precio_final = float(i["precio"])
-        marca = i.get("marca", "")
-        nombre = i.get("perfume", "")
-        ml = i.get("ml", "")
-
-        nombre_completo = f"{marca} {nombre}".strip() if marca else nombre
+        nombre_completo = f"{i.get('marca', '')} {i.get('perfume', '')}".strip()
 
         if precio_orig is not None and round(float(precio_orig), 2) != round(precio_final, 2):
             precio_txt = f"~S/ {fmt_precio(precio_orig)}~ ➜ *S/ {fmt_precio(precio_final)}* 🏷️"
@@ -76,10 +96,8 @@ def _generar_mensaje_cotizacion(
 
         bloques.append(
             f"*{idx}.* 🌸 *{nombre_completo}*\n"
-            f"     📏 {ml}ml  ·  {precio_txt}"
+            f"     📏 {i.get('ml', '')}ml  ·  {precio_txt}"
         )
-
-    items = "\n\n".join(bloques)
 
     sep = "────────────────────"
     delivery_line = ""
@@ -89,138 +107,154 @@ def _generar_mensaje_cotizacion(
         delivery_line = f"🛵 Delivery: +S/ {fmt_precio(COSTO_DELIVERY)}\n"
 
     mensaje = (
-        f"✨ *Tu cotización — Perfuteca* ✨\n"
-        f"{sep}\n\n"
-        f"{items}\n\n"
-        f"{sep}\n"
-        f"{delivery_line}"
-        f"💰 *Total: S/ {fmt_precio(total_final)}*\n"
-        f"{sep}\n\n"
+        f"✨ *Tu cotización — Perfuteca* ✨\n{sep}\n\n"
+        f"{chr(10).join(bloques)}\n\n"
+        f"{sep}\n{delivery_line}"
+        f"💰 *Total: S/ {fmt_precio(total_final)}*\n{sep}\n\n"
         f"_¿Los separamos para ti? Escríbeme y los aparto_ 😊"
     )
     return f"https://wa.me/51{celular}?text={quote(mensaje)}"
 
 
-def mostrar_seccion_cotizacion(df):
-
-    if "cesta_cotizacion" not in st.session_state:
-        st.session_state.cesta_cotizacion = []
-    if "cotizacion_enviada" not in st.session_state:
-        st.session_state.cotizacion_enviada = False
+def mostrar_seccion_cotizacion(df) -> None:
+    """
+    Sección de cotización por WhatsApp integrada en el tab de venta.
+    Estado centralizado en state["cotizacion"].
+    Items con UUID — eliminación por referencia, no por índice.
+    """
+    state = get_state()
+    cot = state["cotizacion"]
 
     with st.expander("💰 Enviar Cotización por WhatsApp", expanded=True):
 
+        # Celular
         celular_raw = st.text_input(
             "📱 Celular del cliente",
             placeholder="987654321 o +51 987 654 321",
-            key="cel_cotizacion"
+            key="cot_cel",
         )
         celular_cot = _limpiar_celular(celular_raw)
 
         st.markdown("#### 🛒 Armar cotización")
 
+        # Filtro por marca
         marcas_opciones = sorted(
-            _limpiar_marca(m) for m in df["Marca"].dropna().unique()
+            _limpiar_marca(m)
+            for m in df["Marca"].dropna().unique()
             if str(m).strip()
         )
-        marca_cot = st.selectbox(
-            "🏷️ Marca (opcional)",
-            marcas_opciones,
-            index=None,
-            placeholder="— Todas las marcas —",
-            key="marca_cot_sel",
+        st.selectbox(
+            "🏷️ Marca (opcional)", marcas_opciones,
+            index=None, placeholder="— Todas las marcas —",
+            key="cot_marca",
         )
+        marca_cot = st.session_state.get("cot_marca")
 
         if marca_cot:
             df_cot = df[df["Marca"].apply(lambda x: _limpiar_marca(str(x))) == marca_cot]
         else:
             df_cot = df
 
+        # Selector de perfume
         nombres_opciones = ["— Elige un perfume —"] + sorted(
             df_cot["Nombre"].dropna().unique().tolist()
         )
-        perfume_cot = st.selectbox("🌸 Perfume", nombres_opciones, key="perf_cot_sel")
-        ml_cot = st.selectbox("📏 Tamaño", ML_OPCIONES, key="ml_cot_sel")
+        st.selectbox("🌸 Perfume", nombres_opciones, key="cot_perf")
+        perfume_cot = st.session_state.get("cot_perf", nombres_opciones[0])
 
-        if perfume_cot != nombres_opciones[0]:
+        st.selectbox("📏 Tamaño", ML_OPCIONES, key="cot_ml")
+        ml_cot = st.session_state.get("cot_ml", ML_OPCIONES[0])
+
+        # Panel de precio y stock para el perfume seleccionado
+        if perfume_cot and perfume_cot != nombres_opciones[0]:
             _matches = df[df["Nombre"] == perfume_cot]
-            if _matches.empty:
-                st.warning("⚠️ No se encontró ese perfume en el catálogo.")
-                return
-            perfume_row = _matches.iloc[0]
-            columna_precio = f"Precio_{ml_cot}ml"
-            precio_catalogo = perfume_row.get(columna_precio, 0)
+            if not _matches.empty:
+                perfume_row = _matches.iloc[0]
+                columna_precio = f"Precio_{ml_cot}ml"
+                precio_cat = perfume_row.get(columna_precio, 0)
 
-            if precio_catalogo not in (0, "", None):
-                _card_precio_cot(precio_catalogo, perfume_row.get("Stock_ml"))
+                if precio_cat not in (0, "", None):
+                    _card_precio_cot(precio_cat, perfume_row.get("Stock_ml"))
 
-                try:
-                    cb = float(perfume_row.get("Costo_Botella") or 0)
-                    mb = float(perfume_row.get("Ml_Botella") or 0)
-                    costo_est = costo_total_item(ml_cot, cb, mb)
-                    gan_est = float(precio_catalogo) - costo_est
-                    st.markdown(
-                        f"<div style='font-size:0.78rem; color:#6b7280; margin:0.3rem 0 0.5rem;'>"
-                        f"💸 Costo estimado: <b>S/ {fmt_precio(costo_est)}</b>"
-                        f"&nbsp;&nbsp;|&nbsp;&nbsp;💰 Ganancia: <b style='color:#16a34a'>S/ {fmt_precio(gan_est)}</b>"
-                        f"</div>",
-                        unsafe_allow_html=True
+                    try:
+                        cb = float(perfume_row.get("Costo_Botella") or 0)
+                        mb = float(perfume_row.get("Ml_Botella") or 0)
+                        costo_est = costo_total_item(ml_cot, cb, mb)
+                        gan_est = float(precio_cat) - costo_est
+                        st.markdown(
+                            f"<div style='font-size:0.78rem;color:#6b7280;"
+                            f"margin:0.3rem 0 0.5rem;'>"
+                            f"💸 Costo estimado: <b>S/ {fmt_precio(costo_est)}</b>"
+                            f"&nbsp;&nbsp;|&nbsp;&nbsp;"
+                            f"💰 Ganancia: <b style='color:#16a34a'>"
+                            f"S/ {fmt_precio(gan_est)}</b></div>",
+                            unsafe_allow_html=True,
+                        )
+                    except Exception:
+                        pass
+
+                    # Clave fija "cot_precio" — se limpia en reset_cotizacion()
+                    st.number_input(
+                        "💰 Precio final",
+                        min_value=0.0,
+                        value=float(precio_cat),
+                        step=0.5,
+                        format="%.2f",
+                        key="cot_precio",
                     )
-                except Exception:
-                    pass
+                    precio_final_cot = st.session_state.get("cot_precio", float(precio_cat))
 
-                precio_final_cot = st.number_input(
-                    "💰 Precio final",
-                    min_value=0.0,
-                    value=float(precio_catalogo),
-                    step=0.5,
-                    format="%.2f",
-                    key=f"precio_cot_{perfume_cot}_{ml_cot}",
-                )
+                    if st.button("➕ Agregar a la cotización",
+                                 key="cot_agregar", use_container_width=True):
+                        marca_limpia = _limpiar_marca(str(perfume_row.get("Marca", "")))
+                        item = _construir_item_cot(
+                            perfume_cot, marca_limpia, ml_cot,
+                            precio_final_cot, float(precio_cat),
+                        )
+                        cot["cesta"].append(item)
+                        cot["guardada"] = False
+                        st.toast(f"Agregado: {perfume_cot}", icon="✅")
+                        # Resetear selector de perfume y precio para siguiente item
+                        for k in ("cot_perf", "cot_precio"):
+                            st.session_state.pop(k, None)
+                        st.rerun()
+                else:
+                    st.warning("⚠️ Sin precio para ese tamaño")
 
-                if st.button("➕ Agregar a la cotización", key=f"add_cot_{perfume_cot}_{ml_cot}", use_container_width=True):
-                    marca_limpia = _limpiar_marca(str(perfume_row.get("Marca", "")))
-                    st.session_state.cesta_cotizacion.append({
-                        "perfume":         perfume_cot,
-                        "marca":           marca_limpia,
-                        "ml":              ml_cot,
-                        "precio":          precio_final_cot,
-                        "precio_original": float(precio_catalogo),
-                    })
-                    st.session_state.cotizacion_enviada = False
-                    st.toast(f"Agregado: {perfume_cot}", icon="✅")
-            else:
-                st.warning("⚠️ Sin precio para ese tamaño")
-
-        if st.session_state.cesta_cotizacion:
+        # ── Cesta de cotización ───────────────────────────────────────────────
+        if cot["cesta"]:
             st.markdown("---")
             st.markdown("**📋 Cotización:**")
 
-            for i, item in enumerate(st.session_state.cesta_cotizacion):
+            for item in cot["cesta"]:
                 c1, c2, c3 = st.columns([3, 1, 1])
                 c1.write(f"🌸 {item['perfume']} ({item['ml']}ml)")
                 c2.write(f"**S/ {fmt_precio(item['precio'])}**")
-                if c3.button("🗑️ Quitar", key=f"del_cot_{i}", use_container_width=True):
-                    st.session_state.cesta_cotizacion.pop(i)
-                    st.session_state.cotizacion_enviada = False
+                # Eliminación por UUID — sin index-shift al borrar
+                if c3.button("🗑️", key=f"cot_del_{item['id']}", use_container_width=True):
+                    cot["cesta"] = [x for x in cot["cesta"] if x["id"] != item["id"]]
+                    cot["guardada"] = False
                     st.rerun()
 
-            total_cot = sum(float(i["precio"]) for i in st.session_state.cesta_cotizacion)
+            total_cot = sum(float(i["precio"]) for i in cot["cesta"])
 
-            con_delivery = st.checkbox(
+            st.checkbox(
                 f"🛵 Con delivery (+S/ {fmt_precio(COSTO_DELIVERY)})",
-                key="delivery_cot"
+                key="cot_delivery",
             )
+            con_delivery = st.session_state.get("cot_delivery", False)
 
             if con_delivery:
                 st.markdown(
-                    f"<div style='font-size:0.9rem; color:#6b7280;'>"
-                    f"Perfumes: <b>S/ {fmt_precio(total_cot)}</b> &nbsp;+&nbsp; "
-                    f"Delivery: <b>S/ {fmt_precio(COSTO_DELIVERY)}</b>"
+                    f"<div style='font-size:0.9rem;color:#6b7280;'>"
+                    f"Perfumes: <b>S/ {fmt_precio(total_cot)}</b>"
+                    f" &nbsp;+&nbsp; Delivery: <b>S/ {fmt_precio(COSTO_DELIVERY)}</b>"
                     f"</div>",
-                    unsafe_allow_html=True
+                    unsafe_allow_html=True,
                 )
-                st.markdown(f"**Total con delivery: S/ {fmt_precio(total_cot + COSTO_DELIVERY)}**")
+                st.markdown(
+                    f"**Total con delivery: S/ {fmt_precio(total_cot + COSTO_DELIVERY)}**"
+                )
             else:
                 st.markdown(f"**Total: S/ {fmt_precio(total_cot)}**")
 
@@ -228,68 +262,51 @@ def mostrar_seccion_cotizacion(df):
 
             with col_wa:
                 if len(celular_cot) == 9 and celular_cot.isdigit():
-                    url_wa = _generar_mensaje_cotizacion(
-                        celular_cot,
-                        st.session_state.cesta_cotizacion,
-                        con_delivery=con_delivery,
+                    url_wa = _generar_url_wa(
+                        celular_cot, cot["cesta"], con_delivery=con_delivery
                     )
 
-                    if not st.session_state.cotizacion_enviada:
-                        if st.button(
-                            "💾 Guardar cotización",
-                            key="enviar_cotizacion",
-                            type="primary",
-                            use_container_width=True
-                        ):
+                    if not cot["guardada"]:
+                        if st.button("💾 Guardar cotización", key="cot_guardar",
+                                     type="primary", use_container_width=True):
                             try:
                                 id_cot = guardar_cotizacion(
-                                    celular_cot,
-                                    st.session_state.cesta_cotizacion,
-                                    total_cot  # sin delivery — no es ganancia
+                                    celular_cot, cot["cesta"], total_cot
                                 )
-                                st.session_state.cotizacion_enviada = True
-                                st.session_state.ultimo_id_cotizacion = id_cot
-                                st.session_state.url_wa_guardada = url_wa
+                                cot["guardada"] = True
+                                cot["id"]       = id_cot
+                                cot["url_wa"]   = url_wa
+                                cot["celular"]  = celular_cot
                                 st.rerun()
                             except Exception as e:
                                 st.error(f"❌ Error al guardar: {e}")
 
-                    if st.session_state.cotizacion_enviada:
-                        id_mostrar = html.escape(str(st.session_state.get("ultimo_id_cotizacion", "")))
-                        url_guardada = st.session_state.get("url_wa_guardada", url_wa)
+                    if cot["guardada"]:
+                        id_mostrar = html.escape(str(cot.get("id", "")))
+                        url_guardada = cot.get("url_wa", url_wa)
                         st.markdown(
-                            f"<div style='color:#38a169; font-weight:600; margin-bottom:0.5rem;'>"
+                            f"<div style='color:#38a169;font-weight:600;"
+                            f"margin-bottom:0.5rem;'>"
                             f"✅ Cotización {id_mostrar} guardada</div>",
-                            unsafe_allow_html=True
+                            unsafe_allow_html=True,
                         )
                         st.markdown(
-                            f"""<a href="{url_guardada}" target="_blank" style="text-decoration:none;">
-                            <div style="background:#25D366; color:white; padding:14px;
-                            border-radius:10px; text-align:center; font-weight:700;
-                            font-size:1rem;">
-                                📲 Abrir WhatsApp y enviar
-                            </div></a>""",
-                            unsafe_allow_html=True
+                            f"""<a href="{url_guardada}" target="_blank"
+                            style="text-decoration:none;">
+                            <div style="background:#25D366;color:white;padding:14px;
+                            border-radius:10px;text-align:center;font-weight:700;
+                            font-size:1rem;">📲 Abrir WhatsApp y enviar</div></a>""",
+                            unsafe_allow_html=True,
                         )
                 else:
                     st.info("📱 Ingresa el celular para enviar")
 
             with col_limpiar:
                 st.markdown("<br>", unsafe_allow_html=True)
-                if not st.session_state.cotizacion_enviada:
-                    if st.button("🗑️ Limpiar", key="limpiar_cotizacion", use_container_width=True):
-                        st.session_state.cesta_cotizacion = []
-                        st.session_state.cotizacion_enviada = False
-                        st.session_state.url_wa_guardada = None
-                        st.rerun()
-                else:
-                    if st.button("🆕 Nueva cotización", key="nueva_cotizacion", use_container_width=True):
-                        st.session_state.cesta_cotizacion = []
-                        st.session_state.cotizacion_enviada = False
-                        st.session_state.url_wa_guardada = None
-                        for k in ["cel_cotizacion", "marca_cot_sel", "perf_cot_sel", "ml_cot_sel", "delivery_cot"]:
-                            st.session_state.pop(k, None)
-                        st.rerun()
+                lbl = "🆕 Nueva cotización" if cot["guardada"] else "🗑️ Limpiar"
+                if st.button(lbl, key="cot_limpiar", use_container_width=True):
+                    reset_cotizacion()
+                    st.rerun()
 
         else:
             st.caption("Agrega perfumes para armar la cotización")

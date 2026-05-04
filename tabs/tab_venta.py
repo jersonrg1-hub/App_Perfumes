@@ -383,7 +383,7 @@ def _render_form_conversion(
     with col_cancel:
         if st.button("✖ Cancelar", key=f"conv_cancel_{fila_cot}",
                      use_container_width=True):
-            state["conv_activas"][conv_key] = False
+            state["conv_activas"].pop(conv_key, None)
             st.rerun()
 
 
@@ -417,7 +417,7 @@ def _ejecutar_conversion(
         actualizar_estado_cotizacion(id_cot, "Aceptada", fila_sheet=fila_cot)
         limpiar_cache_ventas()
         limpiar_cache_cotizaciones()
-        state["conv_activas"][conv_key] = False
+        state["conv_activas"].pop(conv_key, None)
 
         items_lineas = "\n".join([
             f"  • {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"

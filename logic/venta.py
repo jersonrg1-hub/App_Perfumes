@@ -26,10 +26,17 @@ def filtrar_catalogo(
     if marca:
         result = result[result["Marca"] == marca]
     if texto.strip():
-        mask = (
-            result["Nombre"].str.contains(texto, case=False, na=False, regex=False)
-            | result["Marca"].str.contains(texto, case=False, na=False, regex=False)
-        )
+        t = texto.strip().lower()
+        if "Nombre_lower" in result.columns:
+            mask = (
+                result["Nombre_lower"].str.contains(t, regex=False, na=False)
+                | result["Marca_lower"].str.contains(t, regex=False, na=False)
+            )
+        else:
+            mask = (
+                result["Nombre"].str.contains(t, case=False, na=False, regex=False)
+                | result["Marca"].str.contains(t, case=False, na=False, regex=False)
+            )
         result = result[mask]
     return result
 

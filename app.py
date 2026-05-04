@@ -241,6 +241,29 @@ window.__perfuteObsInstalled = true;
     }).observe(document.body, { childList: true, subtree: true });
 })();
 
+
+(function() {
+    // Recarga la página tras 4.5 min de inactividad real del usuario.
+    // El timer se pausa cuando la pantalla se apaga y se reinicia al volver.
+    var IDLE_MS = 4.5 * 60 * 1000;
+    var timer = null;
+
+    function arrancar() {
+        clearTimeout(timer);
+        timer = setTimeout(function() { window.location.reload(); }, IDLE_MS);
+    }
+
+    ['click', 'touchstart', 'touchmove', 'keydown', 'scroll', 'mousemove'].forEach(function(ev) {
+        document.addEventListener(ev, arrancar, { passive: true });
+    });
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) { clearTimeout(timer); } else { arrancar(); }
+    });
+
+    arrancar();
+})();
+
 } // fin guard __perfuteObsInstalled
 </script>
 """, unsafe_allow_html=True)

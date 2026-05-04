@@ -24,6 +24,12 @@ from errores import (
 from auth import inicializar_auth, login_seccion, check_auth, mostrar_boton_logout
 from state import get_state
 
+try:
+    from streamlit_autorefresh import st_autorefresh as _st_autorefresh
+    _AUTOREFRESH_OK = True
+except ImportError:
+    _AUTOREFRESH_OK = False
+
 from tabs.tab_marca import mostrar_tab_marca
 from tabs.tab_nombre import mostrar_tab_nombre
 from tabs.tab_venta import mostrar_tab_venta
@@ -36,6 +42,20 @@ st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centere
 
 # Inicializa el árbol de estado antes que cualquier widget
 inicializar_auth()
+
+# ── Auto-refresh / keepalive ──────────────────────────────────────────────────
+
+def _keepalive() -> None:
+    """
+    Mantiene la sesión viva en móvil (rerun cada 4.5 min).
+    Se omite si hay una venta activa en curso para no interrumpir al usuario.
+    """
+    s = get_state()
+    en_wizard = s["venta"].get("paso", 1) > 1 or len(s["cesta"]) > 0
+    if _AUTOREFRESH_OK and not en_wizard:
+        _st_autorefresh(interval=270_000, limit=None, key="keepalive")
+
+_keepalive()
 
 # ── Viewport y fuentes ────────────────────────────────────────────────────────
 

@@ -253,15 +253,16 @@ def limpiar_cache_cotizaciones():
 
 def actualizar_estado_cotizacion(id_cotizacion: str, nuevo_estado: str, fila_sheet: int) -> None:
     try:
+        # Calcular posición de columna ANTES de entrar al write (usa datos frescos)
+        df_cot = cargar_cotizaciones()
+        sheet_cols = [c for c in df_cot.columns if c != "fila_sheet"]
+        if "Estado" not in sheet_cols:
+            raise ValueError("Falta columna Estado en Cotizaciones")
+        col_estado = sheet_cols.index("Estado") + 1
+        celda = gspread.utils.rowcol_to_a1(int(fila_sheet), col_estado)
+
         def _write():
-            hoja = get_hoja(WORKSHEET_COTIZACIONES)
-            df_cot = cargar_cotizaciones()
-            sheet_cols = [c for c in df_cot.columns if c != "fila_sheet"]
-            if "Estado" not in sheet_cols:
-                raise ValueError("Falta columna Estado en Cotizaciones")
-            col_estado = sheet_cols.index("Estado") + 1
-            celda = gspread.utils.rowcol_to_a1(int(fila_sheet), col_estado)
-            hoja.update(celda, [[nuevo_estado]])
+            get_hoja(WORKSHEET_COTIZACIONES).update(celda, [[nuevo_estado]])
 
         _ejecutar_con_reintento(_write, "actualizar_estado_cotizacion")
         limpiar_cache_cotizaciones()

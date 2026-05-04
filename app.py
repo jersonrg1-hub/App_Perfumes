@@ -34,6 +34,12 @@ st.markdown(get_styles(), unsafe_allow_html=True)
 
 st.markdown("""
 <script>
+// Guard global: este bloque solo se instala UNA vez por vida de la página.
+// Si Streamlit re-inyecta el script (re-render completo), los observers
+// ya existentes no se duplican.
+if (!window.__perfuteObsInstalled) {
+window.__perfuteObsInstalled = true;
+
 (function() {
     // Recarga solo si vuelve del segundo plano tras 25 min Y hay error de conexión
     var hiddenAt = null;
@@ -186,6 +192,8 @@ st.markdown("""
     new MutationObserver(function() { setupSwipeDelete(); })
         .observe(document.body, { childList: true, subtree: true });
 })();
+
+} // fin guard __perfuteObsInstalled
 </script>
 """, unsafe_allow_html=True)
 

@@ -283,21 +283,32 @@ def _paso_1_cliente(df):
         if celular != ultimo_cel:
             st.session_state.autocomplete_aplicado = False
             st.session_state.autocomplete_celular = celular
+            # Limpiar cualquier dato pendiente del celular anterior
+            st.session_state.pop("_autocomplete_pendiente", None)
+
         if not st.session_state.get("autocomplete_aplicado"):
             df_ventas = cargar_ventas()
             cliente = _buscar_cliente(df_ventas, celular)
             if cliente and cliente["nombre"]:
-                st.session_state._autocomplete_pendiente = cliente
                 if st.button(
                     f"✨ Cargar datos de {cliente['nombre']}",
                     key="btn_autocomplete",
                     use_container_width=True,
                 ):
+                    # Aplicar directamente aquí, sin estado intermediario
+                    st.session_state.comp_in = cliente["nombre"]
+                    st.session_state.dir_in = cliente["direccion"]
+                    if cliente["metodo_pago"] in METODOS_PAGO:
+                        st.session_state.pago_sel = cliente["metodo_pago"]
+                    if cliente["tipo_envio"] in TIPOS_ENVIO:
+                        st.session_state.envio_sel = cliente["tipo_envio"]
                     st.session_state.autocomplete_aplicado = True
+                    st.toast(f"✨ Datos de {cliente['nombre']} cargados", icon="👤")
                     st.rerun()
     else:
         st.session_state.autocomplete_aplicado = False
         st.session_state.autocomplete_celular = ""
+        st.session_state.pop("_autocomplete_pendiente", None)
 
     direccion = st.text_input("📍 Dirección", placeholder="Distrito / Referencia", key="dir_in")
 
@@ -412,7 +423,7 @@ def _paso_2_perfumes(df):
 
             editar_precio = st.toggle(
                 "✏️ Editar precio",
-                key=f"edit_toggle_{perfume_venta}_{ml_vendido}",
+                key=f"edit_toggle_{_k}",
                 value=False,
             )
             precio_final = st.number_input(
@@ -421,10 +432,10 @@ def _paso_2_perfumes(df):
                 value=float(precio_item),
                 step=0.5,
                 format="%.2f",
-                key=f"precio_edit_{perfume_venta}_{ml_vendido}",
+                key=f"precio_edit_{_k}",
                 disabled=not editar_precio,
             )
-            if st.button("➕ Agregar a la cesta", key=f"agregar_{perfume_venta}_{ml_vendido}", use_container_width=True):
+            if st.button("➕ Agregar a la cesta", key=f"agregar_{_k}", use_container_width=True):
                 st.session_state.cesta.append({
                     "perfume": perfume_venta,
                     "marca": str(perfume_row.get("Marca", "")),
@@ -705,9 +716,22 @@ def _mostrar_venta_guardada():
 
 
 def _resetear_wizard():
+    # Limpiar claves de widgets acumuladas por perf_sel_count
+    prefijos_acumulados = ("busq_venta_", "marca_filtro_venta_", "perf_sel_",
+                           "edit_toggle_", "precio_edit_", "agregar_")
+    for k in list(st.session_state.keys()):
+        if k.startswith(prefijos_acumulados):
+            del st.session_state[k]
+
+    # Limpiar claves de cotizaciones-hoy huérfanas
+    for k in list(st.session_state.keys()):
+        if k.startswith("conv_hoy_") or k.startswith("conv_btn_") or k.startswith("conv_") :
+            del st.session_state[k]
+
     st.session_state.wiz_paso = 1
     st.session_state.cesta = []
     st.session_state.autocomplete_aplicado = False
+    st.session_state.autocomplete_celular = ""
     st.session_state.venta_guardada = False
     for key in ["comp_in", "cel_in", "dir_in"]:
         st.session_state[key] = ""
@@ -754,18 +778,6 @@ def mostrar_tab_venta(df):
         st.session_state.fecha_venta = hoy_peru()
     if "perf_sel_count" not in st.session_state:
         st.session_state.perf_sel_count = 0
-
-    if st.session_state.get("_autocomplete_pendiente"):
-        datos = st.session_state._autocomplete_pendiente
-        st.session_state.comp_in = datos["nombre"]
-        st.session_state.dir_in = datos["direccion"]
-        if datos["metodo_pago"] in METODOS_PAGO:
-            st.session_state.pago_sel = datos["metodo_pago"]
-        if datos["tipo_envio"] in TIPOS_ENVIO:
-            st.session_state.envio_sel = datos["tipo_envio"]
-        st.session_state.autocomplete_aplicado = True
-        st.toast(f"✨ Datos de {datos['nombre']} cargados", icon="👤")
-        st.session_state._autocomplete_pendiente = None
 
     if st.session_state.get("venta_guardada") and st.session_state.wiz_paso == 3:
         _mostrar_venta_guardada()

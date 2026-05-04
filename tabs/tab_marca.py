@@ -71,38 +71,24 @@ def mostrar_tab_marca(df):
                     f"</div>"
                     if perfil else ""
                 )
-                ocasion_html = (
-                    f"<div style='margin-top:0.35rem;'>"
-                    f"<span style='color:#4a7a5a; font-size:0.7rem; font-weight:700;"
-                    f"letter-spacing:0.14em; text-transform:uppercase;'>Ocasión</span>"
-                    f"{notas_pills_html(ocasion_val, color_bg='#eef4f0', color_border='#a8c8b8', color_text='#2a5a3a')}"
-                    f"</div>"
-                    if _campo_valido(ocasion_val) else ""
-                )
-                estacion_html = (
-                    f"<div style='margin-top:0.35rem;'>"
-                    f"<span style='color:#4a5a8a; font-size:0.7rem; font-weight:700;"
-                    f"letter-spacing:0.14em; text-transform:uppercase;'>Estación</span>"
-                    f"{notas_pills_html(estacion_val, color_bg='#eceef8', color_border='#b0b8d8', color_text='#2a3a6a')}"
-                    f"</div>"
-                    if _campo_valido(estacion_val) else ""
-                )
-                hora_html = (
-                    f"<div style='margin-top:0.35rem;'>"
-                    f"<span style='color:#7a4a8a; font-size:0.7rem; font-weight:700;"
-                    f"letter-spacing:0.14em; text-transform:uppercase;'>Hora</span>"
-                    f"{notas_pills_html(hora_val, color_bg='#f4eef8', color_border='#c8b0d8', color_text='#5a2a7a')}"
-                    f"</div>"
-                    if _campo_valido(hora_val) else ""
-                )
-                palabras_html = (
-                    f"<div style='margin-top:0.35rem;'>"
-                    f"<span style='color:#6a5a4a; font-size:0.7rem; font-weight:700;"
-                    f"letter-spacing:0.14em; text-transform:uppercase;'>Palabras clave</span>"
-                    f"{notas_pills_html(palabras_val, color_bg='#f4f0ec', color_border='#c8b8a8', color_text='#4a3a2a')}"
-                    f"</div>"
-                    if _campo_valido(palabras_val) else ""
-                )
+                _lbl = "font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; font-weight:700; margin-bottom:0.1rem;"
+                _extras = []
+                if _campo_valido(ocasion_val):
+                    _extras.append((f"<div style='{_lbl} color:#4a7a5a;'>Ocasión</div>", notas_pills_html(ocasion_val, color_bg='#eef4f0', color_border='#a8c8b8', color_text='#2a5a3a')))
+                if _campo_valido(estacion_val):
+                    _extras.append((f"<div style='{_lbl} color:#4a5a8a;'>Estación</div>", notas_pills_html(estacion_val, color_bg='#eceef8', color_border='#b0b8d8', color_text='#2a3a6a')))
+                if _campo_valido(hora_val):
+                    _extras.append((f"<div style='{_lbl} color:#7a4a8a;'>Hora</div>", notas_pills_html(hora_val, color_bg='#f4eef8', color_border='#c8b0d8', color_text='#5a2a7a')))
+                if _campo_valido(palabras_val):
+                    _extras.append((f"<div style='{_lbl} color:#6a5a4a;'>Palabras clave</div>", notas_pills_html(palabras_val, color_bg='#f4f0ec', color_border='#c8b8a8', color_text='#4a3a2a')))
+                if _extras:
+                    _cells = "".join(f"<div style='min-width:0;'>{lbl}{pills}</div>" for lbl, pills in _extras)
+                    extras_html = (
+                        f"<div style='margin-top:0.4rem; padding-top:0.4rem; border-top:1px solid #f0e4d8;"
+                        f"display:grid; grid-template-columns:1fr 1fr; gap:0.2rem 0.6rem;'>{_cells}</div>"
+                    )
+                else:
+                    extras_html = ""
 
                 precios_html = ""
                 for tamanio, columna in PRECIOS_COLUMNAS.items():
@@ -123,7 +109,7 @@ def mostrar_tab_marca(df):
                     f'<div class="marca">{marca_safe}</div>'
                     f'<div class="nombre">{nombre}{stock_badge}</div>'
                     f'{stock_barra}'
-                    f'{notas_html}{perfil_html}{ocasion_html}{estacion_html}{hora_html}{palabras_html}'
+                    f'{notas_html}{perfil_html}{extras_html}'
                     f'<div style="display:flex; gap:8px; margin-top:0.7rem; width:100%;">'
                     f'{precios_html}'
                     f'</div>'

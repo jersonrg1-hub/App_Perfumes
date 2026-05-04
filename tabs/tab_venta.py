@@ -300,9 +300,7 @@ def _render_cotizaciones_hoy(df: pd.DataFrame, state: dict) -> None:
         return
 
     hoy = hoy_peru()
-    df_hoy = df_cot[
-        df_cot["Fecha"].apply(lambda f: f.date() if pd.notna(f) else None) == hoy
-    ]
+    df_hoy = df_cot[df_cot["Fecha"].dt.date == hoy]
     df_hoy = df_hoy[~df_hoy["Estado"].isin(["Aceptada", "Rechazada"])]
     if df_hoy.empty:
         return
@@ -510,7 +508,7 @@ def _render_paso_1(df: pd.DataFrame, state: dict) -> None:
         _on_avanzar_paso_1(state)
 
 
-def _render_cesta(state: dict) -> None:
+def _render_cesta(state: dict, total_precalc: float | None = None) -> None:
     """Renderiza los items de la cesta con botón de eliminar por UUID."""
     cesta = state["cesta"]
     if not cesta:
@@ -549,7 +547,7 @@ def _render_cesta(state: dict) -> None:
             if st.button("🗑️", key=f"del_{item['id']}"):
                 _on_eliminar_item(state, item["id"])
 
-    total = calcular_total(cesta)
+    total = total_precalc if total_precalc is not None else calcular_total(cesta)
     st.markdown(
         f"""<div style="background:#fdf6f0;border:1px solid #ede0d4;
             border-radius:10px;padding:0.65rem 1.2rem;
@@ -568,9 +566,10 @@ def _render_cesta(state: dict) -> None:
 def _render_paso_2(df: pd.DataFrame, state: dict) -> None:
     """Paso 2: buscador de perfumes + cesta."""
     cesta = state["cesta"]
+    total_cesta = calcular_total(cesta) if cesta else 0.0
     if cesta:
-        total_actual = calcular_total(cesta)
         n = len(cesta)
+        total_actual = total_cesta
         st.markdown(
             f"""<div style="background:linear-gradient(135deg,#2c1a0e 0%,#4a2e18 100%);
                 border-radius:12px;padding:0.75rem 1.2rem;margin-bottom:0.8rem;
@@ -676,7 +675,7 @@ def _render_paso_2(df: pd.DataFrame, state: dict) -> None:
         else:
             st.warning("⚠️ Perfume no encontrado. Recarga los datos.")
 
-    _render_cesta(state)
+    _render_cesta(state, total_precalc=total_cesta)
 
     st.markdown("")
     col_ant, col_sig = st.columns(2)
@@ -881,33 +880,27 @@ def _render_venta_guardada(state: dict) -> None:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @st.fragment
-def mostrar_tab_venta(df: pd.DataFrame) -> None:
+def mostrar_tab_venta(df: pd.DataFrame, n_pend: int = 0) -> None:
     """
     Orquestador principal del tab de ventas.
     @st.fragment permite re-renders aislados del resto de la app.
+    n_pend se calcula una sola vez en app.py y se pasa aquí para evitar
+    la llamada duplicada a cargar_ventas() en cada rerun del fragment.
     """
     st.markdown("### 📝 Registrar Nueva Venta")
 
     state = get_state()
 
-    # Banner de pedidos pendientes
-    try:
-        df_pend = cargar_ventas()
-        if not df_pend.empty and "Estado" in df_pend.columns and "ID_Compra" in df_pend.columns:
-            n_pend = int(
-                df_pend[~df_pend["Estado"].isin(["Entregado", "Anulado"])]["ID_Compra"].nunique()
-            )
-            if n_pend > 0:
-                s = "s" if n_pend != 1 else ""
-                st.markdown(
-                    f"<div style='background:#fff7ed;border-left:4px solid #f59e0b;"
-                    f"border-radius:8px;padding:0.5rem 0.9rem;margin-bottom:0.7rem;"
-                    f"font-size:0.85rem;color:#92400e;font-weight:600;'>"
-                    f"📦 {n_pend} pedido{s} pendiente{s} — revísalos en 📊 Estadísticas</div>",
-                    unsafe_allow_html=True,
-                )
-    except Exception:
-        pass
+    # Banner de pedidos pendientes (valor pre-calculado por app.py)
+    if n_pend > 0:
+        s = "s" if n_pend != 1 else ""
+        st.markdown(
+            f"<div style='background:#fff7ed;border-left:4px solid #f59e0b;"
+            f"border-radius:8px;padding:0.5rem 0.9rem;margin-bottom:0.7rem;"
+            f"font-size:0.85rem;color:#92400e;font-weight:600;'>"
+            f"📦 {n_pend} pedido{s} pendiente{s} — revísalos en 📊 Estadísticas</div>",
+            unsafe_allow_html=True,
+        )
 
     # ── Post-venta ────────────────────────────────────────────────────────────
     if state["venta"]["guardada"]:

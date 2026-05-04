@@ -94,6 +94,17 @@ def get_hoja(worksheet_name):
         raise
 
 
+def _make_tag_set(valor_str) -> frozenset:
+    """Normaliza una cadena CSV de etiquetas a un frozenset comparables con _extraer_valores."""
+    if not valor_str or str(valor_str).strip().lower() in ("", "nan", "none"):
+        return frozenset()
+    return frozenset(
+        v.strip().lower().capitalize()
+        for v in str(valor_str).split(",")
+        if v.strip()
+    )
+
+
 @st.cache_data(ttl=1800)
 def cargar_catalogo():
     try:
@@ -111,6 +122,18 @@ def cargar_catalogo():
             for col in cols_numericas:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+            # Columnas pre-computadas — se calculan una vez en cache, no en cada búsqueda
+            if "Nombre" in df.columns:
+                df["Nombre_lower"] = df["Nombre"].str.lower().fillna("")
+            if "Marca" in df.columns:
+                df["Marca_lower"] = df["Marca"].str.lower().fillna("")
+                df["Marca_limpia"] = df["Marca"].str.strip().str.strip("*").str.strip()
+
+            for _col in ["Notas", "Perfil_Olfativo", "ocasion", "estacion", "hora"]:
+                if _col in df.columns:
+                    df[f"{_col}_set"] = df[_col].apply(_make_tag_set)
+
         return df
     except Exception as e:
         log_error("cargar_catalogo", e)

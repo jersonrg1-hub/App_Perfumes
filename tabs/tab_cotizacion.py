@@ -137,12 +137,9 @@ def mostrar_seccion_cotizacion(df) -> None:
 
         st.markdown("#### 🛒 Armar cotización")
 
-        # Filtro por marca
-        marcas_opciones = sorted(
-            _limpiar_marca(m)
-            for m in df["Marca"].dropna().unique()
-            if str(m).strip()
-        )
+        # Filtro por marca — usa Marca_limpia pre-computada en cargar_catalogo()
+        _col_marca = "Marca_limpia" if "Marca_limpia" in df.columns else "Marca"
+        marcas_opciones = sorted(df[_col_marca].dropna().unique().tolist())
         st.selectbox(
             "🏷️ Marca (opcional)", marcas_opciones,
             index=None, placeholder="— Todas las marcas —",
@@ -150,10 +147,7 @@ def mostrar_seccion_cotizacion(df) -> None:
         )
         marca_cot = st.session_state.get("cot_marca")
 
-        if marca_cot:
-            df_cot = df[df["Marca"].apply(lambda x: _limpiar_marca(str(x))) == marca_cot]
-        else:
-            df_cot = df
+        df_cot = df[df[_col_marca] == marca_cot] if marca_cot else df
 
         # Selector de perfume
         nombres_opciones = ["— Elige un perfume —"] + sorted(

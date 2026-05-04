@@ -150,10 +150,9 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
             )
 
             modo_key = f"modo_{id_compra}"
-            if modo_key not in st.session_state:
-                st.session_state[modo_key] = "normal"
+            modo = st.session_state.get(modo_key, "normal")
 
-            if st.session_state[modo_key] == "normal":
+            if modo == "normal":
                 col_ent, col_edit, col_anul = st.columns(3)
                 with col_ent:
                     if st.button("✅ Marcar entregado", key=f"ent_{id_compra}", use_container_width=True):
@@ -168,7 +167,7 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                         st.session_state[modo_key] = "anular"
                         st.rerun()
 
-            elif st.session_state[modo_key] == "confirmar_entrega":
+            elif modo == "confirmar_entrega":
                 st.success(f"¿Confirmas que **{id_compra}** fue entregado a **{primera.get('Comprador', '')}**?")
                 col_si, col_no = st.columns(2)
                 with col_si:
@@ -183,10 +182,10 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                             st.error(f"Error: {e}")
                 with col_no:
                     if st.button("✖ Cancelar", key=f"canc_ent_{id_compra}", use_container_width=True):
-                        st.session_state[modo_key] = "normal"
+                        st.session_state.pop(modo_key, None)
                         st.rerun()
 
-            elif st.session_state[modo_key] == "editar":
+            elif modo == "editar":
                 st.markdown("**✏️ Editar datos de la venta:**")
 
                 metodo_actual = str(primera.get("Metodo_Pago", METODOS_PAGO[0]))
@@ -220,16 +219,16 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                                 for fila in grupo["fila_sheet"].tolist()
                             ])
                             st.success("✅ Cambios guardados")
-                            st.session_state[modo_key] = "normal"
+                            st.session_state.pop(modo_key, None)
                             st.rerun()
                         except Exception as e:
                             st.error(f"Error: {e}")
                 with col_c:
                     if st.button("Cancelar", key=f"can_{id_compra}", use_container_width=True):
-                        st.session_state[modo_key] = "normal"
+                        st.session_state.pop(modo_key, None)
                         st.rerun()
 
-            elif st.session_state[modo_key] == "anular":
+            elif modo == "anular":
                 st.warning(f"⚠️ ¿Seguro que quieres anular **{id_compra}**? Esta acción cambia el estado a Anulado en Sheets.")
 
                 col_conf, col_canc = st.columns(2)
@@ -247,5 +246,5 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                             st.error(f"Error: {e}")
                 with col_canc:
                     if st.button("Cancelar", key=f"canc_{id_compra}", use_container_width=True):
-                        st.session_state[modo_key] = "normal"
+                        st.session_state.pop(modo_key, None)
                         st.rerun()

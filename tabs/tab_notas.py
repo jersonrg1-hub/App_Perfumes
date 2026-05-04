@@ -150,28 +150,29 @@ def mostrar_tab_notas(df):
         return
 
     df_filtrado = df
-    filtrar = _tiene_todos if modo_filtro == "Todas" else _tiene_alguno
+    usar_sets = all(f"{c}_set" in df.columns for c in ["Notas", "Perfil_Olfativo", "ocasion", "estacion", "hora"] if c in df.columns)
+    es_todas = modo_filtro == "Todas"
+
+    def _aplicar_filtro(col_orig, sel):
+        col_set = f"{col_orig}_set"
+        s = frozenset(sel)
+        if usar_sets and col_set in df_filtrado.columns:
+            if es_todas:
+                return df_filtrado[df_filtrado[col_set].apply(lambda tags: s.issubset(tags))]
+            return df_filtrado[df_filtrado[col_set].apply(lambda tags: bool(tags & s))]
+        filtrar = _tiene_todos if es_todas else _tiene_alguno
+        return df_filtrado[df_filtrado[col_orig].apply(lambda x: filtrar(x, sel))]
 
     if notas_seleccionadas:
-        df_filtrado = df_filtrado[
-            df_filtrado["Notas"].apply(lambda x: filtrar(x, notas_seleccionadas))
-        ]
+        df_filtrado = _aplicar_filtro("Notas", notas_seleccionadas)
     if perfiles_seleccionados:
-        df_filtrado = df_filtrado[
-            df_filtrado["Perfil_Olfativo"].apply(lambda x: filtrar(x, perfiles_seleccionados))
-        ]
+        df_filtrado = _aplicar_filtro("Perfil_Olfativo", perfiles_seleccionados)
     if ocasiones_seleccionadas:
-        df_filtrado = df_filtrado[
-            df_filtrado["ocasion"].apply(lambda x: filtrar(x, ocasiones_seleccionadas))
-        ]
+        df_filtrado = _aplicar_filtro("ocasion", ocasiones_seleccionadas)
     if estaciones_seleccionadas:
-        df_filtrado = df_filtrado[
-            df_filtrado["estacion"].apply(lambda x: filtrar(x, estaciones_seleccionadas))
-        ]
+        df_filtrado = _aplicar_filtro("estacion", estaciones_seleccionadas)
     if horas_seleccionadas:
-        df_filtrado = df_filtrado[
-            df_filtrado["hora"].apply(lambda x: filtrar(x, horas_seleccionadas))
-        ]
+        df_filtrado = _aplicar_filtro("hora", horas_seleccionadas)
 
     st.markdown("")
 

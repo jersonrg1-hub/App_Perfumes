@@ -128,7 +128,11 @@ window.__perfuteObsInstalled = true;
         });
     }
     _fixInputModes();
-    new MutationObserver(_fixInputModes).observe(document.body, { childList: true, subtree: true });
+    var _inputRAF = null;
+    new MutationObserver(function() {
+        if (_inputRAF) return;
+        _inputRAF = requestAnimationFrame(function() { _inputRAF = null; _fixInputModes(); });
+    }).observe(document.body, { childList: true, subtree: true });
 })();
 
 (function() {
@@ -210,8 +214,11 @@ window.__perfuteObsInstalled = true;
         });
     }
     setupSwipeDelete();
-    new MutationObserver(function() { setupSwipeDelete(); })
-        .observe(document.body, { childList: true, subtree: true });
+    var _swipeRAF = null;
+    new MutationObserver(function() {
+        if (_swipeRAF) return;
+        _swipeRAF = requestAnimationFrame(function() { _swipeRAF = null; setupSwipeDelete(); });
+    }).observe(document.body, { childList: true, subtree: true });
 })();
 
 } // fin guard __perfuteObsInstalled
@@ -273,7 +280,7 @@ try:
 
     with tab4:
         if check_auth():
-            mostrar_tab_venta(df)
+            mostrar_tab_venta(df, n_pend=_n_pend)
             mostrar_boton_logout(key_suffix="tab4")
         else:
             login_seccion(key_suffix="venta")

@@ -38,20 +38,18 @@ def costo_total_item(ml: int, costo_botella: float, ml_botella: float) -> float:
 
 def construir_costo_ml_dict(df_catalogo) -> dict:
     """Devuelve {str(ID_Perfume): costo_por_ml} para todos los perfumes."""
-    resultado = {}
     if df_catalogo is None or df_catalogo.empty:
-        return resultado
+        return {}
     if not {"ID_Perfume", "Costo_Botella", "Ml_Botella"}.issubset(df_catalogo.columns):
-        return resultado
-    for _, row in df_catalogo.iterrows():
-        try:
-            cb = float(row["Costo_Botella"])
-            mb = float(row["Ml_Botella"])
-            if mb > 0:
-                resultado[str(row["ID_Perfume"])] = cb / mb
-        except (TypeError, ValueError):
-            pass
-    return resultado
+        return {}
+    df = df_catalogo[["ID_Perfume", "Costo_Botella", "Ml_Botella"]].copy()
+    df["Costo_Botella"] = pd.to_numeric(df["Costo_Botella"], errors="coerce").fillna(0.0)
+    df["Ml_Botella"] = pd.to_numeric(df["Ml_Botella"], errors="coerce").fillna(0.0)
+    valid = df[df["Ml_Botella"] > 0]
+    return dict(zip(
+        valid["ID_Perfume"].astype(str),
+        valid["Costo_Botella"] / valid["Ml_Botella"],
+    ))
 
 
 def calcular_costo_ventas_df(df, df_catalogo) -> float:

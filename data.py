@@ -144,6 +144,9 @@ def cargar_ventas():
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
+            if "Celular" in df.columns:
+                df["Celular"] = df["Celular"].astype(str)
+
             df["fila_sheet"] = range(2, len(df) + 2)
 
             if "Estado" in df.columns:

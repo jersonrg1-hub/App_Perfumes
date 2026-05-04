@@ -1,3 +1,16 @@
+"""
+app.py — Punto de entrada de la aplicación Perfuteca.
+
+Responsabilidades de este módulo (y solo estas):
+  1. Configurar la página de Streamlit
+  2. Inyectar estilos CSS y JavaScript global
+  3. Inicializar el estado de la app (get_state)
+  4. Cargar el catálogo con manejo de errores
+  5. Renderizar las tabs y delegar a los módulos correspondientes
+
+Todo lo demás vive en sus módulos: estado en state.py, lógica en logic/,
+UI en tabs/, datos en data.py, auth en auth.py.
+"""
 import streamlit as st
 from styles import get_styles
 from data import cargar_catalogo, cargar_ventas, cargar_cotizaciones, limpiar_cache_catalogo
@@ -9,6 +22,7 @@ from errores import (
     validar_dataframe,
 )
 from auth import inicializar_auth, login_seccion, check_auth, mostrar_boton_logout
+from state import get_state
 
 from tabs.tab_marca import mostrar_tab_marca
 from tabs.tab_nombre import mostrar_tab_nombre
@@ -16,15 +30,19 @@ from tabs.tab_venta import mostrar_tab_venta
 from tabs.tab_estadisticas import mostrar_tab_estadisticas
 from tabs.tab_notas import mostrar_tab_notas
 
+# ── Configuración de página ───────────────────────────────────────────────────
+
 st.set_page_config(page_title="Perfumes 🌸", page_icon="🌸", layout="centered")
 
+# Inicializa el árbol de estado antes que cualquier widget
 inicializar_auth()
+
+# ── Viewport y fuentes ────────────────────────────────────────────────────────
 
 st.markdown(
     '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
     unsafe_allow_html=True,
 )
-# Fuentes no bloqueantes: preconnect + link en lugar de @import dentro de <style>
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,11 +50,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.markdown(get_styles(), unsafe_allow_html=True)
 
+# ── JavaScript global ─────────────────────────────────────────────────────────
+# Guard window.__perfuteObsInstalled previene que los MutationObservers
+# se dupliquen si Streamlit re-inyecta el script (re-render completo o reconexión).
+# Sin el guard, cada re-render acumula N observers sobre document.body,
+# degradando el rendimiento del input progresivamente.
+
 st.markdown("""
 <script>
-// Guard global: este bloque solo se instala UNA vez por vida de la página.
-// Si Streamlit re-inyecta el script (re-render completo), los observers
-// ya existentes no se duplican.
 if (!window.__perfuteObsInstalled) {
 window.__perfuteObsInstalled = true;
 
@@ -100,7 +121,7 @@ window.__perfuteObsInstalled = true;
 })();
 
 (function() {
-    // Teclado decimal en móvil para todos los inputs numéricos
+    // Teclado decimal en móvil para inputs numéricos
     function _fixInputModes() {
         document.querySelectorAll('input[type="number"]').forEach(function(el) {
             el.setAttribute('inputmode', 'decimal');
@@ -110,8 +131,8 @@ window.__perfuteObsInstalled = true;
     new MutationObserver(_fixInputModes).observe(document.body, { childList: true, subtree: true });
 })();
 
-// Vibración táctil al agregar a cesta (detecta aparición de toast)
 (function() {
+    // Vibración táctil al agregar a cesta (detecta aparición de toast)
     new MutationObserver(function(mutations) {
         mutations.forEach(function(mut) {
             mut.addedNodes.forEach(function(node) {
@@ -124,8 +145,8 @@ window.__perfuteObsInstalled = true;
     }).observe(document.body, { childList: true, subtree: true });
 })();
 
-// Swipe para eliminar items de la cesta (deslizar izquierda revela botón rojo)
 (function() {
+    // Swipe izquierda en cesta para revelar botón de eliminar
     function setupSwipeDelete() {
         document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function(row) {
             if (row._swipeSetup) return;
@@ -197,18 +218,24 @@ window.__perfuteObsInstalled = true;
 </script>
 """, unsafe_allow_html=True)
 
+# ── Encabezado ────────────────────────────────────────────────────────────────
+
 mostrar_encabezado()
+
+# ── Carga de datos y renderizado de tabs ──────────────────────────────────────
 
 try:
     df = cargar_catalogo()
 
-    # Precalentar caches + calcular badge de pedidos pendientes
+    # Precalentar caches y calcular badge de pedidos pendientes
     _n_pend = 0
     try:
         _df_v = cargar_ventas()
         cargar_cotizaciones()
         if not _df_v.empty and "Estado" in _df_v.columns and "ID_Compra" in _df_v.columns:
-            _n_pend = int(_df_v[~_df_v["Estado"].isin(["Entregado", "Anulado"])]["ID_Compra"].nunique())
+            _n_pend = int(
+                _df_v[~_df_v["Estado"].isin(["Entregado", "Anulado"])]["ID_Compra"].nunique()
+            )
     except Exception:
         pass
 
@@ -261,7 +288,7 @@ try:
     with tab6:
         if check_auth():
             st.success("### ✅ Sesión Activa")
-            st.write("Tienes acceso a las secciones de administración (Ventas y Estadísticas).")
+            st.write("Tienes acceso a las secciones de administración.")
             mostrar_boton_logout(key_suffix="tab6")
         else:
             st.info("### 🔒 Modo Invitado")

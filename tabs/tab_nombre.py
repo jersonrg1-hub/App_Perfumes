@@ -99,14 +99,27 @@ def mostrar_tab_nombre(df):
 
         tiene_notas = "Notas" in df.columns
         tiene_perfil = "Perfil_Olfativo" in df.columns
+        tiene_ocasion = "ocasion" in df.columns
+        tiene_estacion = "estacion" in df.columns
+        tiene_hora = "hora" in df.columns
+        tiene_palabras = "palabra_clave" in df.columns
+
+        def _campo_valido(v):
+            return bool(v) and str(v).strip().lower() not in ("", "nan", "none")
+
         notas_txt = (
             html.escape(str(perfume.get("Notas", "")))
-            if tiene_notas and perfume.get("Notas") else ""
+            if tiene_notas and _campo_valido(perfume.get("Notas")) else ""
         )
         perfil_txt = (
             html.escape(str(perfume.get("Perfil_Olfativo", "")))
-            if tiene_perfil and perfume.get("Perfil_Olfativo") else ""
+            if tiene_perfil and _campo_valido(perfume.get("Perfil_Olfativo")) else ""
         )
+        ocasion_txt = perfume.get("ocasion", "") if tiene_ocasion else ""
+        estacion_txt = perfume.get("estacion", "") if tiene_estacion else ""
+        hora_txt = perfume.get("hora", "") if tiene_hora else ""
+        palabras_txt = perfume.get("palabra_clave", "") if tiene_palabras else ""
+
         marca_safe = html.escape(str(perfume.get("Marca", "")))
         nombre_safe = html.escape(str(perfume.get("Nombre", "")))
 
@@ -127,12 +140,39 @@ def mostrar_tab_nombre(df):
             f"{notas_pills_html(perfume.get('Perfil_Olfativo', ''), color_bg='#fdf8ee', color_border='#e8d5a8', color_text='#7a6020')}"
             if perfil_txt else ""
         )
+        ocasion_seccion = (
+            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
+            f"color:#4a7a5a; font-weight:700; margin:0.55rem 0 0.2rem;'>Ocasión</div>"
+            f"{notas_pills_html(ocasion_txt, color_bg='#eef4f0', color_border='#a8c8b8', color_text='#2a5a3a')}"
+            if _campo_valido(ocasion_txt) else ""
+        )
+        estacion_seccion = (
+            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
+            f"color:#4a5a8a; font-weight:700; margin:0.55rem 0 0.2rem;'>Estación</div>"
+            f"{notas_pills_html(estacion_txt, color_bg='#eceef8', color_border='#b0b8d8', color_text='#2a3a6a')}"
+            if _campo_valido(estacion_txt) else ""
+        )
+        hora_seccion = (
+            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
+            f"color:#7a4a8a; font-weight:700; margin:0.55rem 0 0.2rem;'>Hora</div>"
+            f"{notas_pills_html(hora_txt, color_bg='#f4eef8', color_border='#c8b0d8', color_text='#5a2a7a')}"
+            if _campo_valido(hora_txt) else ""
+        )
+        palabras_seccion = (
+            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
+            f"color:#6a5a4a; font-weight:700; margin:0.55rem 0 0.2rem;'>Palabras clave</div>"
+            f"{notas_pills_html(palabras_txt, color_bg='#f4f0ec', color_border='#c8b8a8', color_text='#4a3a2a')}"
+            if _campo_valido(palabras_txt) else ""
+        )
+        extras_seccion = ocasion_seccion + estacion_seccion + hora_seccion + palabras_seccion
 
         tiene_imagen = False
         imagen_path = None
         if url_imagen:
             imagen_path = Path(__file__).parent.parent / url_imagen
             tiene_imagen = imagen_path.exists()
+
+        hay_extra = bool(notas_txt or perfil_txt or extras_seccion)
 
         if tiene_imagen:
             st.image(str(imagen_path), use_container_width=True)
@@ -145,8 +185,8 @@ def mostrar_tab_nombre(df):
                 <div style="font-family:'Playfair Display',serif; font-size:1.65rem;
                     color:var(--c-text); font-weight:600; letter-spacing:-0.02em; line-height:1.15;">{nombre_safe}</div>
                 {stock_html}
-                {'<hr style="border:none;border-top:1px solid var(--c-border-light);margin:0.8rem 0;">' if (notas_seccion or perfil_seccion) else ""}
-                {notas_seccion}{perfil_seccion}
+                {'<hr style="border:none;border-top:1px solid var(--c-border-light);margin:0.8rem 0;">' if hay_extra else ""}
+                {notas_seccion}{perfil_seccion}{extras_seccion}
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -161,12 +201,12 @@ def mostrar_tab_nombre(df):
                 {stock_html}
             </div>
             """, unsafe_allow_html=True)
-            if notas_txt or perfil_txt:
+            if hay_extra:
                 st.markdown(f"""
                 <div style="background:linear-gradient(160deg,#fff9f5,#fdf3eb);
                     border:1px solid var(--c-border-light); border-radius:var(--radius-lg);
                     padding:1.2rem 1.4rem; margin-top:0.5rem; box-sizing:border-box;">
-                    {notas_seccion}{perfil_seccion}
+                    {notas_seccion}{perfil_seccion}{extras_seccion}
                 </div>
                 """, unsafe_allow_html=True)
 

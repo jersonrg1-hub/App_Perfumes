@@ -92,7 +92,7 @@ Spreadsheet: **"PERFUMES PYTHON"**
 
 ```python
 PRECIOS_COLUMNAS = {"2 ml": "Precio_2ml", "5 ml": "Precio_5ml", "10 ml": "Precio_10ml"}
-METODOS_PAGO = ["Efectivo", "Yape", "Plin", "Transferencia", "Tarjeta"]
+METODOS_PAGO = ["Yape", "Plin", "Transferencia", "Tarjeta"]   # Efectivo eliminado
 TIPOS_ENVIO = ["Shalom", "Motorizado", "Contraentrega"]
 STOCK_CRITICO = 5   # ml
 STOCK_BAJO = 15     # ml
@@ -150,6 +150,30 @@ Paleta terrosa/cálida (`.streamlit/config.toml`):
 - `primaryColor`: `#c8956c` (terracota)
 - `backgroundColor`: `#faf5f0`
 - `textColor`: `#2c1a0e` (marrón oscuro)
+
+## Repositorio git
+
+- El código vive en `pythonProject/` que tiene su **propio `.git`** (repo anidado, no submodule)
+- Remote: `https://github.com/jersonrg1-hub/App_Perfumes.git`
+- Branch principal: `main`
+- Para hacer commit/push, operar desde dentro de `pythonProject/`, no desde el directorio padre
+
+## Trampas conocidas / lecciones aprendidas
+
+### Streamlit
+- `st.success("### Título")` y `st.info("### Título")` **no renderizan Markdown**; el `###` aparece literal.
+  Solución: separar en `st.markdown("### Título")` + `st.success("Mensaje")`.
+- El bloque `except Exception` genérico nunca debe llamar a `mostrar_error_conexion()` directamente;
+  cualquier bug de código mostraría "Sin conexión" al usuario. Usar `st.error(f"Error: {type(e).__name__}")`.
+- Los imports siempre al top del módulo, nunca dentro de bloques `except`.
+
+### JavaScript inyectado en `app.py`
+- **Guard global obligatorio**: cualquier `document.addEventListener` que se registre dentro de un loop
+  de elementos (p.ej. filas de la cesta) debe estar protegido con `window.__miGuard` para no acumular
+  listeners duplicados en cada re-render de Streamlit.
+- **Estado en el DOM**: para que listeners globales accedan al estado de un elemento, exponerlo en el
+  propio nodo (`row._snap`, `row._revealed`) en lugar de cerrar sobre variables locales que se pierden.
+- Los MutationObservers del swipe ya usan `requestAnimationFrame` como debounce (`_swipeRAF`).
 
 ## Comandos útiles
 

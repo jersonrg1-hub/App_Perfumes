@@ -193,7 +193,13 @@ def mostrar_seccion_cotizacion(df) -> None:
                     except Exception:
                         pass
 
-                    # Clave fija "cot_precio" — se limpia en reset_cotizacion()
+                    # Purgar cot_precio si el usuario cambia perfume o ml sin agregar,
+                    # para que value=precio_cat se aplique correctamente.
+                    _cot_key = f"{perfume_cot}|{ml_cot}"
+                    if cot.get("_last_precio_key") != _cot_key:
+                        cot["_last_precio_key"] = _cot_key
+                        st.session_state.pop("cot_precio", None)
+
                     st.number_input(
                         "💰 Precio final",
                         min_value=0.0,

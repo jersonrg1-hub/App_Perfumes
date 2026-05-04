@@ -5,5 +5,9 @@ from styles.forms import FORMS
 from styles.animations import ANIMATIONS
 from styles.mobile import MOBILE
 
-def get_styles():
-    return f"<style>{BASE}{COMPONENTS}{TABS}{FORMS}{ANIMATIONS}{MOBILE}</style>"
+# Computed once at import time — never rebuilt on reruns
+_STYLES = f"<style>{BASE}{COMPONENTS}{TABS}{FORMS}{ANIMATIONS}{MOBILE}</style>"
+
+
+def get_styles() -> str:
+    return _STYLES

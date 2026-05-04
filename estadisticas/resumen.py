@@ -10,6 +10,21 @@ from costos import calcular_costo_ventas_df
 from pdf_generator import exportar_pdf_ventas_hoy, exportar_pdf_ventas_mes, exportar_pdf_mes_especifico, MESES_ES
 
 
+@st.cache_data(ttl=120, show_spinner=False)
+def _pdf_hoy(df_ventas: pd.DataFrame, df_catalogo: pd.DataFrame):
+    return exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _pdf_mes(df_ventas: pd.DataFrame, df_catalogo: pd.DataFrame):
+    return exportar_pdf_ventas_mes(df_ventas, df_catalogo)
+
+
+@st.cache_data(ttl=120, show_spinner=False)
+def _pdf_especifico(df_ventas: pd.DataFrame, df_catalogo: pd.DataFrame, anio: int, mes: int):
+    return exportar_pdf_mes_especifico(df_ventas, df_catalogo, anio, mes)
+
+
 def _metrica_card(titulo, valor):
     titulo_safe = html.escape(str(titulo))
     valor_safe = html.escape(str(valor))
@@ -113,7 +128,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     st.markdown("")
     col_pdf1, col_pdf2 = st.columns(2)
     with col_pdf1:
-        pdf_bytes_hoy = exportar_pdf_ventas_hoy(df_ventas, df_catalogo)
+        pdf_bytes_hoy = _pdf_hoy(df_ventas, df_catalogo)
         if pdf_bytes_hoy:
             st.download_button(
                 label="⬇️ PDF del día",
@@ -127,7 +142,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             st.button("⬇️ PDF del día", disabled=True, use_container_width=True, key="dl_pdf_dia_off")
             st.caption("Sin ventas hoy")
     with col_pdf2:
-        pdf_bytes_mes = exportar_pdf_ventas_mes(df_ventas, df_catalogo)
+        pdf_bytes_mes = _pdf_mes(df_ventas, df_catalogo)
         if pdf_bytes_mes:
             hoy_d = hoy_peru()
             st.download_button(
@@ -162,7 +177,7 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
             )
         with col_dl:
             anio_sel, mes_sel = opciones[mes_elegido]
-            pdf_esp = exportar_pdf_mes_especifico(df_ventas, df_catalogo, anio_sel, mes_sel)
+            pdf_esp = _pdf_especifico(df_ventas, df_catalogo, anio_sel, mes_sel)
             st.markdown("<div style='margin-top:1.6rem'></div>", unsafe_allow_html=True)
             if pdf_esp:
                 st.download_button(

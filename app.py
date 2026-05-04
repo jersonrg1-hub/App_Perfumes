@@ -11,6 +11,7 @@ Responsabilidades de este módulo (y solo estas):
 Todo lo demás vive en sus módulos: estado en state.py, lógica en logic/,
 UI en tabs/, datos en data.py, auth en auth.py.
 """
+from datetime import datetime
 import streamlit as st
 from styles import get_styles
 from data import cargar_catalogo, cargar_ventas, cargar_cotizaciones, limpiar_cache_catalogo
@@ -197,9 +198,11 @@ window.__perfuteObsInstalled = true;
 
             function snap(show) {
                 revealed = show;
+                row._revealed = show;
                 firstCol.style.transform = show ? 'translateX(-' + REVEAL + 'px)' : 'translateX(0)';
                 lastCol.style.transform = show ? 'translateX(0)' : 'translateX(' + REVEAL + 'px)';
             }
+            row._snap = snap;
 
             firstCol.addEventListener('touchstart', function(e) {
                 startX = e.touches[0].clientX;
@@ -227,12 +230,19 @@ window.__perfuteObsInstalled = true;
                 else if (revealed && dx > THRESH / 2) snap(false);
                 else snap(revealed);
             });
-
-            document.addEventListener('touchstart', function(e) {
-                if (revealed && !row.contains(e.target)) snap(false);
-            }, { passive: true });
         });
     }
+
+    // Listener global único: cierra cualquier fila revelada al tocar fuera
+    if (!window.__swipeDocListenerAdded) {
+        window.__swipeDocListenerAdded = true;
+        document.addEventListener('touchstart', function(e) {
+            document.querySelectorAll('[data-testid="stHorizontalBlock"]').forEach(function(row) {
+                if (row._snap && row._revealed && !row.contains(e.target)) row._snap(false);
+            });
+        }, { passive: true });
+    }
+
     setupSwipeDelete();
     var _swipeRAF = null;
     new MutationObserver(function() {
@@ -337,12 +347,12 @@ try:
 
     with tab6:
         if check_auth():
-            st.success("### ✅ Sesión Activa")
-            st.write("Tienes acceso a las secciones de administración.")
+            st.markdown("### ✅ Sesión Activa")
+            st.success("Tienes acceso a las secciones de administración.")
             mostrar_boton_logout(key_suffix="tab6")
         else:
-            st.info("### 🔒 Modo Invitado")
-            st.write("Ingresa la contraseña para gestionar ventas e inventario.")
+            st.markdown("### 🔒 Modo Invitado")
+            st.info("Ingresa la contraseña para gestionar ventas e inventario.")
             login_seccion(key_suffix="tab_final")
 
 except ConnectionError:
@@ -353,9 +363,8 @@ except ConnectionError:
 
 except Exception as e:
     log = st.session_state.setdefault("error_log", [])
-    from datetime import datetime
     log.append(f"[{datetime.now().strftime('%H:%M:%S')}] [app] {type(e).__name__}: {e}")
-    mostrar_error_conexion()
+    st.error(f"Error inesperado: {type(e).__name__}. Intenta recargar la página.")
     if st.button("🔄 Reintentar", key="retry_exc"):
         limpiar_cache_catalogo()
         st.rerun()

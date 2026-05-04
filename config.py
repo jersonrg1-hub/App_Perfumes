@@ -38,7 +38,7 @@ PRECIOS_COLUMNAS = {
 
 ML_OPCIONES = [int(k.replace(" ml", "")) for k in PRECIOS_COLUMNAS.keys()]
 
-METODOS_PAGO = ["Efectivo", "Yape", "Plin", "Transferencia", "Tarjeta"]
+METODOS_PAGO = ["Yape", "Plin", "Transferencia", "Tarjeta"]
 
 TIPOS_ENVIO = ["Shalom", "Motorizado", "Contraentrega"]
 

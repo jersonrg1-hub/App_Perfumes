@@ -140,31 +140,28 @@ def mostrar_tab_nombre(df):
             f"{notas_pills_html(perfume.get('Perfil_Olfativo', ''), color_bg='#fdf8ee', color_border='#e8d5a8', color_text='#7a6020')}"
             if perfil_txt else ""
         )
-        ocasion_seccion = (
-            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
-            f"color:#4a7a5a; font-weight:700; margin:0.55rem 0 0.2rem;'>Ocasión</div>"
-            f"{notas_pills_html(ocasion_txt, color_bg='#eef4f0', color_border='#a8c8b8', color_text='#2a5a3a')}"
-            if _campo_valido(ocasion_txt) else ""
-        )
-        estacion_seccion = (
-            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
-            f"color:#4a5a8a; font-weight:700; margin:0.55rem 0 0.2rem;'>Estación</div>"
-            f"{notas_pills_html(estacion_txt, color_bg='#eceef8', color_border='#b0b8d8', color_text='#2a3a6a')}"
-            if _campo_valido(estacion_txt) else ""
-        )
-        hora_seccion = (
-            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
-            f"color:#7a4a8a; font-weight:700; margin:0.55rem 0 0.2rem;'>Hora</div>"
-            f"{notas_pills_html(hora_txt, color_bg='#f4eef8', color_border='#c8b0d8', color_text='#5a2a7a')}"
-            if _campo_valido(hora_txt) else ""
-        )
-        palabras_seccion = (
-            f"<div style='font-size:0.68rem; letter-spacing:0.18em; text-transform:uppercase;"
-            f"color:#6a5a4a; font-weight:700; margin:0.55rem 0 0.2rem;'>Palabras clave</div>"
-            f"{notas_pills_html(palabras_txt, color_bg='#f4f0ec', color_border='#c8b8a8', color_text='#4a3a2a')}"
-            if _campo_valido(palabras_txt) else ""
-        )
-        extras_seccion = ocasion_seccion + estacion_seccion + hora_seccion + palabras_seccion
+        _lbl = "font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; font-weight:700; margin-bottom:0.1rem;"
+        _extras = []
+        if _campo_valido(ocasion_txt):
+            _extras.append((f"<div style='{_lbl} color:#4a7a5a;'>Ocasión</div>", notas_pills_html(ocasion_txt, color_bg='#eef4f0', color_border='#a8c8b8', color_text='#2a5a3a')))
+        if _campo_valido(estacion_txt):
+            _extras.append((f"<div style='{_lbl} color:#4a5a8a;'>Estación</div>", notas_pills_html(estacion_txt, color_bg='#eceef8', color_border='#b0b8d8', color_text='#2a3a6a')))
+        if _campo_valido(hora_txt):
+            _extras.append((f"<div style='{_lbl} color:#7a4a8a;'>Hora</div>", notas_pills_html(hora_txt, color_bg='#f4eef8', color_border='#c8b0d8', color_text='#5a2a7a')))
+        if _campo_valido(palabras_txt):
+            _extras.append((f"<div style='{_lbl} color:#6a5a4a;'>Palabras clave</div>", notas_pills_html(palabras_txt, color_bg='#f4f0ec', color_border='#c8b8a8', color_text='#4a3a2a')))
+
+        if _extras:
+            _cells = "".join(
+                f"<div style='min-width:0;'>{lbl}{pills}</div>"
+                for lbl, pills in _extras
+            )
+            extras_seccion = (
+                f"<div style='margin-top:0.5rem; padding-top:0.45rem; border-top:1px solid #f0e4d8;"
+                f"display:grid; grid-template-columns:1fr 1fr; gap:0.25rem 0.8rem;'>{_cells}</div>"
+            )
+        else:
+            extras_seccion = ""
 
         tiene_imagen = False
         imagen_path = None

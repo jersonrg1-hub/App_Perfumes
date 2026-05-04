@@ -11,23 +11,27 @@ def _extraer_valores(serie):
     for item in serie.dropna():
         for v in str(item).split(","):
             v_limpio = v.strip().lower().capitalize()
-            if v_limpio:
+            if v_limpio and v_limpio.lower() != "nan":
                 valores.add(v_limpio)
     return sorted(valores)
 
 
 def _tiene_todos(valor_str, seleccionados):
-    if not valor_str:
+    if not valor_str or str(valor_str).strip().lower() in ("", "nan", "none"):
         return False
     valores = [v.strip().lower().capitalize() for v in str(valor_str).split(",")]
     return all(s in valores for s in seleccionados)
 
 
 def _tiene_alguno(valor_str, seleccionados):
-    if not valor_str:
+    if not valor_str or str(valor_str).strip().lower() in ("", "nan", "none"):
         return False
     valores = [v.strip().lower().capitalize() for v in str(valor_str).split(",")]
     return any(s in valores for s in seleccionados)
+
+
+def _campo_valido(valor):
+    return bool(valor) and str(valor).strip().lower() not in ("", "nan", "none")
 
 
 @st.fragment
@@ -37,13 +41,20 @@ def mostrar_tab_notas(df):
 
     tiene_notas = "Notas" in df.columns
     tiene_perfil = "Perfil_Olfativo" in df.columns
+    tiene_ocasion = "ocasion" in df.columns
+    tiene_estacion = "estacion" in df.columns
+    tiene_hora = "hora" in df.columns
+    tiene_palabras = "palabra_clave" in df.columns
 
-    if not tiene_notas and not tiene_perfil:
+    if not any([tiene_notas, tiene_perfil, tiene_ocasion, tiene_estacion, tiene_hora]):
         st.warning("⚠️ Agrega las columnas **Notas** y **Perfil_Olfativo** en tu Google Sheets")
         return
 
     notas_ordenadas = _extraer_valores(df["Notas"]) if tiene_notas else []
     perfiles_ordenados = _extraer_valores(df["Perfil_Olfativo"]) if tiene_perfil else []
+    ocasiones_ordenadas = _extraer_valores(df["ocasion"]) if tiene_ocasion else []
+    estaciones_ordenadas = _extraer_valores(df["estacion"]) if tiene_estacion else []
+    horas_ordenadas = _extraer_valores(df["hora"]) if tiene_hora else []
 
     col1, col2 = st.columns(2)
 
@@ -73,7 +84,51 @@ def mostrar_tab_notas(df):
             perfiles_seleccionados = []
             st.caption("Sin columna Perfil_Olfativo")
 
-    hay_seleccion = bool(notas_seleccionadas or perfiles_seleccionados)
+    if any([ocasiones_ordenadas, estaciones_ordenadas, horas_ordenadas]):
+        col3, col4, col5 = st.columns(3)
+        with col3:
+            if ocasiones_ordenadas:
+                st.markdown("**🎉 Ocasión:**")
+                ocasiones_seleccionadas = st.multiselect(
+                    "ocasion",
+                    ocasiones_ordenadas,
+                    placeholder="Ej: Cita, Trabajo...",
+                    label_visibility="collapsed"
+                )
+            else:
+                ocasiones_seleccionadas = []
+        with col4:
+            if estaciones_ordenadas:
+                st.markdown("**🌿 Estación:**")
+                estaciones_seleccionadas = st.multiselect(
+                    "estacion",
+                    estaciones_ordenadas,
+                    placeholder="Ej: Verano, Invierno...",
+                    label_visibility="collapsed"
+                )
+            else:
+                estaciones_seleccionadas = []
+        with col5:
+            if horas_ordenadas:
+                st.markdown("**🌙 Hora:**")
+                horas_seleccionadas = st.multiselect(
+                    "hora",
+                    horas_ordenadas,
+                    placeholder="Día o Noche",
+                    label_visibility="collapsed"
+                )
+            else:
+                horas_seleccionadas = []
+    else:
+        ocasiones_seleccionadas = []
+        estaciones_seleccionadas = []
+        horas_seleccionadas = []
+
+    hay_seleccion = bool(
+        notas_seleccionadas or perfiles_seleccionados or
+        ocasiones_seleccionadas or estaciones_seleccionadas or horas_seleccionadas
+    )
+
     if hay_seleccion:
         modo_filtro = st.radio(
             "Modo",
@@ -86,7 +141,7 @@ def mostrar_tab_notas(df):
     else:
         modo_filtro = "Todas"
 
-    if not notas_seleccionadas and not perfiles_seleccionados:
+    if not hay_seleccion:
         mostrar_placeholder_vacio(
             "🎵",
             "Elige una nota o perfil",
@@ -95,17 +150,27 @@ def mostrar_tab_notas(df):
         return
 
     df_filtrado = df
-
     filtrar = _tiene_todos if modo_filtro == "Todas" else _tiene_alguno
 
     if notas_seleccionadas:
         df_filtrado = df_filtrado[
             df_filtrado["Notas"].apply(lambda x: filtrar(x, notas_seleccionadas))
         ]
-
     if perfiles_seleccionados:
         df_filtrado = df_filtrado[
             df_filtrado["Perfil_Olfativo"].apply(lambda x: filtrar(x, perfiles_seleccionados))
+        ]
+    if ocasiones_seleccionadas:
+        df_filtrado = df_filtrado[
+            df_filtrado["ocasion"].apply(lambda x: filtrar(x, ocasiones_seleccionadas))
+        ]
+    if estaciones_seleccionadas:
+        df_filtrado = df_filtrado[
+            df_filtrado["estacion"].apply(lambda x: filtrar(x, estaciones_seleccionadas))
+        ]
+    if horas_seleccionadas:
+        df_filtrado = df_filtrado[
+            df_filtrado["hora"].apply(lambda x: filtrar(x, horas_seleccionadas))
         ]
 
     st.markdown("")
@@ -116,6 +181,12 @@ def mostrar_tab_notas(df):
             msg.append(f"notas: **{', '.join(notas_seleccionadas)}**")
         if perfiles_seleccionados:
             msg.append(f"perfil: **{', '.join(perfiles_seleccionados)}**")
+        if ocasiones_seleccionadas:
+            msg.append(f"ocasión: **{', '.join(ocasiones_seleccionadas)}**")
+        if estaciones_seleccionadas:
+            msg.append(f"estación: **{', '.join(estaciones_seleccionadas)}**")
+        if horas_seleccionadas:
+            msg.append(f"hora: **{', '.join(horas_seleccionadas)}**")
         st.markdown(
             f"""<div style="background:#fdf6f0; border:1px solid #ede0d4;
             border-left:3px solid #d69e2e; border-radius:10px;
@@ -132,17 +203,23 @@ def mostrar_tab_notas(df):
     for row in df_filtrado.to_dict("records"):
         notas_txt = row.get("Notas", "") if tiene_notas else ""
         perfil_txt = row.get("Perfil_Olfativo", "") if tiene_perfil else ""
+        ocasion_txt = row.get("ocasion", "") if tiene_ocasion else ""
+        estacion_txt = row.get("estacion", "") if tiene_estacion else ""
+        hora_txt = row.get("hora", "") if tiene_hora else ""
+        palabras_txt = row.get("palabra_clave", "") if tiene_palabras else ""
+
         marca = html.escape(str(row.get("Marca", "")))
         nombre = html.escape(str(row.get("Nombre", "")))
         stock_badge = stock_badge_html(row.get("Stock_ml", None))
         stock_barra = stock_barra_html(row.get("Stock_ml", None))
+
         notas_html = (
             f"<div style='margin-top:0.35rem;'>"
             f"<span style='color:var(--c-primary-light); font-size:0.7rem; font-weight:700;"
             f"letter-spacing:0.14em; text-transform:uppercase;'>Notas</span>"
             f"{notas_pills_html(notas_txt)}"
             f"</div>"
-            if notas_txt else ""
+            if _campo_valido(notas_txt) else ""
         )
         perfil_html = (
             f"<div style='margin-top:0.3rem;'>"
@@ -150,8 +227,41 @@ def mostrar_tab_notas(df):
             f"letter-spacing:0.14em; text-transform:uppercase;'>Perfil olfativo</span>"
             f"{notas_pills_html(perfil_txt, color_bg='#fdf8ee', color_border='#e8d5a8', color_text='#7a6020')}"
             f"</div>"
-            if perfil_txt else ""
+            if _campo_valido(perfil_txt) else ""
         )
+        ocasion_html = (
+            f"<div style='margin-top:0.3rem;'>"
+            f"<span style='color:#4a7a5a; font-size:0.7rem; font-weight:700;"
+            f"letter-spacing:0.14em; text-transform:uppercase;'>Ocasión</span>"
+            f"{notas_pills_html(ocasion_txt, color_bg='#eef4f0', color_border='#a8c8b8', color_text='#2a5a3a')}"
+            f"</div>"
+            if _campo_valido(ocasion_txt) else ""
+        )
+        estacion_html = (
+            f"<div style='margin-top:0.3rem;'>"
+            f"<span style='color:#4a5a8a; font-size:0.7rem; font-weight:700;"
+            f"letter-spacing:0.14em; text-transform:uppercase;'>Estación</span>"
+            f"{notas_pills_html(estacion_txt, color_bg='#eceef8', color_border='#b0b8d8', color_text='#2a3a6a')}"
+            f"</div>"
+            if _campo_valido(estacion_txt) else ""
+        )
+        hora_html = (
+            f"<div style='margin-top:0.3rem;'>"
+            f"<span style='color:#7a4a8a; font-size:0.7rem; font-weight:700;"
+            f"letter-spacing:0.14em; text-transform:uppercase;'>Hora</span>"
+            f"{notas_pills_html(hora_txt, color_bg='#f4eef8', color_border='#c8b0d8', color_text='#5a2a7a')}"
+            f"</div>"
+            if _campo_valido(hora_txt) else ""
+        )
+        palabras_html = (
+            f"<div style='margin-top:0.3rem;'>"
+            f"<span style='color:#6a5a4a; font-size:0.7rem; font-weight:700;"
+            f"letter-spacing:0.14em; text-transform:uppercase;'>Palabras clave</span>"
+            f"{notas_pills_html(palabras_txt, color_bg='#f4f0ec', color_border='#c8b8a8', color_text='#4a3a2a')}"
+            f"</div>"
+            if _campo_valido(palabras_txt) else ""
+        )
+
         precios_html = ""
         n_cols = len(PRECIOS_COLUMNAS)
         col_width = f"{100 // n_cols}%"
@@ -187,7 +297,7 @@ def mostrar_tab_notas(df):
             f'<div style="font-family:\'Playfair Display\',serif; font-size:1.15rem;'
             f'color:#2c1a0e; font-weight:600;">{nombre}{stock_badge}</div>'
             f'{stock_barra}'
-            f'{notas_html}{perfil_html}</div>'
+            f'{notas_html}{perfil_html}{ocasion_html}{estacion_html}{hora_html}{palabras_html}</div>'
             f'<div style="display:flex; margin-bottom:0.8rem;">{precios_html}</div>'
         )
     st.markdown("".join(card_bloques), unsafe_allow_html=True)

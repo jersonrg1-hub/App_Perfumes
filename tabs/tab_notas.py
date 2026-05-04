@@ -229,38 +229,24 @@ def mostrar_tab_notas(df):
             f"</div>"
             if _campo_valido(perfil_txt) else ""
         )
-        ocasion_html = (
-            f"<div style='margin-top:0.3rem;'>"
-            f"<span style='color:#4a7a5a; font-size:0.7rem; font-weight:700;"
-            f"letter-spacing:0.14em; text-transform:uppercase;'>Ocasión</span>"
-            f"{notas_pills_html(ocasion_txt, color_bg='#eef4f0', color_border='#a8c8b8', color_text='#2a5a3a')}"
-            f"</div>"
-            if _campo_valido(ocasion_txt) else ""
-        )
-        estacion_html = (
-            f"<div style='margin-top:0.3rem;'>"
-            f"<span style='color:#4a5a8a; font-size:0.7rem; font-weight:700;"
-            f"letter-spacing:0.14em; text-transform:uppercase;'>Estación</span>"
-            f"{notas_pills_html(estacion_txt, color_bg='#eceef8', color_border='#b0b8d8', color_text='#2a3a6a')}"
-            f"</div>"
-            if _campo_valido(estacion_txt) else ""
-        )
-        hora_html = (
-            f"<div style='margin-top:0.3rem;'>"
-            f"<span style='color:#7a4a8a; font-size:0.7rem; font-weight:700;"
-            f"letter-spacing:0.14em; text-transform:uppercase;'>Hora</span>"
-            f"{notas_pills_html(hora_txt, color_bg='#f4eef8', color_border='#c8b0d8', color_text='#5a2a7a')}"
-            f"</div>"
-            if _campo_valido(hora_txt) else ""
-        )
-        palabras_html = (
-            f"<div style='margin-top:0.3rem;'>"
-            f"<span style='color:#6a5a4a; font-size:0.7rem; font-weight:700;"
-            f"letter-spacing:0.14em; text-transform:uppercase;'>Palabras clave</span>"
-            f"{notas_pills_html(palabras_txt, color_bg='#f4f0ec', color_border='#c8b8a8', color_text='#4a3a2a')}"
-            f"</div>"
-            if _campo_valido(palabras_txt) else ""
-        )
+        _lbl = "font-size:0.65rem; letter-spacing:0.15em; text-transform:uppercase; font-weight:700; margin-bottom:0.1rem;"
+        _extras = []
+        if _campo_valido(ocasion_txt):
+            _extras.append((f"<div style='{_lbl} color:#4a7a5a;'>Ocasión</div>", notas_pills_html(ocasion_txt, color_bg='#eef4f0', color_border='#a8c8b8', color_text='#2a5a3a')))
+        if _campo_valido(estacion_txt):
+            _extras.append((f"<div style='{_lbl} color:#4a5a8a;'>Estación</div>", notas_pills_html(estacion_txt, color_bg='#eceef8', color_border='#b0b8d8', color_text='#2a3a6a')))
+        if _campo_valido(hora_txt):
+            _extras.append((f"<div style='{_lbl} color:#7a4a8a;'>Hora</div>", notas_pills_html(hora_txt, color_bg='#f4eef8', color_border='#c8b0d8', color_text='#5a2a7a')))
+        if _campo_valido(palabras_txt):
+            _extras.append((f"<div style='{_lbl} color:#6a5a4a;'>Palabras clave</div>", notas_pills_html(palabras_txt, color_bg='#f4f0ec', color_border='#c8b8a8', color_text='#4a3a2a')))
+        if _extras:
+            _cells = "".join(f"<div style='min-width:0;'>{lbl}{pills}</div>" for lbl, pills in _extras)
+            extras_html = (
+                f"<div style='margin-top:0.4rem; padding-top:0.4rem; border-top:1px solid #f0e4d8;"
+                f"display:grid; grid-template-columns:1fr 1fr; gap:0.2rem 0.6rem;'>{_cells}</div>"
+            )
+        else:
+            extras_html = ""
 
         precios_html = ""
         n_cols = len(PRECIOS_COLUMNAS)
@@ -297,7 +283,7 @@ def mostrar_tab_notas(df):
             f'<div style="font-family:\'Playfair Display\',serif; font-size:1.15rem;'
             f'color:#2c1a0e; font-weight:600;">{nombre}{stock_badge}</div>'
             f'{stock_barra}'
-            f'{notas_html}{perfil_html}{ocasion_html}{estacion_html}{hora_html}{palabras_html}</div>'
+            f'{notas_html}{perfil_html}{extras_html}</div>'
             f'<div style="display:flex; margin-bottom:0.8rem;">{precios_html}</div>'
         )
     st.markdown("".join(card_bloques), unsafe_allow_html=True)

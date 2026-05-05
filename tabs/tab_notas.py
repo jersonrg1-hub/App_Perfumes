@@ -34,10 +34,30 @@ def _campo_valido(valor):
     return bool(valor) and str(valor).strip().lower() not in ("", "nan", "none")
 
 
+def _aplicar_busqueda_texto(df_f, texto):
+    texto_lower = texto.lower()
+    cols = [c for c in ["Nombre", "Marca", "Notas", "Perfil_Olfativo", "palabra_clave", "ocasion", "estacion", "hora"] if c in df_f.columns]
+    if not cols:
+        return df_f
+    mascara = df_f[cols[0]].fillna("").astype(str).str.lower().str.contains(texto_lower, regex=False)
+    for col in cols[1:]:
+        mascara = mascara | df_f[col].fillna("").astype(str).str.lower().str.contains(texto_lower, regex=False)
+    return df_f[mascara]
+
+
 @st.fragment
 def mostrar_tab_notas(df):
     st.markdown("### 🎵 Buscar por Nota y Perfil")
     separador()
+
+    st.markdown("**🔍 Búsqueda por palabra clave:**")
+    busqueda_texto = st.text_input(
+        "notas_busqueda",
+        placeholder="Ej: vainilla, romántico, mujer, fresco...",
+        label_visibility="collapsed",
+        key="notas_busqueda_texto",
+    ).strip()
+    st.markdown("")
 
     tiene_notas = "Notas" in df.columns
     tiene_perfil = "Perfil_Olfativo" in df.columns
@@ -125,7 +145,7 @@ def mostrar_tab_notas(df):
         horas_seleccionadas = []
 
     hay_seleccion = bool(
-        notas_seleccionadas or perfiles_seleccionados or
+        busqueda_texto or notas_seleccionadas or perfiles_seleccionados or
         ocasiones_seleccionadas or estaciones_seleccionadas or horas_seleccionadas
     )
 
@@ -144,8 +164,8 @@ def mostrar_tab_notas(df):
     if not hay_seleccion:
         mostrar_placeholder_vacio(
             "🎵",
-            "Elige una nota o perfil",
-            "Selecciona para filtrar los perfumes por aroma",
+            "Elige una nota, perfil o escribe una palabra clave",
+            "Selecciona filtros o escribe para buscar perfumes por aroma",
         )
         return
 
@@ -173,11 +193,15 @@ def mostrar_tab_notas(df):
         df_filtrado = _aplicar_filtro("estacion", estaciones_seleccionadas)
     if horas_seleccionadas:
         df_filtrado = _aplicar_filtro("hora", horas_seleccionadas)
+    if busqueda_texto:
+        df_filtrado = _aplicar_busqueda_texto(df_filtrado, busqueda_texto)
 
     st.markdown("")
 
     if df_filtrado.empty:
         msg = []
+        if busqueda_texto:
+            msg.append(f"texto: **\"{html.escape(busqueda_texto)}\"**")
         if notas_seleccionadas:
             msg.append(f"notas: **{', '.join(notas_seleccionadas)}**")
         if perfiles_seleccionados:

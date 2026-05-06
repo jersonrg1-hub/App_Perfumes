@@ -187,12 +187,11 @@ def mostrar_seccion_cotizacion(df) -> None:
                     except Exception:
                         pass
 
-                    # Purgar cot_precio si el usuario cambia perfume o ml sin agregar,
-                    # para que value=precio_cat se aplique correctamente.
+                    # Forzar el precio correcto cuando cambia perfume o tamaño.
                     _cot_key = f"{perfume_cot}|{ml_cot}"
                     if cot.get("_last_precio_key") != _cot_key:
                         cot["_last_precio_key"] = _cot_key
-                        st.session_state.pop("cot_precio", None)
+                        st.session_state["cot_precio"] = float(precio_cat)
 
                     st.number_input(
                         "💰 Precio final",
@@ -213,6 +212,7 @@ def mostrar_seccion_cotizacion(df) -> None:
                         )
                         cot["cesta"].append(item)
                         cot["guardada"] = False
+                        cot.pop("_last_precio_key", None)
                         st.toast(f"Agregado: {perfume_cot}", icon="✅")
                         # Resetear selector de perfume y precio para siguiente item
                         for k in ("cot_perf", "cot_precio"):

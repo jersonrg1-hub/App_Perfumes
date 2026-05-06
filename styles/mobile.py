@@ -431,9 +431,9 @@ MOBILE = """
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
-            padding: 5px 2px 3px !important;
-            min-height: 52px !important;
-            font-size: 0.57rem !important;
+            padding: 7px 2px 5px !important;
+            min-height: 60px !important;
+            font-size: 0.65rem !important;
             white-space: normal !important;
             text-align: center !important;
             border-radius: 12px !important;
@@ -447,7 +447,7 @@ MOBILE = """
         .stTabs [data-baseweb="tab"] p,
         .stTabs [data-baseweb="tab"] span,
         .stTabs [data-baseweb="tab"] div {
-            font-size: 0.57rem !important;
+            font-size: 0.65rem !important;
             line-height: 1.3 !important;
             text-align: center !important;
             white-space: normal !important;
@@ -500,7 +500,63 @@ MOBILE = """
             transform: scale(0.95) !important;
         }
 
-        /* Panel de contenido: sin gap superior extra */
+        /* Sub-tabs internos (Estadísticas, etc.): NO convertir en nav inferior.
+           Solo el .stTabs raíz debe ser fixed; los anidados quedan normales. */
+        .stTabs .stTabs [data-baseweb="tab-list"] {
+            position: relative !important;
+            bottom: auto !important;
+            left: auto !important;
+            right: auto !important;
+            width: auto !important;
+            z-index: auto !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            overflow-x: auto !important;
+            padding: 0 0 2px 0 !important;
+            gap: 4px !important;
+            border-bottom: 1px solid rgba(200, 149, 108, 0.25) !important;
+            scrollbar-width: none !important;
+        }
+
+        .stTabs .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {
+            display: none !important;
+        }
+
+        .stTabs .stTabs [data-baseweb="tab"] {
+            flex: 0 0 auto !important;
+            min-width: auto !important;
+            flex-direction: row !important;
+            padding: 7px 12px !important;
+            min-height: 38px !important;
+            font-size: 0.75rem !important;
+            border-radius: 8px 8px 0 0 !important;
+        }
+
+        .stTabs .stTabs [data-baseweb="tab"] p,
+        .stTabs .stTabs [data-baseweb="tab"] span,
+        .stTabs .stTabs [data-baseweb="tab"] div {
+            font-size: 0.75rem !important;
+            white-space: nowrap !important;
+        }
+
+        .stTabs .stTabs [aria-selected="true"]::before {
+            display: none !important;
+        }
+
+        .stTabs .stTabs [aria-selected="true"] {
+            background: rgba(184, 114, 74, 0.13) !important;
+            border-bottom: 2px solid var(--c-primary-light) !important;
+        }
+
+        .stTabs .stTabs [data-baseweb="tab-panel"] {
+            padding-top: 0.7rem !important;
+            animation: none !important;
+        }
+
+        /* Panel de contenido principal: sin gap superior extra */
         .stTabs [data-baseweb="tab-panel"] {
             padding-top: 0.4rem !important;
             animation: fadeIn 0.2s ease-out !important;
@@ -512,12 +568,12 @@ MOBILE = """
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
             padding-top: 0.25rem !important;
-            padding-bottom: calc(88px + max(12px, env(safe-area-inset-bottom, 12px))) !important;
+            padding-bottom: calc(96px + max(18px, env(safe-area-inset-bottom, 18px))) !important;
         }
 
         /* Toast: por encima del bottom nav */
         .stToast {
-            bottom: calc(78px + max(12px, env(safe-area-inset-bottom, 12px))) !important;
+            bottom: calc(84px + max(18px, env(safe-area-inset-bottom, 18px))) !important;
             left: 16px !important;
             right: 16px !important;
             max-width: none !important;
@@ -527,7 +583,7 @@ MOBILE = """
            Estilos; el elemento lo inyecta el JS en app.py */
         #perfute-fab {
             position: fixed !important;
-            bottom: calc(72px + max(12px, env(safe-area-inset-bottom, 12px))) !important;
+            bottom: calc(80px + max(22px, env(safe-area-inset-bottom, 22px))) !important;
             right: 16px !important;
             z-index: 999 !important;
             width: 52px !important;
@@ -785,17 +841,17 @@ MOBILE = """
             font-size: 0.92rem !important;
         }
 
-        /* Bottom nav: aún más compacta */
+        /* Bottom nav: compacta pero legible */
         .stTabs [data-baseweb="tab"] {
-            font-size: 0.5rem !important;
-            min-height: 50px !important;
-            padding: 5px 1px 3px !important;
+            font-size: 0.58rem !important;
+            min-height: 56px !important;
+            padding: 6px 1px 4px !important;
         }
 
         .stTabs [data-baseweb="tab"] p,
         .stTabs [data-baseweb="tab"] span,
         .stTabs [data-baseweb="tab"] div {
-            font-size: 0.5rem !important;
+            font-size: 0.58rem !important;
         }
 
         /* FAB un poco más pequeño */
@@ -804,10 +860,11 @@ MOBILE = """
             height: 48px !important;
             font-size: 1.45rem !important;
             right: 12px !important;
+            bottom: calc(78px + max(20px, env(safe-area-inset-bottom, 20px))) !important;
         }
 
         .main .block-container {
-            padding-bottom: calc(82px + max(10px, env(safe-area-inset-bottom, 10px))) !important;
+            padding-bottom: calc(92px + max(14px, env(safe-area-inset-bottom, 14px))) !important;
         }
     }
 """

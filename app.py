@@ -374,58 +374,6 @@ window.__perfuteObsInstalled = true;
 })();
 
 
-(function() {
-    // ── Auto-colapsa la barra "Manage app" de Streamlit Cloud en móvil ──
-    // Simula el clic en el botón < para minimizarla desde el inicio,
-    // igual que si el usuario la cerrara manualmente.
-    if (window.innerWidth > 430) return;
-
-    var _done = false;
-
-    function _findBar() {
-        // Buscamos en hijos directos de <body> (donde Streamlit Cloud inyecta su UI)
-        return Array.from(document.body.children).find(function(el) {
-            if (el.id === 'perfute-fab') return false;
-            var s = window.getComputedStyle(el);
-            if (s.position !== 'fixed') return false;
-            var b = parseFloat(s.bottom);
-            if (isNaN(b) || b > 8) return false;
-            var h = el.getBoundingClientRect().height;
-            return h > 10 && h < 250;
-        });
-    }
-
-    function _collapse() {
-        if (_done) return;
-        var bar = _findBar();
-        if (!bar) return;
-
-        // Preferimos el botón cuyo texto sea '<' (el chevron de colapso);
-        // si no lo encontramos por texto, tomamos el botón más a la izquierda.
-        var btns = Array.from(bar.querySelectorAll('button'));
-        var btn = btns.find(function(b) {
-            var t = b.textContent.trim();
-            return t === '<' || t === '‹' || t === '←' || t === '«';
-        });
-        if (!btn && btns.length > 0) {
-            btns.sort(function(a, b) {
-                return a.getBoundingClientRect().left - b.getBoundingClientRect().left;
-            });
-            btn = btns[0];
-        }
-        if (btn) { btn.click(); _done = true; }
-    }
-
-    // Intentar en varios momentos por si el elemento se inyecta tarde
-    [300, 700, 1500, 3000].forEach(function(t) { setTimeout(_collapse, t); });
-
-    var _raf = null;
-    new MutationObserver(function() {
-        if (_done) return;
-        if (_raf) return;
-        _raf = requestAnimationFrame(function() { _raf = null; _collapse(); });
-    }).observe(document.body, { childList: true, subtree: false });
-})();
 
 } // fin guard __perfuteObsInstalled
 </script>

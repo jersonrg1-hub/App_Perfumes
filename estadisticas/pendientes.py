@@ -28,6 +28,10 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         return
 
     catalogo_dict = construir_catalogo_dict(df_catalogo)
+    marca_dict = (
+        dict(zip(df_catalogo["ID_Perfume"].astype(str), df_catalogo["Marca"]))
+        if df_catalogo is not None and not df_catalogo.empty else {}
+    )
 
     buscar = st.text_input(
         "🔍 Buscar", placeholder="Nombre o ID de compra...", key="pend_buscar"
@@ -122,13 +126,14 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
             separador()
 
             items_lineas = "\n".join([
-                f"  • {nombre_por_id(catalogo_dict, it.get('ID_Perfume',''))} "
+                f"  • {marca_dict.get(str(it.get('ID_Perfume','')), '')} "
+                f"{nombre_por_id(catalogo_dict, it.get('ID_Perfume',''))} "
                 f"{it.get('Ml_Vendido','')}ml — S/ {fmt_precio(it.get('Precio_Cobrado',0))}"
                 for it in grupo.to_dict("records")
             ])
             dir_linea = f"\n📍 *Dirección:* {dir_s}" if primera.get("Direccion") else ""
             msg_comunidad = (
-                f"📦 *Pedido Nuevo — {html.escape(str(id_compra))}*\n"
+                f"📦 *Perfuteca — Pedido Nuevo {html.escape(str(id_compra))}*\n"
                 f"────────────────────\n"
                 f"👤 *Cliente:* {html.escape(str(primera.get('Comprador','')))} \n"
                 f"📱 *Celular:* {celular_s}\n"

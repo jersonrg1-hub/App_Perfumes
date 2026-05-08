@@ -391,7 +391,7 @@ MOBILE = """
            para no quedar tapado. */
         .stTabs [data-baseweb="tab-list"] {
             position: fixed !important;
-            bottom: 0 !important;
+            bottom: 56px !important;
             left: 0 !important;
             right: 0 !important;
             top: auto !important;
@@ -568,12 +568,12 @@ MOBILE = """
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
             padding-top: 0.25rem !important;
-            padding-bottom: calc(96px + max(18px, env(safe-area-inset-bottom, 18px))) !important;
+            padding-bottom: calc(152px + max(18px, env(safe-area-inset-bottom, 18px))) !important;
         }
 
         /* Toast: por encima del bottom nav */
         .stToast {
-            bottom: calc(84px + max(18px, env(safe-area-inset-bottom, 18px))) !important;
+            bottom: calc(140px + max(18px, env(safe-area-inset-bottom, 18px))) !important;
             left: 16px !important;
             right: 16px !important;
             max-width: none !important;
@@ -583,7 +583,7 @@ MOBILE = """
            Estilos; el elemento lo inyecta el JS en app.py */
         #perfute-fab {
             position: fixed !important;
-            bottom: calc(80px + max(22px, env(safe-area-inset-bottom, 22px))) !important;
+            bottom: calc(136px + max(22px, env(safe-area-inset-bottom, 22px))) !important;
             right: 16px !important;
             z-index: 1002 !important;
             width: 52px !important;
@@ -871,11 +871,11 @@ MOBILE = """
             height: 48px !important;
             font-size: 1.45rem !important;
             right: 12px !important;
-            bottom: calc(78px + max(20px, env(safe-area-inset-bottom, 20px))) !important;
+            bottom: calc(134px + max(20px, env(safe-area-inset-bottom, 20px))) !important;
         }
 
         .main .block-container {
-            padding-bottom: calc(92px + max(14px, env(safe-area-inset-bottom, 14px))) !important;
+            padding-bottom: calc(148px + max(14px, env(safe-area-inset-bottom, 14px))) !important;
         }
     }
 """

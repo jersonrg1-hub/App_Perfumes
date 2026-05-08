@@ -375,46 +375,56 @@ window.__perfuteObsInstalled = true;
 
 
 (function() {
-    // ── Eleva la barra "Manage app" de Streamlit Cloud ──
-    // Busca cualquier elemento fijo pegado al fondo (bottom≈0) que no sea
-    // nuestro nav ni el FAB, y lo desplaza hacia arriba para que los tabs
-    // queden accesibles. Funciona con cualquier versión de Streamlit Cloud.
+    // ── Auto-colapsa la barra "Manage app" de Streamlit Cloud en móvil ──
+    // Simula el clic en el botón < para minimizarla desde el inicio,
+    // igual que si el usuario la cerrara manualmente.
     if (window.innerWidth > 430) return;
 
-    var NAV_H = 80; // px a subir (altura aprox. del bottom nav)
+    var _done = false;
 
-    function _liftEl(el) {
-        var s = window.getComputedStyle(el);
-        if (s.position !== 'fixed') return;
-        var b = parseFloat(s.bottom);
-        if (isNaN(b) || b > 8) return;          // solo si está pegado al fondo
-        var h = el.getBoundingClientRect().height;
-        if (h < 10 || h > 250) return;           // tamaño de barra razonable
-        el.style.setProperty('bottom', NAV_H + 'px', 'important');
-    }
-
-    function _liftAll() {
-        if (window.innerWidth > 430) return;
-        // Revisamos hijos directos de <body> y un nivel más (donde Streamlit Cloud
-        // suele inyectar su UI de gestión fuera del árbol de la app).
-        Array.from(document.body.children).forEach(function(el) {
-            if (el.id === 'perfute-fab') return;
-            _liftEl(el);
-            Array.from(el.children).forEach(function(child) {
-                if (child.id === 'perfute-fab') return;
-                _liftEl(child);
-            });
+    function _findBar() {
+        // Buscamos en hijos directos de <body> (donde Streamlit Cloud inyecta su UI)
+        return Array.from(document.body.children).find(function(el) {
+            if (el.id === 'perfute-fab') return false;
+            var s = window.getComputedStyle(el);
+            if (s.position !== 'fixed') return false;
+            var b = parseFloat(s.bottom);
+            if (isNaN(b) || b > 8) return false;
+            var h = el.getBoundingClientRect().height;
+            return h > 10 && h < 250;
         });
     }
 
-    _liftAll();
-    [300, 800, 1800].forEach(function(t) { setTimeout(_liftAll, t); });
+    function _collapse() {
+        if (_done) return;
+        var bar = _findBar();
+        if (!bar) return;
 
-    var _liftRAF = null;
+        // Preferimos el botón cuyo texto sea '<' (el chevron de colapso);
+        // si no lo encontramos por texto, tomamos el botón más a la izquierda.
+        var btns = Array.from(bar.querySelectorAll('button'));
+        var btn = btns.find(function(b) {
+            var t = b.textContent.trim();
+            return t === '<' || t === '‹' || t === '←' || t === '«';
+        });
+        if (!btn && btns.length > 0) {
+            btns.sort(function(a, b) {
+                return a.getBoundingClientRect().left - b.getBoundingClientRect().left;
+            });
+            btn = btns[0];
+        }
+        if (btn) { btn.click(); _done = true; }
+    }
+
+    // Intentar en varios momentos por si el elemento se inyecta tarde
+    [300, 700, 1500, 3000].forEach(function(t) { setTimeout(_collapse, t); });
+
+    var _raf = null;
     new MutationObserver(function() {
-        if (_liftRAF) return;
-        _liftRAF = requestAnimationFrame(function() { _liftRAF = null; _liftAll(); });
-    }).observe(document.body, { childList: true, subtree: false }); // solo primer nivel
+        if (_done) return;
+        if (_raf) return;
+        _raf = requestAnimationFrame(function() { _raf = null; _collapse(); });
+    }).observe(document.body, { childList: true, subtree: false });
 })();
 
 } // fin guard __perfuteObsInstalled

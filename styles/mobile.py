@@ -396,7 +396,7 @@ MOBILE = """
             right: 0 !important;
             top: auto !important;
             width: 100% !important;
-            z-index: 998 !important;
+            z-index: 1001 !important;
             /* Glassmorphism */
             background: rgba(255, 249, 244, 0.96) !important;
             backdrop-filter: blur(20px) saturate(180%) !important;
@@ -585,7 +585,7 @@ MOBILE = """
             position: fixed !important;
             bottom: calc(80px + max(22px, env(safe-area-inset-bottom, 22px))) !important;
             right: 16px !important;
-            z-index: 999 !important;
+            z-index: 1002 !important;
             width: 52px !important;
             height: 52px !important;
             border-radius: 50% !important;
@@ -616,6 +616,17 @@ MOBILE = """
             opacity: 0 !important;
             pointer-events: none !important;
             transform: scale(0.8) !important;
+        }
+
+        /* ── Streamlit Cloud: "Manage app" y barra de estado ──
+           Los elevamos sobre el bottom nav para que no tapen los tabs.
+           Cubre footer clásico, stBottom (1.35+), stStatusWidget y stDeployButton. */
+        footer,
+        [data-testid="stBottom"],
+        [data-testid="stStatusWidget"],
+        [data-testid="stDeployButton"] {
+            bottom: calc(74px + max(22px, env(safe-area-inset-bottom, 22px))) !important;
+            z-index: 1000 !important;
         }
 
         /* ── Columnas: permite 2-col y 3-col en pantallas estrechas ── */

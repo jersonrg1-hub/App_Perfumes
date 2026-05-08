@@ -373,6 +373,50 @@ window.__perfuteObsInstalled = true;
     }).observe(document.body, { childList: true, subtree: true });
 })();
 
+
+(function() {
+    // ── Eleva la barra "Manage app" de Streamlit Cloud ──
+    // Busca cualquier elemento fijo pegado al fondo (bottom≈0) que no sea
+    // nuestro nav ni el FAB, y lo desplaza hacia arriba para que los tabs
+    // queden accesibles. Funciona con cualquier versión de Streamlit Cloud.
+    if (window.innerWidth > 430) return;
+
+    var NAV_H = 80; // px a subir (altura aprox. del bottom nav)
+
+    function _liftEl(el) {
+        var s = window.getComputedStyle(el);
+        if (s.position !== 'fixed') return;
+        var b = parseFloat(s.bottom);
+        if (isNaN(b) || b > 8) return;          // solo si está pegado al fondo
+        var h = el.getBoundingClientRect().height;
+        if (h < 10 || h > 250) return;           // tamaño de barra razonable
+        el.style.setProperty('bottom', NAV_H + 'px', 'important');
+    }
+
+    function _liftAll() {
+        if (window.innerWidth > 430) return;
+        // Revisamos hijos directos de <body> y un nivel más (donde Streamlit Cloud
+        // suele inyectar su UI de gestión fuera del árbol de la app).
+        Array.from(document.body.children).forEach(function(el) {
+            if (el.id === 'perfute-fab') return;
+            _liftEl(el);
+            Array.from(el.children).forEach(function(child) {
+                if (child.id === 'perfute-fab') return;
+                _liftEl(child);
+            });
+        });
+    }
+
+    _liftAll();
+    [300, 800, 1800].forEach(function(t) { setTimeout(_liftAll, t); });
+
+    var _liftRAF = null;
+    new MutationObserver(function() {
+        if (_liftRAF) return;
+        _liftRAF = requestAnimationFrame(function() { _liftRAF = null; _liftAll(); });
+    }).observe(document.body, { childList: true, subtree: false }); // solo primer nivel
+})();
+
 } // fin guard __perfuteObsInstalled
 </script>
 """, unsafe_allow_html=True)

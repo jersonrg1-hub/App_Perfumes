@@ -285,12 +285,12 @@ def mostrar_historial_cotizaciones():
                                         st.session_state[converting_key] = False
 
                                         items_lineas = "\n".join([
-                                            f"  • {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
+                                            f"  • {it['marca']} {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
                                             for it in items_venta
                                         ])
                                         dir_linea = f"\n📍 *Dirección:* {direccion}" if direccion.strip() else ""
                                         mensaje_comunidad = (
-                                            f"📦 *Pedido Nuevo — {id_compra}*\n"
+                                            f"📦 *Perfuteca — Pedido Nuevo {id_compra}*\n"
                                             f"────────────────────\n"
                                             f"👤 *Cliente:* {comprador}\n"
                                             f"📱 *Celular:* {row.get('Celular', '')}\n"

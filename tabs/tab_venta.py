@@ -420,12 +420,12 @@ def _ejecutar_conversion(
         state["conv_activas"].pop(conv_key, None)
 
         items_lineas = "\n".join([
-            f"  • {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
+            f"  • {it['marca']} {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
             for it in items_venta
         ])
         dir_linea = f"\n📍 *Dirección:* {direccion}" if direccion.strip() else ""
         msg = (
-            f"📦 *Pedido Nuevo — {id_compra}*\n────────────────────\n"
+            f"📦 *Perfuteca — Pedido Nuevo {id_compra}*\n────────────────────\n"
             f"👤 *Cliente:* {comprador}\n📱 *Celular:* {celular}\n"
             f"🚚 *Envío:* {tipo_envio}{dir_linea}\n────────────────────\n"
             f"🌸 *Perfumes:*\n{items_lineas}\n────────────────────\n"
@@ -818,12 +818,12 @@ def _render_venta_guardada(state: dict) -> None:
         )
 
     items_lineas = "\n".join([
-        f"  • {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
+        f"  • {it['marca']} {it['perfume']} {it['ml']}ml — S/ {fmt_precio(it['precio'])}"
         for it in cesta
     ])
     dir_linea = f"\n📍 *Dirección:* {cliente.get('direccion', '')}" if cliente.get("direccion") else ""
     msg_comunidad = (
-        f"📦 *Pedido Nuevo — {id_compra}*\n────────────────────\n"
+        f"📦 *Perfuteca — Pedido Nuevo {id_compra}*\n────────────────────\n"
         f"👤 *Cliente:* {comprador}\n📱 *Celular:* {celular}\n"
         f"🚚 *Envío:* {tipo_envio}{dir_linea}\n────────────────────\n"
         f"🌸 *Perfumes:*\n{items_lineas}\n────────────────────\n"

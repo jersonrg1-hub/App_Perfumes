@@ -110,8 +110,7 @@ def _generar_url_wa(celular: str, cesta: list, con_delivery: bool = False) -> st
         f"✨ *Tu cotización — Perfuteca* ✨\n{sep}\n\n"
         f"{chr(10).join(bloques)}\n\n"
         f"{sep}\n{delivery_line}"
-        f"💰 *Total: S/ {fmt_precio(total_final)}*\n{sep}\n\n"
-        f"_¿Los separamos para ti? Escríbeme y los aparto_ 😊"
+        f"💰 *Total: S/ {fmt_precio(total_final)}*\n{sep}"
     )
     return f"https://wa.me/51{celular}?text={quote(mensaje)}"
 

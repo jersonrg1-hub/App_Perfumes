@@ -8,3 +8,6 @@ pytz
 plotly
 openpyxl
 tenacity
+fastapi
+uvicorn[standard]
+cachetools

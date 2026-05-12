@@ -1,32 +1,33 @@
 """
-auth.py — Autenticación de la aplicación.
+auth.py — UI de autenticación (Streamlit).
 
-Estado: state.get_state()["auth"] en lugar de claves sueltas en session_state.
-  - state["auth"]["autenticado"]    : bool
-  - state["auth"]["intentos"]       : int
-  - state["auth"]["bloqueado_hasta"]: float (timestamp)
+Decisión de arquitectura:
+  - Lógica pura (hmac, intentos, bloqueo): backend/services/auth_service.py
+  - Renderizado (formulario, botones, mensajes): este módulo (Streamlit)
 
-La inicialización ocurre en state._default() — no hace falta llamar
-inicializar_auth() explícitamente si get_state() ya fue llamado.
-Se mantiene inicializar_auth() por compatibilidad con app.py.
+Esto permite que FastAPI implemente su propio flujo de autenticación
+(JWT, OAuth2) reutilizando auth_service.py sin depender de Streamlit.
+
+Estado en: state.get_state()["auth"]
+  - "autenticado"    : bool
+  - "intentos"       : int
+  - "bloqueado_hasta": float (timestamp)
 """
-import hmac
-import time
 import streamlit as st
 from state import get_state
 from data import cargar_ventas
-
-MAX_INTENTOS      = 3
-BLOQUEO_SEGUNDOS  = 60
+from backend.services.auth_service import (
+    verificar_contrasena,
+    segundos_restantes,
+    calcular_bloqueo_hasta,
+    MAX_INTENTOS,
+    BLOQUEO_SEGUNDOS,
+)
 
 
 def inicializar_auth() -> None:
     """Garantiza que el sub-estado de auth exista. Idempotente."""
-    get_state()   # get_state() inicializa todo el árbol si no existe
-
-
-def _segundos_restantes(auth: dict) -> float:
-    return max(0.0, auth["bloqueado_hasta"] - time.time())
+    get_state()
 
 
 def login_seccion(key_suffix: str = "default") -> bool:
@@ -35,7 +36,7 @@ def login_seccion(key_suffix: str = "default") -> bool:
     Retorna True si el usuario está autenticado, False en caso contrario.
     """
     state = get_state()
-    auth  = state["auth"]
+    auth = state["auth"]
 
     if auth["autenticado"]:
         return True
@@ -46,23 +47,22 @@ def login_seccion(key_suffix: str = "default") -> bool:
         "Esta sección contiene información sensible de costos o inventario."
     )
 
-    seg = _segundos_restantes(auth)
+    seg = segundos_restantes(auth["bloqueado_hasta"])
     if seg > 0:
-        minutos  = int(seg // 60)
+        minutos = int(seg // 60)
         segundos = int(seg % 60)
         tiempo_txt = f"{minutos}m {segundos}s" if minutos else f"{segundos}s"
         st.error(
             f"🚫 Demasiados intentos fallidos. "
             f"Espera **{tiempo_txt}** para volver a intentar."
         )
-        if st.button("🔄 Verificar si ya pasó el tiempo",
-                     key=f"recheck_{key_suffix}"):
+        if st.button("🔄 Verificar si ya pasó el tiempo", key=f"recheck_{key_suffix}"):
             st.rerun()
         return False
 
-    intentos_restantes = MAX_INTENTOS - auth["intentos"]
-    if intentos_restantes < MAX_INTENTOS:
-        st.caption(f"Intentos restantes: {intentos_restantes}")
+    intentos_usados = auth["intentos"]
+    if intentos_usados > 0:
+        st.caption(f"Intentos restantes: {MAX_INTENTOS - intentos_usados}")
 
     app_password = None
     try:
@@ -87,9 +87,9 @@ def login_seccion(key_suffix: str = "default") -> bool:
                 st.warning("Ingresa la contraseña.")
                 return False
 
-            if hmac.compare_digest(password, app_password):
-                auth["autenticado"]     = True
-                auth["intentos"]        = 0
+            if verificar_contrasena(password, app_password):
+                auth["autenticado"] = True
+                auth["intentos"] = 0
                 auth["bloqueado_hasta"] = 0.0
                 cargar_ventas()
                 st.success("✅ Acceso concedido")
@@ -98,7 +98,7 @@ def login_seccion(key_suffix: str = "default") -> bool:
                 auth["intentos"] += 1
                 restantes = MAX_INTENTOS - auth["intentos"]
                 if restantes <= 0:
-                    auth["bloqueado_hasta"] = time.time() + BLOQUEO_SEGUNDOS
+                    auth["bloqueado_hasta"] = calcular_bloqueo_hasta()
                     st.error(
                         f"🚫 Bloqueado por {BLOQUEO_SEGUNDOS // 60} minuto. "
                         "Vuelve a intentar después."
@@ -118,14 +118,16 @@ def check_auth() -> bool:
 
 def mostrar_boton_logout(key_suffix: str = "default") -> None:
     state = get_state()
-    auth  = state["auth"]
+    auth = state["auth"]
     if auth["autenticado"]:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("🔒 Cerrar Sesión",
-                         key=f"cerrar_sesion_{key_suffix}",
-                         use_container_width=True):
-                auth["autenticado"]     = False
-                auth["intentos"]        = 0
+            if st.button(
+                "🔒 Cerrar Sesión",
+                key=f"cerrar_sesion_{key_suffix}",
+                use_container_width=True,
+            ):
+                auth["autenticado"] = False
+                auth["intentos"] = 0
                 auth["bloqueado_hasta"] = 0.0
                 st.rerun()

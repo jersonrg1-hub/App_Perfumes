@@ -1,12 +1,28 @@
-import html as _html
-from datetime import timedelta
+"""
+components.py — Componentes UI de Streamlit + re-exportación de utilidades puras.
 
+Decisión de arquitectura:
+  - Funciones que llaman st.*: se quedan aquí (UI pura de Streamlit).
+  - Funciones puras (sin st.*): movidas a backend/utils/formatters.py
+    y backend/services/whatsapp_service.py, re-exportadas aquí para
+    compatibilidad con el código existente.
+
+Para nuevo código: importar directamente desde backend/.
+"""
 import streamlit as st
-from urllib.parse import quote
-from config import fmt_precio, TZ_PERU
+
+# Funciones puras re-exportadas desde backend (compatibilidad)
+from backend.utils.formatters import (
+    construir_catalogo_dict,
+    nombre_por_id,
+    notas_pills_html,
+)
+from backend.services.whatsapp_service import generar_url_whatsapp
 
 
-def mostrar_encabezado():
+# ── Componentes UI (requieren Streamlit) ──────────────────────────────────────
+
+def mostrar_encabezado() -> None:
     st.markdown(
         '<div class="header-wrapper">'
         '<div class="header-ornamento">'
@@ -20,56 +36,13 @@ def mostrar_encabezado():
         '<span class="header-linea-symbol">✦ ✦ ✦</span>'
         '</div>'
         '</div>',
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
 
-def generar_url_whatsapp(id_compra, comprador, celular, direccion, tipo_envio, cesta, total):
-    from datetime import datetime
-    DIAS   = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
-    MESES  = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-               "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-    manana = datetime.now(TZ_PERU).date() + timedelta(days=1)
-    fecha_envio = f"{DIAS[manana.weekday()]} {manana.day} de {MESES[manana.month - 1]}"
-
-    items_texto = "\n".join([
-        f"  🌸 *{i['marca']}* · {i['perfume']} · {i['ml']}ml"
-        if i.get('marca') else
-        f"  🌸 {i['perfume']} · {i['ml']}ml"
-        for i in cesta
-    ])
-    dir_linea = f"\n📍 *Dirección:* {direccion}" if direccion and direccion.strip() else ""
-    mensaje = (
-        f"🌸 *Perfuteca — Pedido {id_compra}*\n"
-        f"────────────────────\n"
-        f"👤 *Comprador:* {comprador}\n"
-        f"📱 *Celular:* {celular}\n"
-        f"🚚 *Envío:* {tipo_envio}"
-        f"{dir_linea}\n"
-        f"────────────────────\n"
-        f"🛍️ *Tu pedido:*\n"
-        f"{items_texto}\n"
-        f"────────────────────\n"
-        f"📦 Tu pedido estará siendo enviado el *{fecha_envio}*.\n\n"
-        f"_¡Gracias por tu compra! 💛_"
-    )
-    return f"https://wa.me/?text={quote(mensaje)}"
-
-
-def construir_catalogo_dict(df_catalogo):
-    """Devuelve {str(ID_Perfume): Nombre} para lookup O(1) desde ventas."""
-    if df_catalogo is None or df_catalogo.empty:
-        return {}
-    return dict(zip(df_catalogo["ID_Perfume"].astype(str), df_catalogo["Nombre"]))
-
-
-def nombre_por_id(catalogo_dict, id_perfume):
-    """Resuelve el nombre de un perfume a partir de su ID."""
-    return catalogo_dict.get(str(id_perfume), f"ID: {id_perfume}")
-
-
-def mostrar_placeholder_vacio(emoji, titulo, subtitulo):
+def mostrar_placeholder_vacio(emoji: str, titulo: str, subtitulo: str) -> None:
     """Estado vacío estándar: ícono centrado + título + subtexto."""
+    import html as _html
     titulo_safe = _html.escape(str(titulo))
     subtitulo_safe = _html.escape(str(subtitulo))
     st.markdown(
@@ -90,36 +63,31 @@ def mostrar_placeholder_vacio(emoji, titulo, subtitulo):
     )
 
 
-def notas_pills_html(notas_str, color_bg="#fdf0e8", color_border="#e8c9a8", color_text="#7a4520"):
-    """Convierte un string de notas separadas por comas en pills HTML."""
-    if not notas_str or str(notas_str).strip() in ("", "nan"):
-        return ""
-    notas = [
-        n.strip() for n in
-        str(notas_str).replace(";", ",").replace("|", ",").replace("/", ",").split(",")
-        if n.strip()
-    ]
-    if not notas:
-        return ""
-    pills = "".join([
-        f"<span style='display:inline-block; background:{color_bg}; border:1px solid {color_border};"
-        f"border-radius:20px; padding:0.15rem 0.65rem; font-size:0.72rem; color:{color_text};"
-        f"font-weight:600; margin:0.15rem 0.1rem; white-space:nowrap;'>{_html.escape(n)}</span>"
-        for n in notas
-    ])
-    return f"<div style='display:flex; flex-wrap:wrap; margin-top:0.25rem;'>{pills}</div>"
-
-
-def separador(simbolo="✦", texto=""):
-    contenido = f"{simbolo} {texto} {simbolo}" if texto else f"{simbolo} &nbsp; {simbolo} &nbsp; {simbolo}"
+def separador(simbolo: str = "✦", texto: str = "") -> None:
+    contenido = (
+        f"{simbolo} {texto} {simbolo}" if texto
+        else f"{simbolo} &nbsp; {simbolo} &nbsp; {simbolo}"
+    )
     linea_izq = "flex:1;height:0.5px;background:linear-gradient(to right,transparent,#c8956c);"
     linea_der = "flex:1;height:0.5px;background:linear-gradient(to left,transparent,#c8956c);"
-    span_style = "color:#c8956c;font-size:0.75rem;letter-spacing:0.18em;font-family:Lato,sans-serif;font-weight:400;white-space:nowrap;"
-    html = (
+    span_style = (
+        "color:#c8956c;font-size:0.75rem;letter-spacing:0.18em;"
+        "font-family:Lato,sans-serif;font-weight:400;white-space:nowrap;"
+    )
+    html_out = (
         f'<div style="display:flex;align-items:center;gap:12px;margin:1.2rem 0;opacity:0.7;">'
         f'<div style="{linea_izq}"></div>'
         f'<span style="{span_style}">{contenido}</span>'
         f'<div style="{linea_der}"></div>'
         f'</div>'
     )
-    st.markdown(html, unsafe_allow_html=True)
+    st.markdown(html_out, unsafe_allow_html=True)
+
+
+__all__ = [
+    # UI Streamlit
+    "mostrar_encabezado", "mostrar_placeholder_vacio", "separador",
+    # Re-exportadas desde backend (compatibilidad)
+    "generar_url_whatsapp",
+    "construir_catalogo_dict", "nombre_por_id", "notas_pills_html",
+]

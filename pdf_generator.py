@@ -5,12 +5,14 @@ Re-exporta todo para que el código existente siga funcionando sin cambios.
 Para nuevo código: importar directamente desde backend.services.pdf_service.
 """
 from backend.services.pdf_service import (
+    MESES_ES,
     exportar_pdf_ventas_hoy,
     exportar_pdf_ventas_mes,
     exportar_pdf_mes_especifico,
 )
 
 __all__ = [
+    "MESES_ES",
     "exportar_pdf_ventas_hoy",
     "exportar_pdf_ventas_mes",
     "exportar_pdf_mes_especifico",

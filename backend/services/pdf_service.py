@@ -12,7 +12,7 @@ import pandas as pd
 from datetime import date
 from backend.core.config import fmt_precio
 
-_MESES_ES = [
+MESES_ES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ]
@@ -159,7 +159,7 @@ def exportar_pdf_ventas_mes(df_ventas: pd.DataFrame, df_catalogo: pd.DataFrame) 
     filtrado = df[
         (df["Fecha"].dt.month == hoy.month) & (df["Fecha"].dt.year == hoy.year)
     ]
-    nombre_mes = _MESES_ES[hoy.month - 1].capitalize()
+    nombre_mes = MESES_ES[hoy.month - 1].capitalize()
     return _construir_pdf(
         filtrado, df_catalogo,
         titulo=f"Ventas de {nombre_mes} {hoy.year}",
@@ -176,7 +176,7 @@ def exportar_pdf_mes_especifico(
     df = df_ventas.copy()
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     filtrado = df[(df["Fecha"].dt.month == mes) & (df["Fecha"].dt.year == anio)]
-    nombre_mes = _MESES_ES[mes - 1].capitalize()
+    nombre_mes = MESES_ES[mes - 1].capitalize()
     return _construir_pdf(
         filtrado, df_catalogo,
         titulo=f"Ventas de {nombre_mes} {anio}",

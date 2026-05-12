@@ -418,14 +418,14 @@ def registrar_venta_completa(cesta: list[ItemCesta], cliente: DatosCliente) -> s
         [
             id_compra,
             cliente["fecha"],
-            cliente["comprador"],
+            cliente["comprador"].strip().title(),
             cliente["celular"],
             str(item["id_perfume"]),
             str(item["ml"]),
             round(float(item["precio"]), 2),
             item["metodo"],
             cliente["tipo_envio"],
-            cliente["direccion"],
+            cliente["direccion"].strip().title(),
             "Pendiente",
         ]
         for item in cesta

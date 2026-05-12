@@ -403,10 +403,10 @@ def _ejecutar_conversion(
     try:
         id_compra = obtener_proximo_id()
         filas = [
-            [id_compra, str(hoy_peru()), comprador, celular,
+            [id_compra, str(hoy_peru()), comprador.strip().title(), celular,
              it["id_perfume"], str(it["ml"]),
              round(float(it["precio"]), 2),
-             metodo_pago, tipo_envio, direccion, "Pendiente"]
+             metodo_pago, tipo_envio, direccion.strip().title(), "Pendiente"]
             for it in items_venta
         ]
         guardar_venta(filas)

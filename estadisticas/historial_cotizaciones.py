@@ -263,14 +263,14 @@ def mostrar_historial_cotizaciones():
                                             [
                                                 id_compra,
                                                 str(fecha_venta),
-                                                comprador,
+                                                comprador.strip().title(),
                                                 str(row.get("Celular", "")),
                                                 it["id_perfume"],
                                                 str(it["ml"]),
                                                 round(float(it["precio"]), 2),
                                                 metodo_pago,
                                                 tipo_envio,
-                                                direccion,
+                                                direccion.strip().title(),
                                                 "Pendiente",
                                             ]
                                             for it in items_venta

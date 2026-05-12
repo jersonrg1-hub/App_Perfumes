@@ -1,9 +1,19 @@
+"""
+errores.py — Componentes de error para la UI de Streamlit.
+
+Decisión de arquitectura: las funciones 'mostrar_*' llaman st.* y se
+quedan aquí (son UI pura). La validación pura (validar_dataframe)
+fue movida a backend/utils/validators.py, que es la fuente de verdad.
+"""
 import html
 import streamlit as st
-from config import COLUMNAS_REQUERIDAS
+from backend.core.config import COLUMNAS_REQUERIDAS
+
+# validar_dataframe re-exportada desde backend para compatibilidad
+from backend.utils.validators import validar_dataframe
 
 
-def mostrar_error_conexion():
+def mostrar_error_conexion() -> None:
     st.error(
         "**❌ Error de conexión con Google Sheets**\n\n"
         "No se pudo conectar al catálogo. Posibles causas:\n"
@@ -13,7 +23,7 @@ def mostrar_error_conexion():
     )
 
 
-def mostrar_error_datos_vacios():
+def mostrar_error_datos_vacios() -> None:
     st.warning(
         "**⚠️ El catálogo está vacío**\n\n"
         "La hoja de Google Sheets no tiene datos. "
@@ -21,7 +31,7 @@ def mostrar_error_datos_vacios():
     )
 
 
-def mostrar_error_columna(columna):
+def mostrar_error_columna(columna: str) -> None:
     columna_safe = html.escape(str(columna))
     columnas_esperadas = " | ".join(COLUMNAS_REQUERIDAS)
     st.error(
@@ -31,14 +41,10 @@ def mostrar_error_columna(columna):
     )
 
 
-def mostrar_sin_precio(nombre, tamanio):
+def mostrar_sin_precio(nombre: str, tamanio: str) -> None:
     nombre_safe = html.escape(str(nombre))
     tamanio_safe = html.escape(str(tamanio))
     st.warning(
         f"**{nombre_safe}** no tiene precio para **{tamanio_safe}**. "
         "Agrégalo en tu Google Sheets."
     )
-
-
-def validar_dataframe(df):
-    return [c for c in COLUMNAS_REQUERIDAS if c not in df.columns]

@@ -6,6 +6,93 @@ App web de gestión para una **perfumería**, construida con **Streamlit** y des
 Permite buscar perfumes por marca/nombre/notas olfativas, registrar ventas, gestionar pedidos pendientes,
 ver estadísticas, generar cotizaciones y exportar reportes PDF.
 
+## Arquitectura actual (post-refactoring)
+
+```
+pythonProject/
+├── app.py                          # Punto de entrada Streamlit (sin cambios)
+├── auth.py                         # UI de login Streamlit → usa backend/services/auth_service.py
+├── state.py                        # Estado centralizado (Streamlit session_state)
+├── styles.py                       # Re-exporta estilos CSS
+├── components.py                   # UI Streamlit + re-exporta utilidades de backend/
+├── errores.py                      # Mensajes de error Streamlit + re-exporta validadores
+│
+├── config.py     ← SHIM            # Re-exporta desde backend/core/config.py
+├── costos.py     ← SHIM            # Re-exporta desde backend/services/costos_service.py
+├── data.py       ← SHIM            # Re-exporta desde frontend/streamlit/cache_adapters.py
+├── pdf_generator.py ← SHIM         # Re-exporta desde backend/services/pdf_service.py
+├── logic/venta.py   ← SHIM         # Re-exporta desde backend/services/venta_service.py
+│
+├── backend/                        # ✅ SIN dependencias de Streamlit — reutilizable en FastAPI
+│   ├── core/
+│   │   └── config.py              # Constantes, TZ, formatters de texto
+│   ├── models/
+│   │   └── schemas.py             # TypedDicts: ItemCesta, DatosCliente
+│   ├── repositories/
+│   │   └── sheets_repository.py   # SheetsRepository: toda la lógica gspread
+│   ├── services/
+│   │   ├── venta_service.py       # filtrar_catalogo, construir_item, validar_paso_cliente...
+│   │   ├── costos_service.py      # costo_total_item, MERMA_PCT, calcular_costo_ventas_df...
+│   │   ├── auth_service.py        # verificar_contrasena, segundos_restantes...
+│   │   ├── whatsapp_service.py    # generar_url_whatsapp()
+│   │   └── pdf_service.py         # exportar_pdf_ventas_*()
+│   ├── utils/
+│   │   ├── validators.py          # validar_dataframe(), validar_celular()
+│   │   └── formatters.py          # stock_badge_html, notas_pills_html, construir_catalogo_dict
+│   └── api/                       # 🚀 Scaffold FastAPI (comentado — activar en el futuro)
+│       ├── main.py                # FastAPI app + routers
+│       └── routes/
+│           ├── catalogo.py        # GET /api/v1/catalogo/
+│           ├── ventas.py          # POST /api/v1/ventas/
+│           └── cotizaciones.py    # GET/POST /api/v1/cotizaciones/
+│
+├── frontend/
+│   └── streamlit/
+│       └── cache_adapters.py      # @st.cache_resource + @st.cache_data wrappers
+│
+├── tabs/                           # UI Streamlit (sin cambios)
+├── estadisticas/                   # UI Streamlit (sin cambios)
+└── styles/                         # CSS (sin cambios)
+```
+
+### Regla fundamental de la arquitectura
+
+**Solo `frontend/streamlit/` puede importar `streamlit`.**
+`backend/` es Python puro — sin `st.*`, sin `@st.cache_*`.
+
+### Cadena de dependencias
+
+```
+tabs/*.py  →  data.py (shim)
+                  ↓
+    frontend/streamlit/cache_adapters.py  ←  @st.cache_resource/@st.cache_data
+                  ↓
+    backend/repositories/sheets_repository.py  ←  gspread puro
+                  ↓
+    backend/core/config.py + backend/models/schemas.py
+```
+
+### Cómo usar FastAPI en el futuro
+
+```python
+# En FastAPI (sin Streamlit):
+import os, json
+from backend.repositories.sheets_repository import SheetsRepository
+from backend.services.venta_service import filtrar_catalogo, calcular_total
+
+creds = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
+repo = SheetsRepository(creds)
+df = repo.fetch_catalog()
+resultado = filtrar_catalogo(df, texto="chanel", marca=None)
+```
+
+### Deploy en Render (futuro FastAPI)
+
+```
+Start Command: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
+Variables de entorno: GCP_SERVICE_ACCOUNT (JSON), APP_PASSWORD
+```
+
 ## Stack tecnológico
 
 - **Frontend/Backend**: Streamlit (Python)

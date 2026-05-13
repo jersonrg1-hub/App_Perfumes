@@ -1,24 +1,22 @@
 """
-backend/api/routes/ventas.py — Endpoints de ventas (requieren X-API-Key).
+backend/api/routes/ventas.py — Endpoints de ventas. Todos protegidos con X-API-Key.
 
-Todos los endpoints están protegidos: ventas contienen datos de clientes
-(nombre, celular, dirección) que no deben ser públicos.
+Nuevo en esta versión:
+  GET /cliente/{celular}  — historial + datos del cliente para autocompletar checkout
+  Paginación en GET /     — limit/offset para Flutter infinite scroll
+  snake_case en responses — estándar Dart/Flutter
 
 Flujo de POST /ventas/:
-  VentaRequest (Pydantic valida)
+  VentaRequest (Pydantic valida body)
     → cesta  = [item.model_dump() for item in body.items]
     → cliente = body.model_dump(exclude={"items"})
     → repo.register_complete_sale(cesta, cliente, MERMA_PCT)
-    → invalidar cache ventas + catálogo (el stock cambió)
+    → invalida cache ventas + catálogo (stock cambió)
     → retorna VentaRegistrada(id_compra="V042")
-
-Cache:
-  GET /         usa get_ventas_cached()   (TTL 2 min)
-  GET /pendientes usa get_ventas_cached() (TTL 2 min)
-  POST /        invalida cache ventas + catálogo
-  PUT /{id}/estado invalida cache ventas
 """
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.api.dependencies import (
     get_repo,
@@ -28,7 +26,13 @@ from backend.api.dependencies import (
     verify_api_key,
     df_to_json_list,
 )
-from backend.api.models import VentaRequest, VentaRegistrada, EstadoVentaUpdate
+from backend.api.models import (
+    VentaRequest,
+    VentaRegistrada,
+    EstadoVentaUpdate,
+    ClientePrevioResponse,
+    Paginated,
+)
 from backend.repositories.sheets_repository import SheetsRepository, StockUpdateError
 from backend.services.costos_service import MERMA_PCT
 from backend.core.config import COL_ESTADO_NUM
@@ -38,27 +42,52 @@ router = APIRouter(dependencies=[Depends(verify_api_key)])
 _ESTADOS_VALIDOS = {"Pendiente", "Entregado", "Anulado"}
 
 
-@router.get("/", summary="Listar todas las ventas")
-def listar_ventas(repo: SheetsRepository = Depends(get_repo)):
+@router.get(
+    "/",
+    response_model=Paginated[dict],
+    summary="Listar ventas con paginación",
+)
+def listar_ventas(
+    limit: int = Query(50, ge=1, le=500, description="Items por página"),
+    offset: int = Query(0, ge=0, description="Items a omitir"),
+    estado: Optional[str] = Query(None, description="Filtrar por estado"),
+    repo: SheetsRepository = Depends(get_repo),
+):
     """
-    Historial de ventas (excluye Anuladas).
-    Respuesta desde cache (hasta 2 min de antigüedad).
+    Historial de ventas paginado (excluye Anuladas).
+    Cada objeto incluye 'fila_sheet' — Flutter lo guarda para PUT /{id}/estado.
 
-    Cada objeto incluye 'fila_sheet' — Flutter debe guardarlo
-    para poder actualizar el estado con PUT /{id}/estado.
+    Para Flutter: pantalla de historial y estadísticas.
+    Ejemplo: GET /api/v1/ventas/?limit=20&offset=0&estado=Pendiente
     """
     try:
         df = get_ventas_cached(repo)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
-    return df_to_json_list(df)
+
+    if not df.empty and estado and "Estado" in df.columns:
+        df = df[df["Estado"] == estado]
+
+    total = len(df)
+    pagina = df.iloc[offset: offset + limit]
+    return {
+        "items": df_to_json_list(pagina, snake=True),
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": (offset + limit) < total,
+    }
 
 
-@router.get("/pendientes", summary="Ventas pendientes de entrega")
+@router.get(
+    "/pendientes",
+    response_model=list[dict],
+    summary="Ventas pendientes de entrega",
+)
 def listar_pendientes(repo: SheetsRepository = Depends(get_repo)):
     """
-    Solo ventas con Estado='Pendiente'.
-    Para Flutter: pantalla de despacho / pedidos a entregar.
+    Ventas con Estado='Pendiente'.
+    Para Flutter: pantalla de despacho — lista de pedidos a entregar.
     """
     try:
         df = get_ventas_cached(repo)
@@ -68,21 +97,75 @@ def listar_pendientes(repo: SheetsRepository = Depends(get_repo)):
     if df.empty or "Estado" not in df.columns:
         return []
 
-    return df_to_json_list(df[df["Estado"] == "Pendiente"])
+    return df_to_json_list(df[df["Estado"] == "Pendiente"], snake=True)
 
 
-@router.post("/", response_model=VentaRegistrada, summary="Registrar venta completa")
+@router.get(
+    "/cliente/{celular}",
+    summary="Historial y datos de un cliente por celular",
+)
+def ventas_por_cliente(
+    celular: str,
+    repo: SheetsRepository = Depends(get_repo),
+):
+    """
+    Historial de compras de un cliente + datos para autocompletar el checkout.
+
+    Para Flutter:
+    - Autocompletar nombre, dirección y método al iniciar una venta
+    - Pantalla "Mis compras" del cliente
+    - Retorna resumen null si el cliente no tiene historial
+
+    Ejemplo: GET /api/v1/ventas/cliente/987654321
+    Response:
+      {
+        "resumen": {comprador, direccion, tipo_envio, metodo_pago, total_compras},
+        "compras": [...lista de ventas del cliente...]
+      }
+    """
+    try:
+        df = get_ventas_cached(repo)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
+
+    if df.empty or "Celular" not in df.columns:
+        return {"resumen": None, "compras": []}
+
+    historial = df[df["Celular"].astype(str) == celular]
+
+    if historial.empty:
+        return {"resumen": None, "compras": []}
+
+    ultimo = historial.iloc[-1]
+    resumen = ClientePrevioResponse(
+        comprador=str(ultimo.get("Comprador", "") or ""),
+        direccion=str(ultimo.get("Direccion", "") or ""),
+        tipo_envio=str(ultimo.get("Tipo_Envio", "") or ""),
+        metodo_pago=str(ultimo.get("Metodo_Pago", "") or ""),
+        total_compras=len(historial),
+    )
+
+    return {
+        "resumen": resumen.model_dump(),
+        "compras": df_to_json_list(historial, snake=True),
+    }
+
+
+@router.post(
+    "/",
+    response_model=VentaRegistrada,
+    summary="Registrar venta completa",
+)
 def registrar_venta(body: VentaRequest, repo: SheetsRepository = Depends(get_repo)):
     """
     Registra venta de forma atómica:
     1. Genera ID correlativo (V001, V002...)
     2. Guarda una fila por item en Ventas_Pendientes
-    3. Descuenta stock en Catálogo (con merma 4%)
+    3. Descuenta stock en Catálogo (merma 4%)
 
     Si el stock falla (StockUpdateError) la venta queda guardada
     y se retorna con 'warning' para que Flutter lo muestre al usuario.
-
-    Invalida cache de ventas y catálogo (el stock cambió).
+    Invalida cache de ventas y catálogo.
     """
     cesta = [item.model_dump() for item in body.items]
     cliente = body.model_dump(exclude={"items"})
@@ -93,7 +176,7 @@ def registrar_venta(body: VentaRequest, repo: SheetsRepository = Depends(get_rep
         invalidar_cache_catalogo()
         return VentaRegistrada(id_compra=id_compra)
     except StockUpdateError as e:
-        invalidar_cache_ventas()  # La venta se guardó aunque el stock falló
+        invalidar_cache_ventas()
         return VentaRegistrada(
             id_compra=e.id_compra,
             warning="Venta guardada pero el stock no pudo actualizarse",
@@ -102,7 +185,10 @@ def registrar_venta(body: VentaRequest, repo: SheetsRepository = Depends(get_rep
         raise HTTPException(status_code=500, detail=f"Error al registrar venta: {e}")
 
 
-@router.put("/{id_venta}/estado", summary="Actualizar estado de una venta")
+@router.put(
+    "/{id_venta}/estado",
+    summary="Actualizar estado de una venta",
+)
 def actualizar_estado_venta(
     id_venta: str,
     body: EstadoVentaUpdate,
@@ -110,13 +196,13 @@ def actualizar_estado_venta(
 ):
     """
     Cambia el estado de una venta (Entregado / Anulado).
-    fila_sheet es el campo 'fila_sheet' del objeto venta al listarlo.
-    Para Flutter: botón "Marcar entregado" en la lista de pendientes.
+    fila_sheet viene del campo 'fila_sheet' en la respuesta de GET /ventas/.
+    Para Flutter: botón 'Marcar entregado' en la lista de pendientes.
     """
     if body.nuevo_estado not in _ESTADOS_VALIDOS:
         raise HTTPException(
             status_code=422,
-            detail=f"Estado inválido. Válidos: {sorted(_ESTADOS_VALIDOS)}",
+            detail=f"Estado invalido. Validos: {sorted(_ESTADOS_VALIDOS)}",
         )
     try:
         repo.update_sales_multi_batch(

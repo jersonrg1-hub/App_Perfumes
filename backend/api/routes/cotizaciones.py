@@ -1,77 +1,139 @@
 """
 backend/api/routes/cotizaciones.py — Endpoints de cotizaciones (requieren X-API-Key).
 
-La columna Estado en la hoja Cotizaciones ocupa la posición 6
+La columna Estado en la hoja Cotizaciones ocupa la posicion 6
 (columnas: ID_Cotizacion, Fecha, Celular, Items, Total, Estado).
 
 Flujo de POST /cotizaciones/:
   CotizacionRequest (Pydantic valida)
-    → items = [item.model_dump() for item in body.items]
-    → repo.save_quote(celular, items, total)
-       → genera ID correlativo (C001, C002...)
-       → guarda fila con estado "Enviado"
-    → retorna CotizacionRegistrada(id_cotizacion="C015")
+    -> items = [item.model_dump() for item in body.items]
+    -> repo.save_quote(celular, items, total)
+       -> genera ID correlativo (C001, C002...)
+       -> guarda fila con estado "Enviado"
+    -> retorna CotizacionRegistrada(id_cotizacion="C015")
 """
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.api.dependencies import get_repo, verify_api_key, df_to_json_list
 from backend.api.models import (
     CotizacionRequest,
     CotizacionRegistrada,
+    CotizacionResponse,
     EstadoCotizacionUpdate,
+    Paginated,
 )
 from backend.repositories.sheets_repository import SheetsRepository
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
-_COL_ESTADO_COT = 6  # posición 1-indexed de "Estado" en hoja Cotizaciones
+_COL_ESTADO_COT = 6  # posicion 1-indexed de "Estado" en hoja Cotizaciones
 _ESTADOS_VALIDOS = {"Enviado", "Confirmado", "Anulado"}
 
 
-@router.get("/", summary="Listar cotizaciones")
-def listar_cotizaciones(repo: SheetsRepository = Depends(get_repo)):
+@router.get(
+    "/",
+    response_model=Paginated[CotizacionResponse],
+    summary="Listar cotizaciones con paginacion",
+)
+def listar_cotizaciones(
+    limit: int = Query(50, ge=1, le=500, description="Items por pagina"),
+    offset: int = Query(0, ge=0, description="Items a omitir"),
+    estado: Optional[str] = Query(None, description="Filtrar por estado"),
+    repo: SheetsRepository = Depends(get_repo),
+):
     """
-    Historial de cotizaciones.
-    Cada objeto incluye 'fila_sheet' para poder actualizar estado.
+    Historial de cotizaciones paginado.
+    Cada objeto incluye 'fila_sheet' para poder actualizar estado con PUT /{id}.
+
+    Para Flutter: pantalla de historial de cotizaciones.
+    Ejemplo: GET /api/v1/cotizaciones/?limit=20&offset=0&estado=Enviado
     """
     try:
         df = repo.fetch_quotes()
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar cotizaciones: {e}")
-    return df_to_json_list(df)
+
+    if not df.empty and estado and "Estado" in df.columns:
+        df = df[df["Estado"] == estado]
+
+    total = len(df)
+    pagina = df.iloc[offset: offset + limit]
+    return {
+        "items": _serializar_cotizaciones(pagina),
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": (offset + limit) < total,
+    }
 
 
-@router.post("/", response_model=CotizacionRegistrada, summary="Guardar cotización")
+@router.get(
+    "/cliente/{celular}",
+    response_model=list[CotizacionResponse],
+    summary="Cotizaciones de un cliente por celular",
+)
+def cotizaciones_por_cliente(
+    celular: str,
+    repo: SheetsRepository = Depends(get_repo),
+):
+    """
+    Todas las cotizaciones de un cliente.
+    Para Flutter: pantalla de historial del cliente.
+    Ejemplo: GET /api/v1/cotizaciones/cliente/987654321
+    """
+    try:
+        df = repo.fetch_quotes()
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Error al cargar cotizaciones: {e}")
+
+    if df.empty or "Celular" not in df.columns:
+        return []
+
+    historial = df[df["Celular"].astype(str) == celular]
+    return _serializar_cotizaciones(historial)
+
+
+@router.post(
+    "/",
+    response_model=CotizacionRegistrada,
+    summary="Guardar cotizacion",
+)
 def guardar_cotizacion(
     body: CotizacionRequest,
     repo: SheetsRepository = Depends(get_repo),
 ):
     """
-    Guarda cotización y retorna el ID asignado (ej. 'C015').
-    Para Flutter: botón "Enviar cotización" en la pantalla de búsqueda.
+    Guarda cotizacion y retorna el ID asignado (ej. 'C015').
+    Para Flutter: boton "Enviar cotizacion" en la pantalla de busqueda.
     """
     items = [item.model_dump() for item in body.items]
     try:
         id_cot = repo.save_quote(body.celular, items, body.total)
         return CotizacionRegistrada(id_cotizacion=id_cot)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al guardar cotización: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al guardar cotizacion: {e}")
 
 
-@router.put("/{id_cotizacion}", summary="Actualizar estado de cotización")
+@router.put(
+    "/{id_cotizacion}",
+    summary="Actualizar estado de cotizacion",
+)
 def actualizar_estado_cotizacion(
     id_cotizacion: str,
     body: EstadoCotizacionUpdate,
     repo: SheetsRepository = Depends(get_repo),
 ):
     """
-    Actualiza estado de una cotización (Confirmado / Anulado).
-    fila_sheet es el campo 'fila_sheet' del objeto cotización al listarlo.
+    Actualiza estado de una cotizacion (Confirmado / Anulado).
+    fila_sheet es el campo 'fila_sheet' del objeto cotizacion al listarlo.
+    Para Flutter: boton "Confirmar" en la lista de cotizaciones.
     """
     if body.nuevo_estado not in _ESTADOS_VALIDOS:
         raise HTTPException(
             status_code=422,
-            detail=f"Estado inválido. Válidos: {sorted(_ESTADOS_VALIDOS)}",
+            detail=f"Estado invalido. Validos: {sorted(_ESTADOS_VALIDOS)}",
         )
     try:
         repo.update_quote_status(
@@ -81,4 +143,19 @@ def actualizar_estado_cotizacion(
         )
         return {"id_cotizacion": id_cotizacion, "estado": body.nuevo_estado}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al actualizar cotización: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al actualizar cotizacion: {e}")
+
+
+# ── Serialización ─────────────────────────────────────────────────────────────
+
+_COLS = ["ID_Cotizacion", "Fecha", "Celular", "Items", "Total", "Estado"]
+
+
+def _serializar_cotizaciones(df) -> list[dict]:
+    """Serializa DataFrame de cotizaciones a lista snake_case."""
+    rows = df_to_json_list(df, cols=_COLS, snake=True)
+    for row in rows:
+        for campo in ("id_cotizacion", "celular"):
+            if campo in row and row[campo] is not None:
+                row[campo] = str(row[campo])
+    return rows

@@ -1,19 +1,18 @@
 """
-backend/api/dependencies.py — Repositorio, cache y autenticación para FastAPI.
+backend/api/dependencies.py — Repositorio, cache, auth y serialización para FastAPI.
 
 Responsabilidades:
-  1. SheetsRepository singleton — una conexión a Google Sheets por proceso
-  2. TTLCache — reduce llamadas a Sheets y protege contra rate limits (HTTP 429)
-       catálogo: TTL 30 min   (cambia poco; es el más costoso de cargar)
-       ventas:   TTL  2 min   (necesita estar fresco para despacho)
-  3. Credenciales con fallback — Render usa env var; local usa credenciales.json
-  4. verify_api_key — autenticación X-API-Key para endpoints sensibles
-  5. df_to_json_list — serialización segura de DataFrames pandas a JSON
+  1. SheetsRepository singleton  — una conexión a Google Sheets por proceso
+  2. TTLCache                    — catálogo 30 min / ventas 2 min
+  3. Credenciales con fallback   — GCP_SERVICE_ACCOUNT env var > credenciales.json local
+  4. verify_api_key              — autenticación X-API-Key para endpoints sensibles
+  5. df_to_json_list             — serialización segura DataFrame → JSON con snake_case
 
-Diseño deliberado:
-  - Cache vive AQUÍ, no en los routes (separación de responsabilidades)
-  - Lock threading por si uvicorn usa thread pool en endpoints síncronos
-  - invalidar_cache_* se llaman desde routes tras escrituras exitosas
+snake_case en respuestas:
+  Las columnas de Google Sheets usan PascalCase (ID_Perfume, Precio_2ml...).
+  Para Flutter/Dart, las respuestas usan snake_case (id_perfume, precio_2ml...).
+  .lower() es suficiente: "ID_Perfume" → "id_perfume", "Precio_2ml" → "precio_2ml".
+  Activar con snake=True en df_to_json_list().
 """
 import json
 import logging
@@ -41,16 +40,14 @@ logger = logging.getLogger("perfuteca.api")
 def _crear_repositorio() -> SheetsRepository:
     """
     Una sola instancia de SheetsRepository por proceso uvicorn.
-    lru_cache garantiza que la conexión gspread se reutiliza entre requests.
 
     Orden de búsqueda de credenciales:
-      1. Variable de entorno GCP_SERVICE_ACCOUNT (Render, producción)
-      2. Archivo credenciales.json en raíz del proyecto (desarrollo local)
+      1. GCP_SERVICE_ACCOUNT (env var) — Render / producción
+      2. credenciales.json en raíz del proyecto — solo desarrollo local
     """
     creds_json = os.environ.get("GCP_SERVICE_ACCOUNT")
 
     if not creds_json:
-        # Fallback para desarrollo local — nunca ejecutar en producción sin env var
         local = Path(__file__).resolve().parent.parent.parent / "credenciales.json"
         if local.exists():
             logger.warning(
@@ -74,8 +71,6 @@ def get_repo() -> SheetsRepository:
 
 
 # ── Cache TTL ─────────────────────────────────────────────────────────────────
-# maxsize=1: solo guardamos el DataFrame completo (una entrada por cache).
-# El lock protege de condiciones de carrera cuando uvicorn corre en thread pool.
 
 _cache_catalogo: TTLCache = TTLCache(maxsize=1, ttl=1800)  # 30 min
 _cache_ventas:   TTLCache = TTLCache(maxsize=1, ttl=120)   # 2 min
@@ -84,22 +79,19 @@ _K = "df"
 
 
 def get_catalogo_cached(repo: SheetsRepository) -> pd.DataFrame:
-    """
-    Catálogo desde cache (TTL 30 min) o desde Google Sheets si expiró.
-    Reduce hasta 60× las llamadas a Sheets durante una sesión normal.
-    """
+    """Catálogo desde cache (TTL 30 min) o recarga desde Sheets si expiró."""
     with _lock:
         try:
             return _cache_catalogo[_K]
         except KeyError:
             df = repo.fetch_catalog()
             _cache_catalogo[_K] = df
-            logger.debug("Cache catálogo recargado desde Sheets")
+            logger.debug("Cache catalogo recargado desde Sheets")
             return df
 
 
 def get_ventas_cached(repo: SheetsRepository) -> pd.DataFrame:
-    """Ventas desde cache (TTL 2 min) o desde Google Sheets si expiró."""
+    """Ventas desde cache (TTL 2 min) o recarga desde Sheets si expiró."""
     with _lock:
         try:
             return _cache_ventas[_K]
@@ -114,7 +106,7 @@ def invalidar_cache_catalogo() -> None:
     """Llamar tras cualquier operación que modifique stock del catálogo."""
     with _lock:
         _cache_catalogo.clear()
-    logger.debug("Cache catálogo invalidado")
+    logger.debug("Cache catalogo invalidado")
 
 
 def invalidar_cache_ventas() -> None:
@@ -122,6 +114,63 @@ def invalidar_cache_ventas() -> None:
     with _lock:
         _cache_ventas.clear()
     logger.debug("Cache ventas invalidado")
+
+
+# ── Índice de imágenes ────────────────────────────────────────────────────────
+# Se construye una vez al arrancar leyendo el sistema de archivos.
+# Mapea: "chanel/coco_noir" → "/imagenes/chanel/coco_noir.jpg"
+
+_image_index: dict[str, str] = {}
+
+
+def construir_image_index(base_dir: Path) -> None:
+    """
+    Recorre imagenes/ y construye un índice normalizado.
+    Clave: "{marca_normalizada}/{nombre_normalizado}"
+    Valor: URL relativa servida por FastAPI StaticFiles
+
+    Normalización: minúsculas, espacios → _, caracteres especiales eliminados.
+    """
+    if not base_dir.exists():
+        logger.warning("Directorio imagenes/ no encontrado — image_url siempre null")
+        return
+
+    extensiones = {".jpg", ".jpeg", ".png", ".webp"}
+    for brand_dir in sorted(base_dir.iterdir()):
+        if not brand_dir.is_dir():
+            continue
+        for img_file in sorted(brand_dir.iterdir()):
+            if img_file.suffix.lower() in extensiones:
+                clave = f"{brand_dir.name}/{img_file.stem}"
+                _image_index[clave] = f"/imagenes/{brand_dir.name}/{img_file.name}"
+
+    logger.info("Image index construido: %d imagenes indexadas", len(_image_index))
+
+
+def _normalizar(texto: str) -> str:
+    """Normaliza nombre/marca para buscar en el índice de imágenes."""
+    return (
+        texto.lower()
+        .replace(" ", "_")
+        .replace("&", "")
+        .replace(".", "")
+        .replace(",", "")
+        .replace("'", "")
+        .replace("-", "_")
+        .strip("_")
+    )
+
+
+def get_image_url(marca: str, nombre: str) -> Optional[str]:
+    """
+    Retorna la URL de la imagen del perfume si existe en imagenes/.
+    Ej: get_image_url("Chanel", "Coco Noir") → "/imagenes/chanel/coco_noir.jpg"
+    Retorna None si no hay imagen disponible.
+    """
+    if not _image_index:
+        return None
+    clave = f"{_normalizar(marca)}/{_normalizar(nombre)}"
+    return _image_index.get(clave)
 
 
 # ── Autenticación X-API-Key ───────────────────────────────────────────────────
@@ -133,26 +182,21 @@ def verify_api_key(api_key: str = Security(_api_key_header)) -> None:
     """
     Protege endpoints sensibles con X-API-Key.
 
-    Comportamiento según configuración:
-      API_KEY configurada → exige el header exacto; 401 si falta o es incorrecta
-      API_KEY no configurada → permite el request con warning en log
-                               (útil durante desarrollo, NO recomendado en producción)
+    - API_KEY configurada → exige el header exacto; 401 si falta o es incorrecta
+    - API_KEY no configurada → permite el request con warning (solo desarrollo)
 
-    Uso en un endpoint:
-      @router.post("/", dependencies=[Depends(verify_api_key)])
-      def mi_endpoint(): ...
+    Uso: router = APIRouter(dependencies=[Depends(verify_api_key)])
     """
     expected = os.environ.get("API_KEY", "")
     if not expected:
         logger.warning(
-            "API_KEY no configurada — endpoint accesible sin autenticación. "
-            "Configura API_KEY en variables de entorno para producción."
+            "API_KEY no configurada — endpoint sin autenticacion (solo desarrollo)"
         )
         return
     if not api_key or api_key != expected:
         raise HTTPException(
             status_code=401,
-            detail="X-API-Key inválida o ausente",
+            detail="X-API-Key invalida o ausente",
             headers={"WWW-Authenticate": "ApiKey"},
         )
 
@@ -160,7 +204,7 @@ def verify_api_key(api_key: str = Security(_api_key_header)) -> None:
 # ── Serialización de DataFrames ───────────────────────────────────────────────
 
 def _serializar_valor(v):
-    """Convierte un valor pandas a tipo JSON-serializable nativo."""
+    """Convierte un valor pandas a tipo nativo JSON-serializable."""
     if v is None or v is pd.NaT:
         return None
     if isinstance(v, pd.Timestamp):
@@ -177,12 +221,20 @@ def _serializar_valor(v):
 def df_to_json_list(
     df: pd.DataFrame,
     cols: Optional[list] = None,
+    snake: bool = False,
 ) -> list[dict]:
     """
     DataFrame → lista de dicts JSON-serializable.
-    cols: columnas a incluir (None = todas). Las que no existan se ignoran.
+
+    cols:  columnas a incluir (None = todas). Las inexistentes se ignoran.
+    snake: True → convierte claves a snake_case para Flutter.
+           "ID_Perfume" → "id_perfume",  "Precio_2ml" → "precio_2ml"
+           Implementación: str.lower() es suficiente para las columnas de este proyecto.
     """
     if cols is not None:
         df = df[[c for c in cols if c in df.columns]]
     records = df.to_dict("records")
-    return [{k: _serializar_valor(v) for k, v in row.items()} for row in records]
+    result = [{k: _serializar_valor(v) for k, v in row.items()} for row in records]
+    if snake:
+        result = [{k.lower(): v for k, v in row.items()} for row in result]
+    return result

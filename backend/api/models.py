@@ -1,42 +1,135 @@
 """
-backend/api/models.py — Modelos Pydantic para requests y responses de la API.
+backend/api/models.py — Modelos Pydantic para la API REST.
 
-Propósito: validación de HTTP bodies y definición del contrato público de la API.
+Separación clara:
+  REQUEST models  → validan lo que Flutter/cliente envía al servidor
+  RESPONSE models → tipan lo que el servidor devuelve a Flutter
 
-Separación de capas:
-  HTTP body  → Pydantic (valida y deserializa)
-  Pydantic   → .model_dump() → dict/list → Service / Repository
+Convención de nombres en responses:
+  snake_case en todos los campos — estándar Dart/Flutter.
+  Los TypedDicts internos (backend/models/schemas.py) siguen siendo para uso interno.
 
-Los TypedDicts en backend/models/schemas.py son para uso interno del backend.
-Estos modelos son la interfaz pública (lo que Flutter envía y recibe).
+Modelo de paginación:
+  Todos los endpoints de lista devuelven Paginated[T] con metadata.
+  Flutter puede implementar infinite scroll con has_more + offset.
 """
-from typing import Optional
+from typing import Generic, Optional, TypeVar
 from pydantic import BaseModel, Field
 
-
-# ── Catálogo ──────────────────────────────────────────────────────────────────
-
-class PerfumeDetalle(BaseModel):
-    """Perfume con todos los campos públicos — pantalla de detalle en Flutter."""
-    ID_Perfume: str
-    Marca: str
-    Nombre: str
-    Precio_2ml: Optional[float] = None
-    Precio_5ml: Optional[float] = None
-    Precio_10ml: Optional[float] = None
-    Stock_ml: Optional[float] = None
-    Notas: Optional[str] = None
-    Perfil_Olfativo: Optional[str] = None
+T = TypeVar("T")
 
 
-# ── Ventas ────────────────────────────────────────────────────────────────────
+# ── Paginación genérica ───────────────────────────────────────────────────────
+
+class Paginated(BaseModel, Generic[T]):
+    """
+    Respuesta paginada estándar para todos los endpoints de lista.
+
+    Flutter usa:
+      - items     → lista de objetos a renderizar
+      - total     → total de registros (para "X perfumes encontrados")
+      - has_more  → si hay más páginas (para infinite scroll)
+      - offset    → posición actual (para la siguiente llamada: offset += limit)
+    """
+    items: list[T]
+    total: int
+    limit: int
+    offset: int
+    has_more: bool
+
+
+# ── Catálogo — Responses ──────────────────────────────────────────────────────
+
+class PerfumeResponse(BaseModel):
+    """
+    Perfume serializado para Flutter.
+    Todos los campos en snake_case — Dart json_serializable los mapea directamente.
+    image_url: URL relativa servida por FastAPI StaticFiles (/imagenes/...).
+               None si no hay imagen disponible para ese perfume.
+    """
+    id_perfume: str
+    marca: str
+    nombre: str
+    precio_2ml: Optional[float] = None
+    precio_5ml: Optional[float] = None
+    precio_10ml: Optional[float] = None
+    stock_ml: Optional[float] = None
+    notas: Optional[str] = None
+    perfil_olfativo: Optional[str] = None
+    image_url: Optional[str] = None
+
+
+# ── Ventas — Responses ────────────────────────────────────────────────────────
+
+class VentaResponse(BaseModel):
+    """
+    Venta individual para Flutter.
+    fila_sheet es un detalle interno de Google Sheets — Flutter lo guarda
+    y lo envía en PUT /{id}/estado para actualizar el estado.
+    En una futura migración a PostgreSQL este campo desaparece.
+    """
+    id_compra: str
+    fecha: Optional[str] = None
+    comprador: str
+    celular: str
+    id_perfume: str
+    ml_vendido: Optional[int] = None
+    precio_cobrado: Optional[float] = None
+    metodo_pago: Optional[str] = None
+    tipo_envio: Optional[str] = None
+    direccion: Optional[str] = None
+    estado: Optional[str] = None
+    fila_sheet: Optional[int] = None
+
+
+class ClientePrevioResponse(BaseModel):
+    """
+    Datos del último pedido de un cliente, para autocompletar el checkout en Flutter.
+    Flutter llama a GET /ventas/cliente/{celular} y pre-rellena el formulario.
+    """
+    comprador: str
+    direccion: str
+    tipo_envio: str
+    metodo_pago: str
+    total_compras: int
+
+
+# ── Cotizaciones — Responses ──────────────────────────────────────────────────
+
+class CotizacionResponse(BaseModel):
+    """Cotización individual para Flutter."""
+    id_cotizacion: str
+    fecha: Optional[str] = None
+    celular: str
+    items: Optional[str] = None
+    total: Optional[float] = None
+    estado: Optional[str] = None
+    fila_sheet: Optional[int] = None
+
+
+# ── Config de la app ──────────────────────────────────────────────────────────
+
+class AppConfig(BaseModel):
+    """
+    Configuración de la app para Flutter.
+    Flutter llama a GET /api/v1/config al arrancar para poblar dropdowns
+    sin hardcodear opciones en el cliente.
+    """
+    ml_opciones: list[int]
+    metodos_pago: list[str]
+    tipos_envio: list[str]
+    stock_critico_ml: int
+    stock_bajo_ml: int
+    version: str
+
+
+# ── Ventas — Requests ─────────────────────────────────────────────────────────
 
 class ItemCestaAPI(BaseModel):
     """
     Item de cesta de compra.
-
-    Los campos coinciden exactamente con el TypedDict ItemCesta del backend,
-    por lo que item.model_dump() puede pasarse directamente a register_complete_sale().
+    Campos coinciden con ItemCesta TypedDict — item.model_dump() se pasa directo
+    a register_complete_sale() sin conversión adicional.
     """
     perfume: str
     marca: str
@@ -49,18 +142,13 @@ class ItemCestaAPI(BaseModel):
 class VentaRequest(BaseModel):
     """
     Body de POST /ventas/.
-
-    Los campos del cliente (comprador, celular, etc.) coinciden con DatosCliente
-    TypedDict del backend — body.model_dump(exclude={'items'}) se pasa directo
-    a register_complete_sale() sin conversión adicional.
+    Campos del cliente coinciden con DatosCliente TypedDict.
+    body.model_dump(exclude={'items'}) se pasa directo a register_complete_sale().
     """
     comprador: str = Field(..., min_length=1)
     celular: str = Field(
-        ...,
-        min_length=9,
-        max_length=9,
-        pattern=r"^\d{9}$",
-        description="9 dígitos, sin código de país (ej: 987654321)",
+        ..., min_length=9, max_length=9, pattern=r"^\d{9}$",
+        description="9 dígitos sin código de país (ej: 987654321)",
     )
     direccion: str = Field(..., min_length=1)
     tipo_envio: str = Field(..., description="Shalom | Motorizado | Contraentrega")
@@ -69,24 +157,18 @@ class VentaRequest(BaseModel):
 
 
 class VentaRegistrada(BaseModel):
-    """Response de POST /ventas/ — ID asignado y advertencia opcional."""
+    """Response de POST /ventas/."""
     id_compra: str
     warning: Optional[str] = None
 
 
 class EstadoVentaUpdate(BaseModel):
-    """
-    Body para PUT /ventas/{id}/estado.
-
-    fila_sheet es la fila real en Google Sheets.
-    Flutter debe guardar este campo al obtener la lista de ventas,
-    para poder actualizar el estado después.
-    """
+    """Body para PUT /ventas/{id}/estado."""
     nuevo_estado: str = Field(..., description="Pendiente | Entregado | Anulado")
     fila_sheet: int = Field(..., ge=2, description="Campo fila_sheet del objeto venta")
 
 
-# ── Cotizaciones ──────────────────────────────────────────────────────────────
+# ── Cotizaciones — Requests ───────────────────────────────────────────────────
 
 class CotizacionRequest(BaseModel):
     celular: str = Field(..., min_length=9, max_length=9, pattern=r"^\d{9}$")
@@ -99,10 +181,6 @@ class CotizacionRegistrada(BaseModel):
 
 
 class EstadoCotizacionUpdate(BaseModel):
-    """
-    Body para PUT /cotizaciones/{id}.
-
-    fila_sheet es la fila real en Google Sheets (campo fila_sheet al listar).
-    """
+    """Body para PUT /cotizaciones/{id}."""
     nuevo_estado: str = Field(..., description="Enviado | Confirmado | Anulado")
     fila_sheet: int = Field(..., ge=2)

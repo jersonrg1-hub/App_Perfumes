@@ -1,60 +1,108 @@
 """
-backend/api/routes/catalogo.py — Endpoints del catálogo de perfumes.
+backend/api/routes/catalogo.py — Endpoints del catálogo. Públicos, sin autenticación.
 
-Endpoints públicos (sin autenticación):
-  El catálogo es información de producto — sin datos sensibles del negocio.
-  Flutter lo puede cachear localmente tras la primera carga.
+Cambios para Flutter:
+  - Todas las respuestas en snake_case (snake=True en df_to_json_list)
+  - GET / devuelve Paginated[PerfumeResponse] con limit/offset
+  - Cada perfume incluye image_url (null si no hay imagen en imagenes/)
+  - response_model declarado en todos los endpoints para docs precisos
 
-Flujo de GET /buscar?q=noir&marca=YSL:
+Flujo de GET /buscar?q=noir:
   Depends(get_repo) → SheetsRepository singleton
-    → get_catalogo_cached(repo)  ← DataFrame desde cache TTL 30 min
-      → filtrar_catalogo(df, "noir", "YSL")  ← lógica en services/
-        → df_to_json_list(resultado)  ← serialización segura
-          → FastAPI responde JSON
-
-La lógica de filtrado vive en backend/services/venta_service.py, no aquí.
+    → get_catalogo_cached(repo)       ← cache 30 min
+      → filtrar_catalogo(df, "noir")  ← lógica en services/ (sin HTTP)
+        → _serializar_catalogo(df)    ← snake_case + image_url
+          → Paginated[PerfumeResponse]
 """
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from backend.api.dependencies import get_repo, get_catalogo_cached, df_to_json_list
+from backend.api.dependencies import (
+    get_repo,
+    get_catalogo_cached,
+    get_image_url,
+    df_to_json_list,
+)
+from backend.api.models import PerfumeResponse, Paginated
 from backend.repositories.sheets_repository import SheetsRepository
 from backend.services.venta_service import filtrar_catalogo
 
 router = APIRouter()
 
-# Columnas públicas — excluye columnas internas:
-# Nombre_lower, Marca_lower, Marca_limpia, Notas_set, fila_sheet, etc.
-_COLS_PUBLICAS = [
+# Columnas a exponer — excluye internas: Nombre_lower, fila_sheet, Notas_set, etc.
+_COLS = [
     "ID_Perfume", "Marca", "Nombre",
     "Precio_2ml", "Precio_5ml", "Precio_10ml",
     "Stock_ml", "Notas", "Perfil_Olfativo",
 ]
 
 
-@router.get("/", summary="Listar catálogo completo")
-def listar_catalogo(repo: SheetsRepository = Depends(get_repo)):
+def _a_perfume_response(row: dict) -> dict:
     """
-    Todos los perfumes con precios y stock actual.
-    Respuesta desde cache (hasta 30 min de antigüedad).
+    Convierte una fila del catálogo (ya en snake_case) a dict con image_url.
+    row llega con claves snake_case tras df_to_json_list(snake=True).
+    """
+    # ID_Perfume puede venir como int desde Sheets — PerfumeResponse requiere str
+    if "id_perfume" in row and row["id_perfume"] is not None:
+        row["id_perfume"] = str(row["id_perfume"])
+    row["image_url"] = get_image_url(
+        marca=str(row.get("marca") or ""),
+        nombre=str(row.get("nombre") or ""),
+    )
+    return row
 
-    Para Flutter: carga inicial al abrir la app; cachear en SharedPreferences.
+
+def _serializar_catalogo(df) -> list[dict]:
+    """Serializa DataFrame de catálogo a lista con snake_case + image_url."""
+    rows = df_to_json_list(df, cols=_COLS, snake=True)
+    return [_a_perfume_response(r) for r in rows]
+
+
+@router.get(
+    "/",
+    response_model=Paginated[PerfumeResponse],
+    summary="Listar catálogo con paginación",
+)
+def listar_catalogo(
+    limit: int = Query(100, ge=1, le=500, description="Items por página (máx 500)"),
+    offset: int = Query(0, ge=0, description="Items a omitir desde el inicio"),
+    repo: SheetsRepository = Depends(get_repo),
+):
+    """
+    Catálogo completo con paginación.
+
+    Para Flutter:
+    - Primera carga: GET /catalogo/?limit=100
+    - Infinite scroll:  GET /catalogo/?limit=50&offset=50
+    - Verificar has_more antes de cargar más
+    - Cachear localmente en SQLite/SharedPreferences (TTL 30 min)
     """
     try:
         df = get_catalogo_cached(repo)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Error al cargar catálogo: {e}")
-    return df_to_json_list(df, cols=_COLS_PUBLICAS)
+        raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
+
+    total = len(df)
+    pagina = df.iloc[offset: offset + limit]
+    return {
+        "items": _serializar_catalogo(pagina),
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": (offset + limit) < total,
+    }
 
 
-@router.get("/marcas", summary="Listar marcas disponibles")
+@router.get(
+    "/marcas",
+    response_model=list[str],
+    summary="Listar marcas disponibles",
+)
 def listar_marcas(repo: SheetsRepository = Depends(get_repo)):
     """
-    Marcas únicas, ordenadas alfabéticamente.
-    Se deriva del catálogo cacheado — sin llamada extra a Sheets.
-
-    Para Flutter: dropdown de filtro de marcas.
+    Marcas únicas ordenadas alfabéticamente, derivadas del catálogo cacheado.
+    Para Flutter: poblar el dropdown de filtro de marcas.
     """
     try:
         df = get_catalogo_cached(repo)
@@ -63,49 +111,66 @@ def listar_marcas(repo: SheetsRepository = Depends(get_repo)):
     return sorted(df["Marca"].dropna().unique().tolist())
 
 
-@router.get("/buscar", summary="Buscar perfumes por texto o marca")
+@router.get(
+    "/buscar",
+    response_model=Paginated[PerfumeResponse],
+    summary="Buscar perfumes por texto o marca",
+)
 def buscar_perfumes(
     q: str = Query("", description="Texto libre: nombre, marca o notas"),
     marca: Optional[str] = Query(None, description="Filtrar por marca exacta"),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     repo: SheetsRepository = Depends(get_repo),
 ):
     """
-    Misma lógica de filtrado que Streamlit — reutiliza filtrar_catalogo() de services/.
-    El catálogo se sirve desde cache, así que la búsqueda es rápida.
+    Misma lógica que Streamlit — reutiliza filtrar_catalogo() de services/.
+    Catálogo desde cache, búsqueda rápida sobre columnas pre-computadas.
 
-    Para Flutter: ejecutar al escribir (debounce ~300 ms en el cliente).
-    Ejemplo: /api/v1/catalogo/buscar?q=noir&marca=YSL
+    Para Flutter: llamar al escribir en el buscador (debounce 300 ms).
+    Ejemplo: GET /api/v1/catalogo/buscar?q=noir&marca=YSL
     """
     try:
         df = get_catalogo_cached(repo)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Error al cargar catálogo: {e}")
+        raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
     resultado = filtrar_catalogo(df, texto=q, marca=marca or "")
-    return df_to_json_list(resultado, cols=_COLS_PUBLICAS)
+    total = len(resultado)
+    pagina = resultado.iloc[offset: offset + limit]
+    return {
+        "items": _serializar_catalogo(pagina),
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "has_more": (offset + limit) < total,
+    }
 
 
-@router.get("/{id_perfume}", summary="Detalle de un perfume por ID")
+@router.get(
+    "/{id_perfume}",
+    response_model=PerfumeResponse,
+    summary="Detalle de un perfume por ID",
+)
 def obtener_perfume(
     id_perfume: str,
     repo: SheetsRepository = Depends(get_repo),
 ):
     """
-    Un perfume por ID_Perfume. 404 si no existe.
-
+    Un perfume por ID_Perfume. Incluye image_url si hay imagen disponible.
     Para Flutter: pantalla de detalle al tocar una tarjeta.
-    Ejemplo: /api/v1/catalogo/12
+    Retorna 404 si el ID no existe.
     """
     try:
         df = get_catalogo_cached(repo)
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Error al cargar catálogo: {e}")
+        raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
     fila = df[df["ID_Perfume"].astype(str) == str(id_perfume)]
     if fila.empty:
         raise HTTPException(
             status_code=404,
-            detail=f"Perfume '{id_perfume}' no encontrado en el catálogo",
+            detail=f"Perfume '{id_perfume}' no encontrado en el catalogo",
         )
 
-    return df_to_json_list(fila, cols=_COLS_PUBLICAS)[0]
+    return _serializar_catalogo(fila)[0]

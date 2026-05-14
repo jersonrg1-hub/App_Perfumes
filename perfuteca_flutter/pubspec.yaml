@@ -1,0 +1,57 @@
+name: perfuteca
+description: App de perfumería — conectada a FastAPI en Render.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── HTTP / Network ────────────────────────────────────────────────────────────
+  dio: ^5.7.0
+  pretty_dio_logger: ^1.4.0
+
+  # ── State Management ──────────────────────────────────────────────────────────
+  flutter_riverpod: ^2.6.1
+  riverpod_annotation: ^2.3.5
+
+  # ── Code-gen Models ──────────────────────────────────────────────────────────
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+  # ── Navigation ───────────────────────────────────────────────────────────────
+  go_router: ^14.6.2
+
+  # ── Images ───────────────────────────────────────────────────────────────────
+  cached_network_image: ^3.4.1
+
+  # ── Local Storage ────────────────────────────────────────────────────────────
+  shared_preferences: ^2.3.3
+
+  # ── Network Status ───────────────────────────────────────────────────────────
+  connectivity_plus: ^6.1.1
+
+  # ── UI Utils ─────────────────────────────────────────────────────────────────
+  flutter_staggered_grid_view: ^0.7.0
+  shimmer: ^3.0.0
+  cupertino_icons: ^1.0.8
+  url_launcher: ^6.3.1
+  intl: ^0.19.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+  riverpod_generator: ^2.4.3
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/icons/

@@ -11,11 +11,11 @@ import 'package:perfuteca/widgets/perfume/perfume_card.dart';
 // ── Modo de exploración ───────────────────────────────────────────────────────
 
 enum _Modo {
-  notas('Notas',     Icons.spa_outlined),
-  perfil('Perfil',   Icons.auto_awesome_outlined),
-  ocasion('Ocasión', Icons.event_outlined),
+  notas('Notas',       Icons.spa_outlined),
+  perfil('Perfil',     Icons.auto_awesome_outlined),
+  ocasion('Ocasión',   Icons.event_outlined),
   estacion('Estación', Icons.wb_sunny_outlined),
-  hora('Hora',       Icons.schedule_outlined);
+  hora('Hora',         Icons.schedule_outlined);
 
   const _Modo(this.label, this.icon);
   final String   label;
@@ -50,46 +50,51 @@ Map<String, int> _contarPorModo(List<Perfume> perfumes, _Modo modo) {
   return map;
 }
 
-List<Perfume> _filtrarPorModo(
-    List<Perfume> perfumes, String valor, _Modo modo) =>
-    perfumes.where((p) {
-      final raw = _getFieldRaw(p, modo);
+// Intersección: perfume debe coincidir con TODOS los filtros activos
+List<Perfume> _filtrarMultiple(
+    List<Perfume> perfumes, Map<_Modo, String> filtros) {
+  if (filtros.isEmpty) return perfumes;
+  return perfumes.where((p) {
+    return filtros.entries.every((entry) {
+      final raw = _getFieldRaw(p, entry.key);
       if (raw.isEmpty) return false;
       return raw
           .split(RegExp(r'[,;|]'))
           .map((n) => _normalizar(n.trim()))
-          .contains(valor);
-    }).toList();
+          .contains(entry.value);
+    });
+  }).toList();
+}
 
 String _emoji(String nota) {
   final n = nota.toLowerCase();
-  if (n.contains('rosa'))                                   return '🌹';
-  if (n.contains('jazmín') || n.contains('jazmin'))        return '🌸';
-  if (n.contains('lavanda'))                               return '💜';
-  if (n.contains('floral') || n.contains('pétalo'))        return '🌺';
-  if (n.contains('vainilla'))                              return '🍦';
-  if (n.contains('ámbar') || n.contains('amber'))          return '✨';
-  if (n.contains('madera') || n.contains('roble'))         return '🪵';
-  if (n.contains('cedro'))                                 return '🌲';
-  if (n.contains('sándalo') || n.contains('sandalo'))      return '🌳';
-  if (n.contains('pachulí') || n.contains('pachuli'))      return '🍃';
-  if (n.contains('vetiver') || n.contains('musgo'))        return '🌿';
-  if (n.contains('cítric') || n.contains('citric'))        return '🍋';
-  if (n.contains('bergamota'))                             return '🍊';
-  if (n.contains('limón') || n.contains('limon'))          return '🍋';
-  if (n.contains('naranja'))                               return '🍊';
-  if (n.contains('durazno') || n.contains('melocotón'))    return '🍑';
-  if (n.contains('frut') || n.contains('manzana'))         return '🍎';
-  if (n.contains('especia') || n.contains('canela'))       return '🌶️';
-  if (n.contains('pimienta'))                              return '🫚';
-  if (n.contains('almizcle'))                              return '🌾';
+  if (n.contains('rosa'))                                 return '🌹';
+  if (n.contains('jazmín') || n.contains('jazmin'))      return '🌸';
+  if (n.contains('lavanda'))                             return '💜';
+  if (n.contains('floral') || n.contains('pétalo'))      return '🌺';
+  if (n.contains('vainilla'))                            return '🍦';
+  if (n.contains('ámbar') || n.contains('amber'))        return '✨';
+  if (n.contains('madera') || n.contains('roble'))       return '🪵';
+  if (n.contains('cedro'))                               return '🌲';
+  if (n.contains('sándalo') || n.contains('sandalo'))    return '🌳';
+  if (n.contains('pachulí') || n.contains('pachuli'))    return '🍃';
+  if (n.contains('vetiver') || n.contains('musgo'))      return '🌿';
+  if (n.contains('cítric') || n.contains('citric'))      return '🍋';
+  if (n.contains('bergamota'))                           return '🍊';
+  if (n.contains('limón') || n.contains('limon'))        return '🍋';
+  if (n.contains('naranja'))                             return '🍊';
+  if (n.contains('durazno') || n.contains('melocotón'))  return '🍑';
+  if (n.contains('frut') || n.contains('manzana'))       return '🍎';
+  if (n.contains('especia') || n.contains('canela'))     return '🌶️';
+  if (n.contains('pimienta'))                            return '🫚';
+  if (n.contains('almizcle'))                            return '🌾';
   if (n.contains('acuátic') || n.contains('acuatic')
-      || n.contains('marino') || n.contains('agua'))       return '💧';
-  if (n.contains('cuero'))                                 return '🤎';
-  if (n.contains('tabaco'))                                return '🍂';
-  if (n.contains('café') || n.contains('cafe'))            return '☕';
-  if (n.contains('iris') || n.contains('violeta'))         return '💐';
-  if (n.contains('tuberosa'))                              return '🌼';
+      || n.contains('marino') || n.contains('agua'))     return '💧';
+  if (n.contains('cuero'))                               return '🤎';
+  if (n.contains('tabaco'))                              return '🍂';
+  if (n.contains('café') || n.contains('cafe'))          return '☕';
+  if (n.contains('iris') || n.contains('violeta'))       return '💐';
+  if (n.contains('tuberosa'))                            return '🌼';
   return '🌺';
 }
 
@@ -169,30 +174,57 @@ class NotasScreen extends ConsumerStatefulWidget {
 
 class _NotasScreenState extends ConsumerState<NotasScreen> {
   _Modo _modo = _Modo.notas;
+  final Map<_Modo, String> _filtros = {};
+
+  bool get _tieneFiltros => _filtros.isNotEmpty;
 
   void _setModo(_Modo modo) {
     if (_modo == modo) return;
     setState(() => _modo = modo);
-    ref.read(notaSeleccionadaProvider.notifier).state = null;
   }
+
+  void _toggleFiltro(String valor) {
+    setState(() {
+      if (_filtros[_modo] == valor) {
+        _filtros.remove(_modo);
+      } else {
+        _filtros[_modo] = valor;
+      }
+    });
+  }
+
+  void _removerFiltro(_Modo modo) => setState(() => _filtros.remove(modo));
+
+  void _limpiarTodo() => setState(() => _filtros.clear());
 
   @override
   Widget build(BuildContext context) {
-    final valorActivo = ref.watch(notaSeleccionadaProvider);
-    final mapAsync    = ref.watch(perfumesMapProvider);
+    // Escuchar navegación desde DetallePerfumeScreen
+    ref.listen(notaSeleccionadaProvider, (_, next) {
+      if (next != null) {
+        setState(() {
+          _modo = _Modo.notas;
+          _filtros[_Modo.notas] = _normalizar(next);
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ref.read(notaSeleccionadaProvider.notifier).state = null;
+          }
+        });
+      }
+    });
 
+    final mapAsync = ref.watch(perfumesMapProvider);
     final perfumes = mapAsync.valueOrNull?.values.toList() ?? [];
     final conteo   = _contarPorModo(perfumes, _modo);
     final valores  = conteo.keys.toList()
       ..sort((a, b) => conteo[b]!.compareTo(conteo[a]!));
-
-    void seleccionar(String v) {
-      ref.read(notaSeleccionadaProvider.notifier).state =
-          v == valorActivo ? null : v;
-    }
+    final filtrados = _filtrarMultiple(perfumes, _filtros);
 
     String titulo() {
-      if (valorActivo != null) return valorActivo;
+      if (_tieneFiltros) {
+        return '${filtrados.length} perfume${filtrados.length != 1 ? 's' : ''}';
+      }
       return switch (_modo) {
         _Modo.notas    => 'Notas olfativas',
         _Modo.perfil   => 'Perfil olfativo',
@@ -209,56 +241,68 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
         elevation: 0,
         title: Row(
           children: [
-            Icon(_modo.icon, color: AppColors.gold, size: 20),
+            Icon(
+              _tieneFiltros ? Icons.filter_list_rounded : _modo.icon,
+              color: AppColors.gold,
+              size: 20,
+            ),
             const SizedBox(width: AppSpacing.sm),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
               child: Text(
                 titulo(),
-                key: ValueKey('$_modo-$valorActivo'),
+                key: ValueKey(titulo()),
                 style: AppTextStyles.heading2.copyWith(fontSize: 18),
               ),
             ),
           ],
         ),
         actions: [
-          if (valorActivo != null)
-            IconButton(
-              icon: const Icon(Icons.grid_view_rounded, size: 20),
-              color: AppColors.textMuted,
-              tooltip: 'Ver todos',
-              onPressed: () =>
-                  ref.read(notaSeleccionadaProvider.notifier).state = null,
+          if (_tieneFiltros)
+            TextButton.icon(
+              onPressed: _limpiarTodo,
+              icon: const Icon(Icons.close_rounded, size: 15),
+              label: const Text('Limpiar'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                textStyle: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w700),
+              ),
             ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(44),
-          child: _ModoBar(modoActivo: _modo, onSelect: _setModo),
+          child: _ModoBar(
+            modoActivo: _modo,
+            filtros:    _filtros,
+            onSelect:   _setModo,
+          ),
         ),
       ),
       body: mapAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
         error: (_, __) =>
             _ErrorView(onRetry: () => ref.invalidate(perfumesMapProvider)),
         data: (_) => AnimatedSwitcher(
-          duration: const Duration(milliseconds: 250),
-          child: valorActivo == null
-              ? _VistaExplora(
-                  key:     ValueKey('explora-$_modo'),
-                  valores: valores,
-                  conteo:  conteo,
-                  modo:    _modo,
-                  onSelect: seleccionar,
+          duration: const Duration(milliseconds: 200),
+          child: _tieneFiltros
+              ? _VistaMultifiltro(
+                  key:       ValueKey(_filtros.length),
+                  filtros:   _filtros,
+                  modo:      _modo,
+                  valores:   valores,
+                  filtrados: filtrados,
+                  onToggle:  _toggleFiltro,
+                  onRemover: _removerFiltro,
+                  onRefresh: () => ref.refresh(perfumesMapProvider.future),
                 )
-              : _VistaFiltrada(
-                  key:         ValueKey('$_modo-$valorActivo'),
-                  valorActivo: valorActivo,
-                  modo:        _modo,
-                  valores:     valores,
-                  filtrados:   _filtrarPorModo(perfumes, valorActivo, _modo),
-                  onSelect:    seleccionar,
-                  onRefresh:   () => ref.refresh(perfumesMapProvider.future),
+              : _VistaExplora(
+                  key:      ValueKey('explora-$_modo'),
+                  valores:  valores,
+                  conteo:   conteo,
+                  modo:     _modo,
+                  onSelect: _toggleFiltro,
                 ),
         ),
       ),
@@ -266,11 +310,16 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
   }
 }
 
-// ── Barra de modos ────────────────────────────────────────────────────────────
+// ── Barra de modos con indicador de filtro activo ─────────────────────────────
 
 class _ModoBar extends StatelessWidget {
-  const _ModoBar({required this.modoActivo, required this.onSelect});
+  const _ModoBar({
+    required this.modoActivo,
+    required this.filtros,
+    required this.onSelect,
+  });
   final _Modo                modoActivo;
+  final Map<_Modo, String>   filtros;
   final void Function(_Modo) onSelect;
 
   @override
@@ -283,7 +332,16 @@ class _ModoBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         child: Row(
           children: _Modo.values.map((modo) {
-            final activo = modo == modoActivo;
+            final activo      = modo == modoActivo;
+            final tieneFiltro = filtros.containsKey(modo);
+            final bgColor = tieneFiltro
+                ? AppColors.primary
+                : (activo
+                    ? AppColors.primaryPale
+                    : AppColors.primaryPale);
+            final textColor = tieneFiltro
+                ? Colors.white
+                : (activo ? AppColors.primaryDark : AppColors.textSecondary);
             return Padding(
               padding: const EdgeInsets.only(right: AppSpacing.sm),
               child: GestureDetector(
@@ -293,33 +351,37 @@ class _ModoBar extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md, vertical: 6),
                   decoration: BoxDecoration(
-                    color: activo ? AppColors.primary : AppColors.primaryPale,
+                    color: bgColor,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: activo ? AppColors.primary : AppColors.primaryLight,
-                      width: activo ? 1.5 : 1,
+                      color: tieneFiltro
+                          ? AppColors.primary
+                          : (activo
+                              ? AppColors.primary
+                              : AppColors.primaryLight),
+                      width: activo || tieneFiltro ? 1.5 : 1,
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        modo.icon,
-                        size: 12,
-                        color: activo ? Colors.white : AppColors.textMuted,
-                      ),
+                      Icon(modo.icon, size: 12, color: textColor),
                       const SizedBox(width: 4),
                       Text(
                         modo.label,
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight:
-                              activo ? FontWeight.w700 : FontWeight.w500,
-                          color: activo
-                              ? Colors.white
-                              : AppColors.textSecondary,
+                          fontWeight: activo || tieneFiltro
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: textColor,
                         ),
                       ),
+                      if (tieneFiltro) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.check_rounded,
+                            size: 11, color: Colors.white),
+                      ],
                     ],
                   ),
                 ),
@@ -332,7 +394,7 @@ class _ModoBar extends StatelessWidget {
   }
 }
 
-// ── Vista exploración: grid de tarjetas ──────────────────────────────────────
+// ── Vista exploración ─────────────────────────────────────────────────────────
 
 class _VistaExplora extends StatelessWidget {
   const _VistaExplora({
@@ -350,7 +412,7 @@ class _VistaExplora extends StatelessWidget {
   String get _subtitulo {
     final n = valores.length;
     return switch (modo) {
-      _Modo.notas    => '$n notas disponibles · toca una para filtrar',
+      _Modo.notas    => '$n notas · toca una para filtrar',
       _Modo.perfil   => '$n perfiles olfativos · toca uno para filtrar',
       _Modo.ocasion  => '$n ocasiones · toca una para filtrar',
       _Modo.estacion => '$n estaciones · toca una para filtrar',
@@ -367,35 +429,29 @@ class _VistaExplora extends StatelessWidget {
           children: [
             Icon(modo.icon, size: 48, color: AppColors.textFaint),
             const SizedBox(height: 12),
-            Text(
-              'Sin datos de ${modo.label.toLowerCase()}',
-              style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
-            ),
+            Text('Sin datos de ${modo.label.toLowerCase()}',
+                style:
+                    AppTextStyles.body.copyWith(color: AppColors.textMuted)),
           ],
         ),
       );
     }
-
     return CustomScrollView(
       slivers: [
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.lg, AppSpacing.md, AppSpacing.sm),
+            padding: const EdgeInsets.fromLTRB(AppSpacing.md, AppSpacing.lg,
+                AppSpacing.md, AppSpacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Explora por ${modo.label.toLowerCase()}',
-                  style: AppTextStyles.heading2
-                      .copyWith(color: AppColors.textPrimary),
-                ),
+                Text('Explora por ${modo.label.toLowerCase()}',
+                    style: AppTextStyles.heading2
+                        .copyWith(color: AppColors.textPrimary)),
                 const SizedBox(height: 4),
-                Text(
-                  _subtitulo,
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.textMuted),
-                ),
+                Text(_subtitulo,
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.textMuted)),
               ],
             ),
           ),
@@ -426,7 +482,147 @@ class _VistaExplora extends StatelessWidget {
   }
 }
 
-// ── Tarjeta de valor ──────────────────────────────────────────────────────────
+// ── Vista con filtros combinados ──────────────────────────────────────────────
+
+class _VistaMultifiltro extends StatelessWidget {
+  const _VistaMultifiltro({
+    super.key,
+    required this.filtros,
+    required this.modo,
+    required this.valores,
+    required this.filtrados,
+    required this.onToggle,
+    required this.onRemover,
+    required this.onRefresh,
+  });
+  final Map<_Modo, String>   filtros;
+  final _Modo                modo;
+  final List<String>         valores;
+  final List<Perfume>        filtrados;
+  final void Function(String)   onToggle;
+  final void Function(_Modo)    onRemover;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        // Chips de filtros activos (removibles)
+        _FiltrosActivosBar(filtros: filtros, onRemover: onRemover),
+
+        // Chips del modo actual para agregar/cambiar ese filtro
+        _ChipBar(
+          valores:     valores,
+          valorActivo: filtros[modo],
+          modo:        modo,
+          onSelect:    onToggle,
+        ),
+
+        // Resultados
+        Expanded(
+          child: filtrados.isEmpty
+              ? _SinResultados(filtros: filtros)
+              : RefreshIndicator(
+                  onRefresh: onRefresh,
+                  child: GridView.builder(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.md,
+                        AppSpacing.sm, AppSpacing.md, AppSpacing.md),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount:   2,
+                      crossAxisSpacing: AppSpacing.sm,
+                      mainAxisSpacing:  AppSpacing.sm,
+                      childAspectRatio: 0.62,
+                    ),
+                    itemCount: filtrados.length,
+                    itemBuilder: (_, i) => PerfumeCard(perfume: filtrados[i]),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Barra de filtros activos (removibles) ─────────────────────────────────────
+
+class _FiltrosActivosBar extends StatelessWidget {
+  const _FiltrosActivosBar(
+      {required this.filtros, required this.onRemover});
+  final Map<_Modo, String>   filtros;
+  final void Function(_Modo) onRemover;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: AppColors.surface,
+      padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md, AppSpacing.sm, AppSpacing.md, AppSpacing.sm),
+      child: Row(
+        children: [
+          const Icon(Icons.filter_list_rounded,
+              size: 14, color: AppColors.textMuted),
+          const SizedBox(width: 6),
+          Text(
+            'Combinando:',
+            style: AppTextStyles.bodySmall.copyWith(
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: filtros.entries.map((e) {
+                  final emoji = _emojiValor(e.value, e.key);
+                  return Padding(
+                    padding: const EdgeInsets.only(right: AppSpacing.xs),
+                    child: GestureDetector(
+                      onTap: () => onRemover(e.key),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _bg(e.value),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: _border(e.value)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(emoji,
+                                style: const TextStyle(fontSize: 12)),
+                            const SizedBox(width: 3),
+                            Text(
+                              e.value,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF1A1A1A),
+                              ),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.close_rounded,
+                                size: 11, color: Color(0xFF777777)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Tarjeta de valor (vista exploración) ──────────────────────────────────────
 
 class _ValorCard extends StatelessWidget {
   const _ValorCard({
@@ -445,7 +641,6 @@ class _ValorCard extends StatelessWidget {
     final bgColor     = _bg(valor);
     final borderColor = _border(valor);
     final emojiText   = _emojiValor(valor, modo);
-
     return Material(
       color: bgColor,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -475,35 +670,27 @@ class _ValorCard extends StatelessWidget {
                       color: borderColor.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      '$conteo',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A1A1A),
-                      ),
-                    ),
+                    child: Text('$conteo',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A1A1A))),
                   ),
                 ],
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    valor,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF1A1A1A),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    '$conteo perfume${conteo != 1 ? 's' : ''}',
-                    style: const TextStyle(
-                        fontSize: 10, color: Color(0x99000000)),
-                  ),
+                  Text(valor,
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A1A1A)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  Text('$conteo perfume${conteo != 1 ? 's' : ''}',
+                      style: const TextStyle(
+                          fontSize: 10, color: Color(0x99000000))),
                 ],
               ),
             ],
@@ -514,127 +701,7 @@ class _ValorCard extends StatelessWidget {
   }
 }
 
-// ── Vista filtrada: banner + chips + grid ─────────────────────────────────────
-
-class _VistaFiltrada extends StatelessWidget {
-  const _VistaFiltrada({
-    super.key,
-    required this.valorActivo,
-    required this.modo,
-    required this.valores,
-    required this.filtrados,
-    required this.onSelect,
-    required this.onRefresh,
-  });
-  final String                  valorActivo;
-  final _Modo                   modo;
-  final List<String>            valores;
-  final List<Perfume>           filtrados;
-  final void Function(String)   onSelect;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _ValorBanner(valor: valorActivo, conteo: filtrados.length, modo: modo),
-        _ChipBar(valores: valores, valorActivo: valorActivo, modo: modo, onSelect: onSelect),
-        Expanded(
-          child: filtrados.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(_emojiValor(valorActivo, modo),
-                          style: const TextStyle(fontSize: 48)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Sin perfumes con "$valorActivo"',
-                        style: AppTextStyles.body
-                            .copyWith(color: AppColors.textMuted),
-                      ),
-                    ],
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: onRefresh,
-                  child: GridView.builder(
-                    padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md, AppSpacing.sm,
-                        AppSpacing.md, AppSpacing.md),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount:   2,
-                      crossAxisSpacing: AppSpacing.sm,
-                      mainAxisSpacing:  AppSpacing.sm,
-                      childAspectRatio: 0.62,
-                    ),
-                    itemCount: filtrados.length,
-                    itemBuilder: (_, i) => PerfumeCard(perfume: filtrados[i]),
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-}
-
-// ── Banner de valor activo ────────────────────────────────────────────────────
-
-class _ValorBanner extends StatelessWidget {
-  const _ValorBanner(
-      {required this.valor, required this.conteo, required this.modo});
-  final String valor;
-  final int    conteo;
-  final _Modo  modo;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: 10),
-      decoration: BoxDecoration(
-        color: _bg(valor),
-        border: Border(bottom: BorderSide(color: _border(valor), width: 1.5)),
-      ),
-      child: Row(
-        children: [
-          Text(_emojiValor(valor, modo),
-              style: const TextStyle(fontSize: 22)),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Text(
-              valor,
-              style: AppTextStyles.body.copyWith(
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: _border(valor).withValues(alpha: 0.3),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              '$conteo perfume${conteo != 1 ? 's' : ''}',
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Barra de chips de valores ─────────────────────────────────────────────────
+// ── Chips del modo actual ─────────────────────────────────────────────────────
 
 class _ChipBar extends StatelessWidget {
   const _ChipBar({
@@ -650,47 +717,104 @@ class _ChipBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (valores.isEmpty) return const SizedBox.shrink();
     return Container(
       color: AppColors.surface,
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding:
-            const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        child: Row(
-          children: valores.map((valor) {
-            final activo = valor == valorActivo;
-            return Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.sm),
-              child: GestureDetector(
-                onTap: () => onSelect(valor),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm + 2, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: activo ? _border(valor) : _bg(valor),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _border(valor),
-                      width: activo ? 2 : 1,
-                    ),
-                  ),
-                  child: Text(
-                    '${_emojiValor(valor, modo)} $valor',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight:
-                          activo ? FontWeight.w700 : FontWeight.w500,
-                      color: activo
-                          ? Colors.white
-                          : const Color(0xFF1A1A1A),
-                    ),
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(
+                left: AppSpacing.md, bottom: AppSpacing.xs),
+            child: Row(
+              children: [
+                Icon(modo.icon, size: 12, color: AppColors.textMuted),
+                const SizedBox(width: 4),
+                Text(
+                  'Agregar ${modo.label.toLowerCase()}:',
+                  style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textMuted, fontSize: 11),
                 ),
-              ),
-            );
-          }).toList(),
+              ],
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding:
+                const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Row(
+              children: valores.map((valor) {
+                final activo = valor == valorActivo;
+                return Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.sm),
+                  child: GestureDetector(
+                    onTap: () => onSelect(valor),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: activo ? _border(valor) : _bg(valor),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: _border(valor),
+                            width: activo ? 2 : 1),
+                      ),
+                      child: Text(
+                        '${_emojiValor(valor, modo)} $valor',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: activo
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: activo
+                              ? Colors.white
+                              : const Color(0xFF1A1A1A),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Sin resultados ────────────────────────────────────────────────────────────
+
+class _SinResultados extends StatelessWidget {
+  const _SinResultados({required this.filtros});
+  final Map<_Modo, String> filtros;
+
+  @override
+  Widget build(BuildContext context) {
+    final partes = filtros.values.join(' + ');
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🔍', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 12),
+            Text(
+              'Sin perfumes para\n"$partes"',
+              style: AppTextStyles.body.copyWith(
+                  color: AppColors.textMuted, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Prueba quitando algún filtro',
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textFaint),
+            ),
+          ],
         ),
       ),
     );

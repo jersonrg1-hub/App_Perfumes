@@ -18,7 +18,9 @@ import json
 import logging
 import math
 import os
+import re
 import threading
+import unicodedata
 from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
@@ -149,28 +151,67 @@ def construir_image_index(base_dir: Path) -> None:
 
 def _normalizar(texto: str) -> str:
     """Normaliza nombre/marca para buscar en el índice de imágenes."""
-    return (
-        texto.lower()
-        .replace(" ", "_")
-        .replace("&", "")
-        .replace(".", "")
-        .replace(",", "")
-        .replace("'", "")
-        .replace("-", "_")
-        .strip("_")
-    )
+    # Quitar tildes: café→cafe, Tendré→Tendre, N°5→N5
+    s = unicodedata.normalize("NFD", texto)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    s = s.lower()
+    s = s.replace("&", " ")          # "Dolce & Gabanna" → "dolce  gabanna"
+    s = re.sub(r"[.,'°]", "", s)     # quitar puntuación y símbolo °
+    s = s.replace("-", " ")
+    s = re.sub(r"\s+", "_", s.strip())  # espacios múltiples → un solo _
+    s = s.strip("_")
+    return s
 
 
 def get_image_url(marca: str, nombre: str) -> Optional[str]:
     """
     Retorna la URL de la imagen del perfume si existe en imagenes/.
-    Ej: get_image_url("Chanel", "Coco Noir") → "/imagenes/chanel/coco_noir.jpg"
-    Retorna None si no hay imagen disponible.
+    Usa matching progresivo para cubrir nombres con sufijos o palabras extra.
+
+    Pasos:
+      1. Coincidencia exacta normalizada
+      2. Prefijo: el nombre empieza con el stem o viceversa (ej: "gabrielle_edp" ~ "gabrielle")
+      3. Todas las palabras del stem están en las palabras del nombre
+         (ej: "coral_fantasy" ~ "donna_born_in_roma_coral_fantasy")
+      4. El stem es sufijo del nombre (ej: "imperatrice" ~ "linperatrice")
     """
     if not _image_index:
         return None
-    clave = f"{_normalizar(marca)}/{_normalizar(nombre)}"
-    return _image_index.get(clave)
+
+    marca_norm = _normalizar(marca)
+    nombre_norm = _normalizar(nombre)
+
+    # Paso 1: coincidencia exacta
+    clave = f"{marca_norm}/{nombre_norm}"
+    if clave in _image_index:
+        return _image_index[clave]
+
+    brand_prefix = f"{marca_norm}/"
+    brand_keys = sorted(k for k in _image_index if k.startswith(brand_prefix))
+    if not brand_keys:
+        return None
+
+    # Paso 2: prefijo
+    for k in brand_keys:
+        stem = k[len(brand_prefix):]
+        if nombre_norm.startswith(stem) or stem.startswith(nombre_norm):
+            return _image_index[k]
+
+    # Paso 3: todas las palabras del stem presentes en el nombre
+    nombre_words = set(nombre_norm.split("_"))
+    for k in brand_keys:
+        stem = k[len(brand_prefix):]
+        stem_words = set(stem.split("_"))
+        if stem_words and stem_words.issubset(nombre_words):
+            return _image_index[k]
+
+    # Paso 4: stem es sufijo del nombre (ej: l'inperatrice → imperatrice)
+    for k in brand_keys:
+        stem = k[len(brand_prefix):]
+        if nombre_norm.endswith(stem):
+            return _image_index[k]
+
+    return None
 
 
 # ── Autenticación X-API-Key ───────────────────────────────────────────────────

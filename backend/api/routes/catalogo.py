@@ -35,6 +35,7 @@ _COLS = [
     "ID_Perfume", "Marca", "Nombre",
     "Precio_2ml", "Precio_5ml", "Precio_10ml",
     "Stock_ml", "Notas", "Perfil_Olfativo",
+    "ocasion", "estacion", "hora",
 ]
 
 

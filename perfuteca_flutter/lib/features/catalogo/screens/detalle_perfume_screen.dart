@@ -228,6 +228,22 @@ class _DetalleBody extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: AppSpacing.xl),
+              ],
+
+              // ── Detalles adicionales (ocasión / estación / hora) ──────
+              if (_tieneDetalles(perfume)) ...[
+                _SeccionLabel(
+                  icon:  Icons.info_outline_rounded,
+                  label: 'DETALLES',
+                  color: AppColors.primary,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xl),
+                  child: _DetallesGrid(perfume: perfume),
+                ),
                 const SizedBox(height: AppSpacing.xxl),
               ],
 
@@ -378,6 +394,69 @@ class _StockBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+bool _tieneDetalles(Perfume p) =>
+    (p.ocasion  != null && p.ocasion!.isNotEmpty)  ||
+    (p.estacion != null && p.estacion!.isNotEmpty) ||
+    (p.hora     != null && p.hora!.isNotEmpty);
+
+// ── Grid de detalles adicionales ──────────────────────────────────────────────
+
+class _DetallesGrid extends StatelessWidget {
+  const _DetallesGrid({required this.perfume});
+  final Perfume perfume;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <({IconData icon, String label, String valor})>[
+      if (perfume.ocasion  != null && perfume.ocasion!.isNotEmpty)
+        (icon: Icons.event_outlined,      label: 'Ocasión',  valor: perfume.ocasion!),
+      if (perfume.estacion != null && perfume.estacion!.isNotEmpty)
+        (icon: Icons.wb_sunny_outlined,   label: 'Estación', valor: perfume.estacion!),
+      if (perfume.hora     != null && perfume.hora!.isNotEmpty)
+        (icon: Icons.schedule_outlined,   label: 'Hora',     valor: perfume.hora!),
+    ];
+
+    return Column(
+      children: items.map((item) => Container(
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: AppColors.primaryLight),
+        ),
+        child: Row(
+          children: [
+            Icon(item.icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              item.label,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textMuted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const Spacer(),
+            Flexible(
+              child: Text(
+                item.valor,
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.end,
+              ),
+            ),
+          ],
+        ),
+      )).toList(),
     );
   }
 }

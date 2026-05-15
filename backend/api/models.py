@@ -60,6 +60,7 @@ class PerfumeResponse(BaseModel):
     ocasion: Optional[str] = None
     estacion: Optional[str] = None
     hora: Optional[str] = None
+    palabra_clave: Optional[str] = None
 
 
 # ── Ventas — Responses ────────────────────────────────────────────────────────

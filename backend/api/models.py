@@ -57,6 +57,9 @@ class PerfumeResponse(BaseModel):
     notas: Optional[str] = None
     perfil_olfativo: Optional[str] = None
     image_url: Optional[str] = None
+    ocasion: Optional[str] = None
+    estacion: Optional[str] = None
+    hora: Optional[str] = None
 
 
 # ── Ventas — Responses ────────────────────────────────────────────────────────

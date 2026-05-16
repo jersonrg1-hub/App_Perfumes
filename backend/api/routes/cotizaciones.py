@@ -148,14 +148,23 @@ def actualizar_estado_cotizacion(
 
 # ── Serialización ─────────────────────────────────────────────────────────────
 
-_COLS = ["ID_Cotizacion", "Fecha", "Celular", "Items", "Total", "Estado"]
+# Columnas fijas; la columna de perfumes se detecta dinámicamente
+_COLS_FIJAS = ["ID_Cotizacion", "Fecha", "Celular", "Total", "Estado"]
+# Posibles nombres de la columna de perfumes en distintas versiones de la hoja
+_POSIBLES_COL_PERFUMES = ["Perfumes", "Items", "Perfume", "items"]
 
 
 def _serializar_cotizaciones(df) -> list[dict]:
     """Serializa DataFrame de cotizaciones a lista snake_case."""
-    rows = df_to_json_list(df, cols=_COLS, snake=True)
+    col_perfumes = next((c for c in _POSIBLES_COL_PERFUMES if c in df.columns), None)
+    cols = _COLS_FIJAS + ([col_perfumes] if col_perfumes else [])
+    rows = df_to_json_list(df, cols=cols, snake=True)
     for row in rows:
         for campo in ("id_cotizacion", "celular"):
             if campo in row and row[campo] is not None:
                 row[campo] = str(row[campo])
+        # Normalizar cualquier variante del nombre a "items" para Flutter
+        for clave in ("perfumes", "perfume"):
+            if clave in row:
+                row["items"] = row.pop(clave)
     return rows

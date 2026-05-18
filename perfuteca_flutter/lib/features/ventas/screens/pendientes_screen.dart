@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
@@ -182,6 +183,43 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
       );
     }
     if (mounted) setState(() => _actualizando = false);
+  }
+
+  Future<void> _enviarComunidad() async {
+    final orden = widget.orden;
+    const sep = '────────────────────';
+
+    final itemsLineas = orden.items.map((item) {
+      final normId = item.idPerfume != null
+          ? (double.tryParse(item.idPerfume!)?.toInt().toString()
+              ?? item.idPerfume!)
+          : null;
+      final perfume = normId != null ? widget.perfumesMap[normId] : null;
+      final nombre = perfume != null
+          ? '${perfume.marca} ${perfume.nombre}'
+          : (item.idPerfume != null ? 'Perfume #${item.idPerfume}' : '—');
+      return '  • *$nombre* ${item.mlVendido ?? '?'}ml — S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}';
+    }).join('\n');
+
+    final dirLinea = (orden.direccion?.trim().isNotEmpty == true)
+        ? '\n📍 *Dirección:* ${orden.direccion}'
+        : '';
+
+    final msg = Uri.encodeComponent(
+      '📦 *Perfuteca — Pedido Nuevo ${orden.idCompra}*\n$sep\n'
+      '👤 *Cliente:* ${orden.comprador ?? '—'}\n'
+      '📱 *Celular:* ${orden.celular ?? '—'}\n'
+      '🚚 *Envío:* ${orden.tipoEnvio ?? '—'}$dirLinea\n'
+      '$sep\n'
+      '🌸 *Perfumes:*\n$itemsLineas\n'
+      '$sep\n'
+      '💰 *Total: S/ ${orden.total.toStringAsFixed(2)}*\n'
+      '💳 *Pago:* ${orden.metodoPago ?? '—'}',
+    );
+    final url = Uri.parse('https://wa.me/?text=$msg');
+    try {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   Future<void> _confirmarAnular() async {
@@ -403,34 +441,53 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                       child: CircularProgressIndicator(),
                     ),
                   )
-                : Row(
+                : Column(
                     children: [
-                      OutlinedButton.icon(
-                        onPressed: _confirmarAnular,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.error,
-                          side: const BorderSide(color: AppColors.error),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: AppSpacing.sm),
-                        ),
-                        icon: const Icon(Icons.cancel_outlined, size: 16),
-                        label: const Text('Anular'),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: () => _cambiarEstado('Entregado'),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: AppColors.success,
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _enviarComunidad,
+                          icon: const Icon(Icons.groups_rounded, size: 16),
+                          label: const Text('Enviar pedido a comunidad'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF128C7E),
+                            side: const BorderSide(color: Color(0xFF128C7E)),
                             padding: const EdgeInsets.symmetric(
                                 vertical: AppSpacing.sm),
                           ),
-                          icon: const Icon(
-                              Icons.check_circle_outline_rounded,
-                              size: 16),
-                          label: const Text('Marcar entregado'),
                         ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      Row(
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _confirmarAnular,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.error,
+                              side: const BorderSide(color: AppColors.error),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.md,
+                                  vertical: AppSpacing.sm),
+                            ),
+                            icon: const Icon(Icons.cancel_outlined, size: 16),
+                            label: const Text('Anular'),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () => _cambiarEstado('Entregado'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                padding: const EdgeInsets.symmetric(
+                                    vertical: AppSpacing.sm),
+                              ),
+                              icon: const Icon(
+                                  Icons.check_circle_outline_rounded,
+                                  size: 16),
+                              label: const Text('Marcar entregado'),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

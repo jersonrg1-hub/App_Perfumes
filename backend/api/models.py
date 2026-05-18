@@ -186,4 +186,4 @@ class CotizacionRegistrada(BaseModel):
 
 class EstadoCotizacionUpdate(BaseModel):
     """Body para PUT /cotizaciones/{id}."""
-    nuevo_estado: str = Field(..., description="Enviado | Confirmado | Anulado | Aceptado")
+    nuevo_estado: str = Field(..., description="Enviado | Confirmado | Anulado | Aceptada")

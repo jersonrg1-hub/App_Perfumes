@@ -598,7 +598,7 @@ class _CotizacionesTodasViewState
   String _fmtFecha(String? raw) {
     if (raw == null) return '—';
     try {
-      return DateFormat('dd/MM/yy HH:mm').format(DateTime.parse(raw));
+      return DateFormat('dd/MM/yy').format(DateTime.parse(raw));
     } catch (_) {
       return raw;
     }

@@ -24,6 +24,10 @@ final cotizacionesHoyProvider =
   return page.items.where((c) => c.fecha?.startsWith(today) == true).toList();
 });
 
+// IDs convertidos en esta sesión — bloquea re-apertura aunque la API falle
+final _cotizacionesAceptadasProvider =
+    StateProvider<Set<String>>((ref) => const {});
+
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 
 class CotizacionesHoyScreen extends ConsumerWidget {
@@ -202,6 +206,9 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           nuevoEstado:  'Aceptado',
         );
       } catch (_) {}
+      // Bloquear re-apertura en sesión aunque el backend no responda
+      ref.read(_cotizacionesAceptadasProvider.notifier)
+          .update((s) => {...s, widget.cotizacion.idCotizacion});
     } catch (e) {
       setState(() { _registrando = false; _error = e.toString(); });
     }
@@ -209,6 +216,10 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
 
   @override
   Widget build(BuildContext context) {
+    final aceptadas  = ref.watch(_cotizacionesAceptadasProvider);
+    final esAceptada = aceptadas.contains(widget.cotizacion.idCotizacion) ||
+        widget.cotizacion.estado?.toLowerCase() == 'aceptado';
+
     if (_exito) {
       return _CartaExito(
         idVenta:      _idVenta ?? '',
@@ -249,7 +260,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           children: [
             // ── Cabecera (siempre visible, tappeable) ───────────────────
             InkWell(
-              onTap: widget.cotizacion.estado?.toLowerCase() == 'aceptado'
+              onTap: esAceptada
                   ? null
                   : () => setState(() => _expandido = !_expandido),
               borderRadius: _expandido
@@ -325,7 +336,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                     // Hint cuando está colapsado
                     if (!_expandido) ...[
                       const SizedBox(height: 8),
-                      if (widget.cotizacion.estado?.toLowerCase() == 'aceptado')
+                      if (esAceptada)
                         Row(children: [
                           const Icon(Icons.check_circle_rounded,
                               size: 12, color: AppColors.stockOk),
@@ -363,7 +374,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
               ),
               const SizedBox(height: AppSpacing.sm),
               const Divider(height: 1, color: AppColors.primaryLight),
-              if (widget.cotizacion.estado?.toLowerCase() == 'aceptado')
+              if (esAceptada)
                 Container(
                   width: double.infinity,
                   margin: const EdgeInsets.all(AppSpacing.md),

@@ -703,6 +703,10 @@ class _CotizacionesTodasViewState
   }
 }
 
+// IDs convertidos en esta sesión — bloquea re-apertura aunque el backend falle
+final _cotizacionesAceptadasClientesProvider =
+    StateProvider<Set<String>>((ref) => const {});
+
 // ── Tarjeta de cotización ─────────────────────────────────────────────────────
 
 class _CotizacionCard extends ConsumerStatefulWidget {
@@ -780,6 +784,9 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           nuevoEstado:  'Aceptado',
         );
       } catch (_) {}
+      // Bloquear re-apertura en sesión aunque el backend no responda
+      ref.read(_cotizacionesAceptadasClientesProvider.notifier)
+          .update((s) => {...s, widget.c.idCotizacion});
     } catch (e) {
       setState(() { _registrando = false; _error = e.toString(); });
     }
@@ -798,6 +805,10 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
 
   @override
   Widget build(BuildContext context) {
+    final aceptadas  = ref.watch(_cotizacionesAceptadasClientesProvider);
+    final esAceptada = aceptadas.contains(widget.c.idCotizacion) ||
+        widget.c.estado?.toLowerCase() == 'aceptado';
+
     if (_exito) {
       return _CartaExitoCliente(
         idVenta:      _idVenta ?? '',
@@ -837,7 +848,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           children: [
             // ── Cabecera ────────────────────────────────────────────
             InkWell(
-              onTap: widget.c.estado?.toLowerCase() == 'aceptado'
+              onTap: esAceptada
                   ? null
                   : () => setState(() => _expandido = !_expandido),
               borderRadius: _expandido
@@ -971,7 +982,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
               const Divider(height: 1, color: AppColors.primaryLight),
 
               // Bloqueo si ya fue aceptada / formulario de conversión
-              if (widget.c.estado?.toLowerCase() == 'aceptado')
+              if (esAceptada)
                 Container(
                   width: double.infinity,
                   margin: const EdgeInsets.all(AppSpacing.md),

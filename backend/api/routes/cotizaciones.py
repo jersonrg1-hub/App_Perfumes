@@ -58,6 +58,9 @@ def listar_cotizaciones(
     if not df.empty and estado and "Estado" in df.columns:
         df = df[df["Estado"] == estado]
 
+    if not df.empty and "Fecha" in df.columns:
+        df = df.sort_values("Fecha", ascending=False, na_position="last")
+
     total = len(df)
     pagina = df.iloc[offset: offset + limit]
     return {

@@ -29,7 +29,7 @@ from backend.repositories.sheets_repository import SheetsRepository
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 _COL_ESTADO_COT = 6  # posicion 1-indexed de "Estado" en hoja Cotizaciones
-_ESTADOS_VALIDOS = {"Enviado", "Confirmado", "Anulado"}
+_ESTADOS_VALIDOS = {"Enviado", "Confirmado", "Anulado", "Aceptado"}
 
 
 @router.get(
@@ -129,9 +129,9 @@ def actualizar_estado_cotizacion(
     repo: SheetsRepository = Depends(get_repo),
 ):
     """
-    Actualiza estado de una cotizacion (Confirmado / Anulado).
-    fila_sheet es el campo 'fila_sheet' del objeto cotizacion al listarlo.
-    Para Flutter: boton "Confirmar" en la lista de cotizaciones.
+    Actualiza estado de una cotizacion (Confirmado / Anulado / Aceptado).
+    El fila_sheet se resuelve internamente por ID.
+    Para Flutter: boton de conversión a venta.
     """
     if body.nuevo_estado not in _ESTADOS_VALIDOS:
         raise HTTPException(
@@ -139,12 +139,18 @@ def actualizar_estado_cotizacion(
             detail=f"Estado invalido. Validos: {sorted(_ESTADOS_VALIDOS)}",
         )
     try:
+        df = repo.fetch_quotes()
+        filas = df[df["ID_Cotizacion"].astype(str) == id_cotizacion]["fila_sheet"]
+        if filas.empty:
+            raise HTTPException(status_code=404, detail="Cotización no encontrada")
         repo.update_quote_status(
             nuevo_estado=body.nuevo_estado,
-            fila_sheet=body.fila_sheet,
+            fila_sheet=int(filas.iloc[0]),
             col_estado=_COL_ESTADO_COT,
         )
         return {"id_cotizacion": id_cotizacion, "estado": body.nuevo_estado}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al actualizar cotizacion: {e}")
 

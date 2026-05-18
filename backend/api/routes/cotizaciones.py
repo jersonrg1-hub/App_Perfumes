@@ -29,7 +29,7 @@ from backend.repositories.sheets_repository import SheetsRepository
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
 _COL_ESTADO_COT = 6  # posicion 1-indexed de "Estado" en hoja Cotizaciones
-_ESTADOS_VALIDOS = {"Enviado", "Confirmado", "Anulado", "Aceptado"}
+_ESTADOS_VALIDOS = {"Enviado", "Confirmado", "Anulado", "Aceptada"}
 
 
 @router.get(

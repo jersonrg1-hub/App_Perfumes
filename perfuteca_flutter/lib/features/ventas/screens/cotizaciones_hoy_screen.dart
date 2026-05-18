@@ -203,7 +203,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
       try {
         await ref.read(cotizacionesRepositoryProvider).actualizarEstado(
           idCotizacion: widget.cotizacion.idCotizacion,
-          nuevoEstado:  'Aceptado',
+          nuevoEstado:  'Aceptada',
         );
       } catch (_) {}
       // Bloquear re-apertura en sesión aunque el backend no responda
@@ -218,7 +218,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
   Widget build(BuildContext context) {
     final aceptadas  = ref.watch(_cotizacionesAceptadasProvider);
     final esAceptada = aceptadas.contains(widget.cotizacion.idCotizacion) ||
-        widget.cotizacion.estado?.toLowerCase() == 'aceptado';
+        widget.cotizacion.estado?.toLowerCase().startsWith('aceptad') == true;
 
     if (_exito) {
       return _CartaExito(

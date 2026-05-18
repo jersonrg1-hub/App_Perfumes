@@ -186,5 +186,4 @@ class CotizacionRegistrada(BaseModel):
 
 class EstadoCotizacionUpdate(BaseModel):
     """Body para PUT /cotizaciones/{id}."""
-    nuevo_estado: str = Field(..., description="Enviado | Confirmado | Anulado")
-    fila_sheet: int = Field(..., ge=2)
+    nuevo_estado: str = Field(..., description="Enviado | Confirmado | Anulado | Aceptado")

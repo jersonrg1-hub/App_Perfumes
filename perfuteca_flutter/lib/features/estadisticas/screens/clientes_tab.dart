@@ -837,7 +837,9 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           children: [
             // ── Cabecera ────────────────────────────────────────────
             InkWell(
-              onTap: () => setState(() => _expandido = !_expandido),
+              onTap: widget.c.estado?.toLowerCase() == 'aceptado'
+                  ? null
+                  : () => setState(() => _expandido = !_expandido),
               borderRadius: _expandido
                   ? const BorderRadius.vertical(
                       top: Radius.circular(AppSpacing.radiusMd))

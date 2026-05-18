@@ -38,9 +38,10 @@ List<_Orden> _agrupar(List<VentaResponse> ventas) {
     if (v.idCompra.isEmpty) continue;
     (map[v.idCompra] ??= []).add(v);
   }
-  return map.entries
+  return (map.entries
       .map((e) => _Orden(idCompra: e.key, items: e.value))
-      .toList();
+      .toList()
+    ..sort((a, b) => (a.fecha ?? '').compareTo(b.fecha ?? '')));
 }
 
 // ── Pantalla ──────────────────────────────────────────────────────────────────
@@ -220,6 +221,32 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     try {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } catch (_) {}
+  }
+
+  Future<void> _confirmarEntregado() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirmar entrega'),
+        content: Text(
+          '¿Marcar como entregada la orden #${widget.orden.idCompra} '
+          'de ${widget.orden.comprador ?? '—'}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: AppColors.success),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) _cambiarEstado('Entregado');
   }
 
   Future<void> _confirmarAnular() async {
@@ -475,7 +502,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: FilledButton.icon(
-                              onPressed: () => _cambiarEstado('Entregado'),
+                              onPressed: _confirmarEntregado,
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppColors.success,
                                 padding: const EdgeInsets.symmetric(

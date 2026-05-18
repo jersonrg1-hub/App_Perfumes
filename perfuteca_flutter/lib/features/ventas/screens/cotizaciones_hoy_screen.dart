@@ -75,7 +75,12 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                             size: 14, color: AppColors.primary),
                         const SizedBox(width: 6),
                         Text(
-                          '${lista.length} cotización${lista.length != 1 ? 'es' : ''} hoy — toca para convertir',
+                          () {
+                            final pend = lista.where((c) =>
+                                c.estado?.toLowerCase().startsWith('aceptad') != true).length;
+                            if (pend == 0) return '${lista.length} cotización${lista.length != 1 ? 'es' : ''} hoy — todas convertidas';
+                            return '$pend pendiente${pend != 1 ? 's' : ''} de convertir · ${lista.length} hoy';
+                          }(),
                           style: AppTextStyles.bodySmall.copyWith(
                             color: AppColors.textMuted,
                             fontWeight: FontWeight.w600,

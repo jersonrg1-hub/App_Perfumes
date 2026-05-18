@@ -327,10 +327,15 @@ class SheetsRepository:
         sheet_cols = [c for c in df_cat.columns if c != "fila_sheet"]
         col_stock = sheet_cols.index("Stock_ml") + 1
 
+        # Base real de dispensación por tamaño: para 2ml se cuentan 2.2ml antes de merma
+        _ML_BASE: dict[int, float] = {2: 2.2}
+
         ml_por_id: dict[str, float] = {}
         for item in items_vendidos:
             id_perf = str(item["id_perfume"])
-            ml_con_merma = float(item["ml"]) * (1 + merma_pct)
+            ml_vendido = float(item["ml"])
+            ml_base = _ML_BASE.get(int(ml_vendido), ml_vendido)
+            ml_con_merma = ml_base * (1 + merma_pct)
             ml_por_id[id_perf] = ml_por_id.get(id_perf, 0) + ml_con_merma
 
         peticiones = []

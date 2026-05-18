@@ -773,6 +773,13 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
         _exito       = true;
         _idVenta     = registrada.idCompra;
       });
+      // Marcar cotización como Aceptado (silencioso si falla)
+      try {
+        await ref.read(cotizacionesRepositoryProvider).actualizarEstado(
+          idCotizacion: widget.c.idCotizacion,
+          nuevoEstado:  'Aceptado',
+        );
+      } catch (_) {}
     } catch (e) {
       setState(() { _registrando = false; _error = e.toString(); });
     }
@@ -783,6 +790,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
     switch (estado.toLowerCase()) {
       case 'pendiente': return AppColors.stockLow;
       case 'entregado': return AppColors.stockOk;
+      case 'aceptado':  return AppColors.stockOk;
       case 'anulado':   return AppColors.stockCritical;
       default:          return AppColors.textMuted;
     }
@@ -960,7 +968,31 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
 
               const Divider(height: 1, color: AppColors.primaryLight),
 
-              // Formulario de conversión a venta
+              // Bloqueo si ya fue aceptada / formulario de conversión
+              if (widget.c.estado?.toLowerCase() == 'aceptado')
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.stockOk.withValues(alpha: 0.08),
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusMd),
+                    border: Border.all(
+                        color: AppColors.stockOk.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.check_circle_rounded,
+                        color: AppColors.stockOk, size: 18),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text('Esta cotización ya fue convertida en venta',
+                        style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.stockOk,
+                            fontWeight: FontWeight.w600)),
+                  ]),
+                )
+              else
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(

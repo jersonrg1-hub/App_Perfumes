@@ -195,6 +195,13 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
         _exito       = true;
         _idVenta     = registrada.idCompra;
       });
+      // Marcar cotización como Aceptado (silencioso si falla)
+      try {
+        await ref.read(cotizacionesRepositoryProvider).actualizarEstado(
+          idCotizacion: widget.cotizacion.idCotizacion,
+          nuevoEstado:  'Aceptado',
+        );
+      } catch (_) {}
     } catch (e) {
       setState(() { _registrando = false; _error = e.toString(); });
     }
@@ -316,16 +323,28 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                     // Hint cuando está colapsado
                     if (!_expandido) ...[
                       const SizedBox(height: 8),
-                      Row(children: [
-                        const Icon(Icons.sell_outlined,
-                            size: 12, color: AppColors.primary),
-                        const SizedBox(width: 4),
-                        Text('Toca para convertir a venta',
-                            style: AppTextStyles.bodySmall.copyWith(
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 11)),
-                      ]),
+                      if (widget.cotizacion.estado?.toLowerCase() == 'aceptado')
+                        Row(children: [
+                          const Icon(Icons.check_circle_rounded,
+                              size: 12, color: AppColors.stockOk),
+                          const SizedBox(width: 4),
+                          Text('Aceptado · ya convertida en venta',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.stockOk,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11)),
+                        ])
+                      else
+                        Row(children: [
+                          const Icon(Icons.sell_outlined,
+                              size: 12, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text('Toca para convertir a venta',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11)),
+                        ]),
                     ],
                   ],
                 ),
@@ -342,6 +361,29 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
               ),
               const SizedBox(height: AppSpacing.sm),
               const Divider(height: 1, color: AppColors.primaryLight),
+              if (widget.cotizacion.estado?.toLowerCase() == 'aceptado')
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.all(AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.stockOk.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    border: Border.all(
+                        color: AppColors.stockOk.withValues(alpha: 0.4)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.check_circle_rounded,
+                        color: AppColors.stockOk, size: 18),
+                    const SizedBox(width: AppSpacing.sm),
+                    Text('Esta cotización ya fue convertida en venta',
+                        style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.stockOk,
+                            fontWeight: FontWeight.w600)),
+                  ]),
+                )
+              else
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 child: Column(

@@ -39,6 +39,22 @@ class CotizacionesRepository {
     }
   }
 
+  Future<void> actualizarEstado({
+    required String idCotizacion,
+    required String nuevoEstado,
+  }) async {
+    try {
+      await _dio.put<dynamic>(
+        '${ApiConstants.cotizaciones}$idCotizacion',
+        data: {'nuevo_estado': nuevoEstado},
+      );
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    } catch (_) {
+      throw const ParseException();
+    }
+  }
+
   Future<CotizacionRegistrada> guardarCotizacion({
     required String celular,
     required List<Map<String, dynamic>> items,

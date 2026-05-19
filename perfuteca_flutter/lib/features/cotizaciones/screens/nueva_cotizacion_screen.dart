@@ -31,6 +31,7 @@ class _NuevaCotizacionScreenState
   }
 
   void _irA(int paso) {
+    FocusScope.of(context).unfocus();
     ref.read(nuevaCotizacionProvider.notifier).irPaso(paso);
     _pageCtrl.animateToPage(
       paso - 1,
@@ -466,6 +467,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
                           perfume:   p,
                           yaEnCesta: yaEnCesta,
                           onAgregar: (ml) {
+                            HapticFeedback.lightImpact();
                             notifier.agregarItem(p, ml);
                             ScaffoldMessenger.of(context)
                               ..hideCurrentSnackBar()
@@ -904,9 +906,9 @@ class _Paso3 extends ConsumerWidget {
                 ),
                 if (state.conDelivery) ...[
                   const SizedBox(height: 4),
-                  Row(
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: const [
+                    children: [
                       Text(
                         'DELIVERY',
                         style: TextStyle(
@@ -1070,7 +1072,7 @@ class _TicketExitoState extends State<_TicketExito>
     final texto =
         '✨ *Tu cotización — Perfuteca* ✨\n$sep\n\n'
         '${bloques.join('\n\n')}\n\n'
-        '$sep\n${deliveryLine}'
+        '$sep\n$deliveryLine'
         '💰 *Total: S/ ${widget.total.toStringAsFixed(2)}*\n$sep';
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
     final prefijo = numero.startsWith('51') ? numero : '51$numero';
@@ -1153,7 +1155,7 @@ class _TicketExitoState extends State<_TicketExito>
                     ),
                   )),
                   if (widget.conDelivery) ...[
-                    _InfoLine(label: 'Delivery', value: '+ S/ 10.00'),
+                    const _InfoLine(label: 'Delivery', value: '+ S/ 10.00'),
                     const SizedBox(height: 4),
                   ],
                   const Divider(height: 12),
@@ -1225,7 +1227,7 @@ class _CestaPanelState extends State<_CestaPanel> {
       margin: const EdgeInsets.fromLTRB(
           AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
       decoration: BoxDecoration(
-        color: _expandido ? AppColors.primaryPale : AppColors.primaryPale,
+        color: _expandido ? AppColors.surface : AppColors.primaryPale,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         border: Border.all(
           color: _expandido ? AppColors.primary : AppColors.primaryLight,

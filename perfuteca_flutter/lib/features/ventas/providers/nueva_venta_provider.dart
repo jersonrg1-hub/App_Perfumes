@@ -47,6 +47,7 @@ class NuevaVentaState {
     final necesitaDireccion = tipoEnvio != 'Contraentrega';
     return comprador.trim().isNotEmpty &&
         celular.length == 9 &&
+        celular.startsWith('9') &&
         (!necesitaDireccion || direccion.trim().isNotEmpty) &&
         tipoEnvio.isNotEmpty &&
         fecha.isNotEmpty;
@@ -116,10 +117,11 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
         state = state.copyWith(
           buscandoCliente: false,
           clientePrevio:   cliente,
-          comprador:       cliente.comprador,
-          direccion:       cliente.direccion,
-          tipoEnvio:       cliente.tipoEnvio,
-          metodoPago:      cliente.metodoPago,
+          // Solo rellenar si el campo está vacío — no pisar lo que el usuario ya escribió
+          comprador:  state.comprador.trim().isEmpty  ? cliente.comprador  : state.comprador,
+          direccion:  state.direccion.trim().isEmpty  ? cliente.direccion  : state.direccion,
+          tipoEnvio:  state.tipoEnvio.isEmpty         ? cliente.tipoEnvio  : state.tipoEnvio,
+          metodoPago: cliente.metodoPago,
         );
       } else {
         state = state.copyWith(buscandoCliente: false);

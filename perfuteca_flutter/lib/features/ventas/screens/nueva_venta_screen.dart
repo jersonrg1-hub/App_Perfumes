@@ -1013,7 +1013,9 @@ class _PerfumeItem extends StatelessWidget {
                               .copyWith(fontSize: 9),
                         ),
                         Text(
-                          'S/ ${e.value.toStringAsFixed(0)}',
+                          e.value % 1 == 0
+                              ? 'S/ ${e.value.toInt()}'
+                              : 'S/ ${e.value.toStringAsFixed(2)}',
                           style: AppTextStyles.price.copyWith(
                               fontSize: 12, color: AppColors.primaryDark),
                         ),
@@ -1512,7 +1514,8 @@ class _TicketExito extends StatelessWidget {
         ? '\n📍 *Dirección:* $direccion'
         : '';
 
-    final pago = cesta.isNotEmpty ? cesta.first.metodo : metodoPago;
+    final metodosUnicos = cesta.map((i) => i.metodo).toSet().join(', ');
+    final pago = metodosUnicos.isNotEmpty ? metodosUnicos : metodoPago;
 
     final msg = Uri.encodeComponent(
       '📦 *Perfuteca — Pedido Nuevo $id*\n$sep\n'
@@ -1667,11 +1670,14 @@ class _ValidationHint extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final faltantes = <String>[];
-    if (state.comprador.trim().isEmpty) faltantes.add('nombre');
-    if (state.celular.length != 9)      faltantes.add('celular (9 dígitos)');
-    if (state.tipoEnvio.isEmpty)        faltantes.add('tipo de envío');
-    if (state.direccion.trim().isEmpty && state.tipoEnvio != 'Contraentrega')
+    if (state.comprador.trim().isEmpty) { faltantes.add('nombre'); }
+    if (state.celular.length != 9 || !state.celular.startsWith('9')) {
+      faltantes.add('celular (9 dígitos, empieza con 9)');
+    }
+    if (state.tipoEnvio.isEmpty) { faltantes.add('tipo de envío'); }
+    if (state.direccion.trim().isEmpty && state.tipoEnvio != 'Contraentrega') {
       faltantes.add('dirección');
+    }
     if (faltantes.isEmpty) return const SizedBox.shrink();
     return Text(
       'Falta: ${faltantes.join(', ')}',

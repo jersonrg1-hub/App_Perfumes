@@ -10,12 +10,14 @@ class ItemCestaCard extends StatelessWidget {
     required this.item,
     required this.index,
     this.onQuitar,
+    this.onEditarPrecio,
     this.readOnly = false,
   });
 
   final ItemCesta item;
   final int       index;
   final VoidCallback? onQuitar;
+  final VoidCallback? onEditarPrecio;
   final bool      readOnly;
 
   @override
@@ -106,16 +108,33 @@ class ItemCestaCard extends StatelessWidget {
             ),
           ),
 
-          // Precio y botón quitar
+          // Precio y botones
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                'S/ ${item.precio.toStringAsFixed(2)}',
-                style: AppTextStyles.price.copyWith(
-                  fontSize: 15,
-                  color: AppColors.primaryDark,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'S/ ${item.precio.toStringAsFixed(2)}',
+                    style: AppTextStyles.price.copyWith(
+                      fontSize: 15,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                  if (!readOnly && onEditarPrecio != null) ...[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: onEditarPrecio,
+                      child: const Icon(
+                        Icons.edit_rounded,
+                        size: 14,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ],
               ),
               if (!readOnly && onQuitar != null)
                 GestureDetector(

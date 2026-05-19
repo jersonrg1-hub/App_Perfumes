@@ -21,6 +21,7 @@ _$PerfumeImpl _$$PerfumeImplFromJson(Map<String, dynamic> json) =>
       ocasion: json['ocasion'] as String?,
       estacion: json['estacion'] as String?,
       hora: json['hora'] as String?,
+      palabraClave: json['palabra_clave'] as String?,
     );
 
 Map<String, dynamic> _$$PerfumeImplToJson(_$PerfumeImpl instance) =>
@@ -38,4 +39,5 @@ Map<String, dynamic> _$$PerfumeImplToJson(_$PerfumeImpl instance) =>
       'ocasion': instance.ocasion,
       'estacion': instance.estacion,
       'hora': instance.hora,
+      'palabra_clave': instance.palabraClave,
     };

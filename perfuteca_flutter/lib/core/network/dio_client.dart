@@ -1,12 +1,16 @@
 import 'package:dio/dio.dart';
+import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/config/env.dart';
 import 'package:perfuteca/core/errors/app_exception.dart';
+import 'package:perfuteca/core/network/cache_config.dart';
 import 'package:perfuteca/core/network/interceptors/auth_interceptor.dart';
 import 'package:perfuteca/core/network/interceptors/logging_interceptor.dart';
 import 'package:perfuteca/core/network/interceptors/retry_interceptor.dart';
 
 final dioProvider = Provider<Dio>((ref) {
+  final store = ref.watch(cacheStoreProvider);
+
   final dio = Dio(
     BaseOptions(
       baseUrl: Env.baseUrl,
@@ -18,8 +22,18 @@ final dioProvider = Provider<Dio>((ref) {
   );
 
   dio.interceptors.addAll([
+    // Primero el caché: intercepta antes de que salga la petición a red.
+    DioCacheInterceptor(
+      options: CacheOptions(
+        store:               store,
+        policy:              CachePolicy.noCache, // default: sin caché salvo que el repo lo pida
+        hitCacheOnErrorExcept: [401, 403],
+        priority:            CachePriority.normal,
+        allowPostMethod:     false,
+      ),
+    ),
     LoggingInterceptor(),
-    AuthInterceptor('e9f169776a1ebc48498d3dd983f33aa08cdd6104b4eb8ed22268b8104d60227e'),
+    AuthInterceptor(Env.apiKey),
     RetryInterceptor(dio),
   ]);
 

@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Scripts con claves privadas — nunca subir a git
+run.ps1
+build_apk.ps1

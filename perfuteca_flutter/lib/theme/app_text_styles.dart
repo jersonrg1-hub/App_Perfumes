@@ -1,77 +1,80 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 abstract class AppTextStyles {
-  static const heading1 = TextStyle(
-    fontSize: 24,
+  // ── Serif elegante para títulos y nombres de perfumes ─────────────────────
+  static final heading1 = GoogleFonts.cormorantGaramond(
+    fontSize:   24,
     fontWeight: FontWeight.w700,
-    color: AppColors.textPrimary,
-    height: 1.2,
+    color:      AppColors.textPrimary,
+    height:     1.2,
   );
 
-  static const heading2 = TextStyle(
-    fontSize: 20,
+  static final heading2 = GoogleFonts.cormorantGaramond(
+    fontSize:   20,
     fontWeight: FontWeight.w700,
-    color: AppColors.textPrimary,
-    height: 1.3,
+    color:      AppColors.textPrimary,
+    height:     1.3,
   );
 
-  static const perfumeName = TextStyle(
-    fontSize: 16,
+  static final perfumeName = GoogleFonts.cormorantGaramond(
+    fontSize:   16,
     fontWeight: FontWeight.w600,
-    color: AppColors.textPrimary,
-    height: 1.3,
+    color:      AppColors.textPrimary,
+    height:     1.3,
   );
 
+  // ── Sans-serif del sistema para legibilidad en texto pequeño ──────────────
   static const marca = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w700,
-    color: AppColors.primary,
+    fontSize:      11,
+    fontWeight:    FontWeight.w700,
+    color:         AppColors.primary,
     letterSpacing: 0.8,
   );
 
   static const price = TextStyle(
-    fontSize: 18,
+    fontSize:   18,
     fontWeight: FontWeight.w700,
-    color: AppColors.textPrimary,
+    color:      AppColors.textPrimary,
   );
 
   static const priceLabel = TextStyle(
-    fontSize: 10,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textMuted,
+    fontSize:      10,
+    fontWeight:    FontWeight.w600,
+    color:         AppColors.textMuted,
     letterSpacing: 0.5,
   );
 
   static const body = TextStyle(
     fontSize: 14,
-    color: AppColors.textSecondary,
-    height: 1.5,
+    color:    AppColors.textSecondary,
+    height:   1.5,
   );
 
   static const bodySmall = TextStyle(
     fontSize: 12,
-    color: AppColors.textMuted,
-    height: 1.4,
+    color:    AppColors.textMuted,
+    height:   1.4,
   );
 
   static const notasLabel = TextStyle(
-    fontSize: 10,
-    fontWeight: FontWeight.w700,
-    color: AppColors.primary,
+    fontSize:      10,
+    fontWeight:    FontWeight.w700,
+    color:         AppColors.primary,
     letterSpacing: 0.5,
   );
 
   static const perfilLabel = TextStyle(
-    fontSize: 10,
-    fontWeight: FontWeight.w700,
-    color: AppColors.gold,
+    fontSize:      10,
+    fontWeight:    FontWeight.w700,
+    color:         AppColors.gold,
     letterSpacing: 0.5,
   );
 
   static const button = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w600,
+    fontSize:      14,
+    fontWeight:    FontWeight.w600,
     letterSpacing: 0.3,
   );
 }

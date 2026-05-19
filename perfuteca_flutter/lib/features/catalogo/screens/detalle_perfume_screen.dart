@@ -55,6 +55,7 @@ class _DetalleBody extends ConsumerWidget {
               children: [
                 PerfumeImage(
                   imageUrl: perfume.imageUrl,
+                  marca:    perfume.marca,
                   width: double.infinity,
                   height: double.infinity,
                 ),

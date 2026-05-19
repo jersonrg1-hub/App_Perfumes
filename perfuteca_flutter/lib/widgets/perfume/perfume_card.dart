@@ -13,19 +13,15 @@ class PerfumeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surface,
+      color:        AppColors.surface,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       clipBehavior: Clip.antiAlias,
-      elevation: 0,
+      elevation:    3,
+      shadowColor:  AppColors.primary.withValues(alpha: 0.12),
       child: InkWell(
         onTap: () => context.push('/catalogo/${perfume.idPerfume}'),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.primaryLight, width: 1),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Imagen con overlays ──────────────────────────────────────
               Expanded(
@@ -35,6 +31,7 @@ class PerfumeCard extends StatelessWidget {
                   children: [
                     PerfumeImage(
                       imageUrl: perfume.imageUrl,
+                      marca:    perfume.marca,
                       width: double.infinity,
                       height: double.infinity,
                       borderRadius: const BorderRadius.vertical(
@@ -54,7 +51,7 @@ class PerfumeCard extends StatelessWidget {
                             stops: const [0.55, 1.0],
                             colors: [
                               Colors.transparent,
-                              AppColors.textPrimary.withOpacity(0.55),
+                              AppColors.textPrimary.withValues(alpha: 0.55),
                             ],
                           ),
                         ),
@@ -110,7 +107,6 @@ class PerfumeCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }

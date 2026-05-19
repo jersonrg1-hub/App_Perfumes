@@ -11,6 +11,7 @@ import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
+
 class NuevaCotizacionScreen extends ConsumerStatefulWidget {
   const NuevaCotizacionScreen({super.key});
 
@@ -315,6 +316,7 @@ class _Paso1State extends ConsumerState<_Paso1> {
               ),
             ),
           ),
+
         ],
       ),
     );
@@ -562,13 +564,20 @@ class _PerfumeRow extends StatelessWidget {
               children: [
                 Text(
                   perfume.nombre,
-                  style: AppTextStyles.perfumeName.copyWith(fontSize: 13),
+                  style: AppTextStyles.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppColors.textPrimary,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  perfume.marca,
-                  style: AppTextStyles.marca.copyWith(fontSize: 10),
+                  perfume.marca.toUpperCase(),
+                  style: AppTextStyles.marca.copyWith(
+                    fontSize: 11,
+                    letterSpacing: 0.6,
+                  ),
                 ),
               ],
             ),
@@ -1047,21 +1056,29 @@ class _TicketExitoState extends State<_TicketExito>
   }
 
   Future<void> _abrirWhatsApp() async {
-    final lineas = widget.cesta.map((i) =>
-      '• ${i.perfume.nombre} (${i.ml}ml) — S/ ${i.precio.toStringAsFixed(2)}',
-    ).join('\n');
-    final deliveryLinea = widget.conDelivery ? '\n• Delivery — S/ 10.00' : '';
+    const sep = '────────────────────';
+    final bloques = <String>[];
+    for (var idx = 0; idx < widget.cesta.length; idx++) {
+      final i = widget.cesta[idx];
+      final nombreCompleto = '${i.perfume.marca} ${i.perfume.nombre}'.trim();
+      bloques.add(
+        '*${idx + 1}.* 🌸 *$nombreCompleto*\n'
+        '     📏 ${i.ml}ml  ·  💰 *S/ ${i.precio.toStringAsFixed(2)}*',
+      );
+    }
+    final deliveryLine = widget.conDelivery ? '🛵 Delivery: +S/ 10.00\n' : '';
     final texto =
-        '¡Hola! 🌸 Te enviamos tu cotización (ID: ${widget.idCotizacion}):\n\n'
-        '$lineas$deliveryLinea\n\n'
-        'Total: S/ ${widget.total.toStringAsFixed(2)}';
+        '✨ *Tu cotización — Perfuteca* ✨\n$sep\n\n'
+        '${bloques.join('\n\n')}\n\n'
+        '$sep\n${deliveryLine}'
+        '💰 *Total: S/ ${widget.total.toStringAsFixed(2)}*\n$sep';
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
     final prefijo = numero.startsWith('51') ? numero : '51$numero';
     final uri = Uri.parse(
         'https://wa.me/$prefijo?text=${Uri.encodeComponent(texto)}');
-    if (await canLaunchUrl(uri)) {
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    } catch (_) {}
   }
 
   @override

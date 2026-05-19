@@ -2,16 +2,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/repositories/ventas_repository.dart';
 
+// Permite que widgets hijos cambien el tab activo de VentasScreen
+final ventasTabProvider = StateProvider<int>((ref) => 0);
+
 // ── Historial de ventas ───────────────────────────────────────────────────────
 
-final historialProvider = FutureProvider.autoDispose<List<VentaResponse>>((ref) async {
-  final page = await ref.watch(ventasRepositoryProvider).getVentas(limit: 200);
+final historialProvider = FutureProvider<List<VentaResponse>>((ref) async {
+  final page = await ref.watch(ventasRepositoryProvider).getVentas(
+    limit: 200,
+    bypassCache: true,
+  );
   return page.items;
 });
 
 // ── Ventas pendientes ─────────────────────────────────────────────────────────
 
-final pendientesProvider = FutureProvider.autoDispose<List<VentaResponse>>((ref) {
+final pendientesProvider = FutureProvider<List<VentaResponse>>((ref) {
   return ref.watch(ventasRepositoryProvider).getPendientes();
 });
 

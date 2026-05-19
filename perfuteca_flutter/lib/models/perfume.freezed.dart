@@ -40,6 +40,8 @@ mixin _$Perfume {
   String? get ocasion => throw _privateConstructorUsedError;
   String? get estacion => throw _privateConstructorUsedError;
   String? get hora => throw _privateConstructorUsedError;
+  @JsonKey(name: 'palabra_clave')
+  String? get palabraClave => throw _privateConstructorUsedError;
 
   /// Serializes this Perfume to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -68,7 +70,8 @@ abstract class $PerfumeCopyWith<$Res> {
       @JsonKey(name: 'image_url') String? imageUrl,
       String? ocasion,
       String? estacion,
-      String? hora});
+      String? hora,
+      @JsonKey(name: 'palabra_clave') String? palabraClave});
 }
 
 /// @nodoc
@@ -99,6 +102,7 @@ class _$PerfumeCopyWithImpl<$Res, $Val extends Perfume>
     Object? ocasion = freezed,
     Object? estacion = freezed,
     Object? hora = freezed,
+    Object? palabraClave = freezed,
   }) {
     return _then(_value.copyWith(
       idPerfume: null == idPerfume
@@ -153,6 +157,10 @@ class _$PerfumeCopyWithImpl<$Res, $Val extends Perfume>
           ? _value.hora
           : hora // ignore: cast_nullable_to_non_nullable
               as String?,
+      palabraClave: freezed == palabraClave
+          ? _value.palabraClave
+          : palabraClave // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -177,7 +185,8 @@ abstract class _$$PerfumeImplCopyWith<$Res> implements $PerfumeCopyWith<$Res> {
       @JsonKey(name: 'image_url') String? imageUrl,
       String? ocasion,
       String? estacion,
-      String? hora});
+      String? hora,
+      @JsonKey(name: 'palabra_clave') String? palabraClave});
 }
 
 /// @nodoc
@@ -206,6 +215,7 @@ class __$$PerfumeImplCopyWithImpl<$Res>
     Object? ocasion = freezed,
     Object? estacion = freezed,
     Object? hora = freezed,
+    Object? palabraClave = freezed,
   }) {
     return _then(_$PerfumeImpl(
       idPerfume: null == idPerfume
@@ -260,6 +270,10 @@ class __$$PerfumeImplCopyWithImpl<$Res>
           ? _value.hora
           : hora // ignore: cast_nullable_to_non_nullable
               as String?,
+      palabraClave: freezed == palabraClave
+          ? _value.palabraClave
+          : palabraClave // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -280,7 +294,8 @@ class _$PerfumeImpl implements _Perfume {
       @JsonKey(name: 'image_url') this.imageUrl,
       this.ocasion,
       this.estacion,
-      this.hora});
+      this.hora,
+      @JsonKey(name: 'palabra_clave') this.palabraClave});
 
   factory _$PerfumeImpl.fromJson(Map<String, dynamic> json) =>
       _$$PerfumeImplFromJson(json);
@@ -318,10 +333,13 @@ class _$PerfumeImpl implements _Perfume {
   final String? estacion;
   @override
   final String? hora;
+  @override
+  @JsonKey(name: 'palabra_clave')
+  final String? palabraClave;
 
   @override
   String toString() {
-    return 'Perfume(idPerfume: $idPerfume, marca: $marca, nombre: $nombre, precio2ml: $precio2ml, precio5ml: $precio5ml, precio10ml: $precio10ml, stockMl: $stockMl, notas: $notas, perfilOlfativo: $perfilOlfativo, imageUrl: $imageUrl, ocasion: $ocasion, estacion: $estacion, hora: $hora)';
+    return 'Perfume(idPerfume: $idPerfume, marca: $marca, nombre: $nombre, precio2ml: $precio2ml, precio5ml: $precio5ml, precio10ml: $precio10ml, stockMl: $stockMl, notas: $notas, perfilOlfativo: $perfilOlfativo, imageUrl: $imageUrl, ocasion: $ocasion, estacion: $estacion, hora: $hora, palabraClave: $palabraClave)';
   }
 
   @override
@@ -348,7 +366,9 @@ class _$PerfumeImpl implements _Perfume {
             (identical(other.ocasion, ocasion) || other.ocasion == ocasion) &&
             (identical(other.estacion, estacion) ||
                 other.estacion == estacion) &&
-            (identical(other.hora, hora) || other.hora == hora));
+            (identical(other.hora, hora) || other.hora == hora) &&
+            (identical(other.palabraClave, palabraClave) ||
+                other.palabraClave == palabraClave));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -367,7 +387,8 @@ class _$PerfumeImpl implements _Perfume {
       imageUrl,
       ocasion,
       estacion,
-      hora);
+      hora,
+      palabraClave);
 
   /// Create a copy of Perfume
   /// with the given fields replaced by the non-null parameter values.
@@ -399,7 +420,8 @@ abstract class _Perfume implements Perfume {
       @JsonKey(name: 'image_url') final String? imageUrl,
       final String? ocasion,
       final String? estacion,
-      final String? hora}) = _$PerfumeImpl;
+      final String? hora,
+      @JsonKey(name: 'palabra_clave') final String? palabraClave}) = _$PerfumeImpl;
 
   factory _Perfume.fromJson(Map<String, dynamic> json) = _$PerfumeImpl.fromJson;
 
@@ -436,6 +458,9 @@ abstract class _Perfume implements Perfume {
   String? get estacion;
   @override
   String? get hora;
+  @override
+  @JsonKey(name: 'palabra_clave')
+  String? get palabraClave;
 
   /// Create a copy of Perfume
   /// with the given fields replaced by the non-null parameter values.

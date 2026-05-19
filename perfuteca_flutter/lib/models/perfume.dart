@@ -19,6 +19,7 @@ class Perfume with _$Perfume {
     String? ocasion,
     String? estacion,
     String? hora,
+    @JsonKey(name: 'palabra_clave') String? palabraClave,
   }) = _Perfume;
 
   factory Perfume.fromJson(Map<String, dynamic> json) => _$PerfumeFromJson(json);

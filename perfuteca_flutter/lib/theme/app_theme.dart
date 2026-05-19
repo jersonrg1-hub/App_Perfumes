@@ -14,27 +14,26 @@ abstract class AppTheme {
       onSecondary:      Colors.white,
       surface:          AppColors.surface,
       onSurface:        AppColors.textPrimary,
-      background:       AppColors.background,
-      onBackground:     AppColors.textPrimary,
       error:            AppColors.error,
     ),
     scaffoldBackgroundColor: AppColors.background,
 
-    // AppBar
-    appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.surface,
-      foregroundColor: AppColors.textPrimary,
-      elevation: 0,
+    // AppBar — sin const porque titleTextStyle usa GoogleFonts (no const)
+    appBarTheme: AppBarTheme(
+      backgroundColor:        AppColors.surface,
+      foregroundColor:        AppColors.textPrimary,
+      elevation:              0,
       scrolledUnderElevation: 1,
-      shadowColor: AppColors.shadowColor,
-      titleTextStyle: AppTextStyles.heading2,
-      centerTitle: false,
+      shadowColor:            AppColors.shadowColor,
+      titleTextStyle:         AppTextStyles.heading2,
+      centerTitle:            false,
     ),
 
     // Cards
     cardTheme: CardThemeData(
-      color: AppColors.surface,
-      elevation: 0,
+      color:     AppColors.surface,
+      elevation: 2,
+      shadowColor: AppColors.primary.withValues(alpha: 0.10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         side: const BorderSide(color: AppColors.primaryLight, width: 1),
@@ -50,7 +49,7 @@ abstract class AppTheme {
         textStyle: AppTextStyles.button,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.xl,
-          vertical: AppSpacing.md,
+          vertical:   AppSpacing.md,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -61,7 +60,7 @@ abstract class AppTheme {
     // Search bar
     searchBarTheme: SearchBarThemeData(
       backgroundColor: WidgetStateProperty.all(AppColors.surfaceVariant),
-      elevation: WidgetStateProperty.all(0),
+      elevation:       WidgetStateProperty.all(0),
       shape: WidgetStateProperty.all(
         RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
@@ -69,34 +68,44 @@ abstract class AppTheme {
       ),
     ),
 
-    // Navigation bar inferior
+    // Navigation bar — D: altura mayor, indicador más sutil, sin tint
     navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: AppColors.surface,
-      indicatorColor: AppColors.primaryLight,
+      height:           72,
+      backgroundColor:  AppColors.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation:        0,
+      indicatorColor:   AppColors.primaryLight,
+      indicatorShape:   RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      ),
       iconTheme: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
-          return const IconThemeData(color: AppColors.primaryDark);
+          return const IconThemeData(color: AppColors.primaryDark, size: 22);
         }
-        return const IconThemeData(color: AppColors.textMuted);
+        return const IconThemeData(color: AppColors.textFaint, size: 22);
       }),
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         if (states.contains(WidgetState.selected)) {
           return AppTextStyles.bodySmall.copyWith(
-            color: AppColors.primaryDark,
-            fontWeight: FontWeight.w600,
+            color:      AppColors.primaryDark,
+            fontWeight: FontWeight.w700,
+            fontSize:   11,
           );
         }
-        return AppTextStyles.bodySmall;
+        return AppTextStyles.bodySmall.copyWith(
+          color:    AppColors.textFaint,
+          fontSize: 11,
+        );
       }),
     ),
 
     // Chip (marcas, perfil olfativo)
     chipTheme: ChipThemeData(
       backgroundColor: AppColors.primaryPale,
-      labelStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+      labelStyle:      AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
+        vertical:   AppSpacing.xs,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppSpacing.radiusXxl),
@@ -106,12 +115,13 @@ abstract class AppTheme {
 
     // Dividers
     dividerTheme: const DividerThemeData(
-      color: AppColors.primaryLight,
+      color:     AppColors.primaryLight,
       thickness: 1,
-      space: 1,
+      space:     1,
     ),
 
-    textTheme: const TextTheme(
+    // TextTheme — sin const porque heading1/2/perfumeName usan GoogleFonts
+    textTheme: TextTheme(
       headlineLarge:  AppTextStyles.heading1,
       headlineMedium: AppTextStyles.heading2,
       titleMedium:    AppTextStyles.perfumeName,

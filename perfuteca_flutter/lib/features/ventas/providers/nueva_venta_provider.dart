@@ -21,6 +21,8 @@ class NuevaVentaState {
     this.registrando     = false,
     this.ventaRegistrada,
     this.error,
+    this.refCotizacion,
+    this.refItems,
   });
 
   final int               paso;
@@ -36,15 +38,19 @@ class NuevaVentaState {
   final bool              registrando;
   final VentaRegistrada?  ventaRegistrada;
   final String?           error;
+  final String?           refCotizacion;
+  final String?           refItems;
 
   double get total => cesta.fold(0, (s, i) => s + i.subtotal);
 
-  bool get paso1Valido =>
-      comprador.trim().isNotEmpty &&
-      celular.length == 9 &&
-      direccion.trim().isNotEmpty &&
-      tipoEnvio.isNotEmpty &&
-      fecha.isNotEmpty;
+  bool get paso1Valido {
+    final necesitaDireccion = tipoEnvio != 'Contraentrega';
+    return comprador.trim().isNotEmpty &&
+        celular.length == 9 &&
+        (!necesitaDireccion || direccion.trim().isNotEmpty) &&
+        tipoEnvio.isNotEmpty &&
+        fecha.isNotEmpty;
+  }
 
   NuevaVentaState copyWith({
     int?              paso,
@@ -60,9 +66,12 @@ class NuevaVentaState {
     bool?             registrando,
     VentaRegistrada?  ventaRegistrada,
     String?           error,
+    String?           refCotizacion,
+    String?           refItems,
     bool              clearError = false,
     bool              clearVenta = false,
     bool              clearCliente = false,
+    bool              clearRef = false,
   }) => NuevaVentaState(
     paso:             paso            ?? this.paso,
     comprador:        comprador       ?? this.comprador,
@@ -77,6 +86,8 @@ class NuevaVentaState {
     registrando:      registrando     ?? this.registrando,
     ventaRegistrada:  clearVenta ? null : (ventaRegistrada ?? this.ventaRegistrada),
     error:            clearError ? null : (error ?? this.error),
+    refCotizacion:    clearRef ? null : (refCotizacion ?? this.refCotizacion),
+    refItems:         clearRef ? null : (refItems ?? this.refItems),
   );
 }
 
@@ -126,6 +137,22 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
 
   void irPaso(int p) => state = state.copyWith(paso: p, clearError: true);
 
+  void preCargarDesdeCotizacion({
+    required String celular,
+    String? idCotizacion,
+    String? refItems,
+    List<ItemCesta> cesta = const [],
+  }) {
+    state = NuevaVentaState(
+      fecha:         DateFormat('yyyy-MM-dd').format(DateTime.now()),
+      celular:       celular,
+      refCotizacion: idCotizacion,
+      refItems:      refItems,
+      cesta:         cesta,
+    );
+    if (celular.length == 9) _buscarCliente(celular);
+  }
+
   // ── Paso 2: cesta ─────────────────────────────────────────────────────────
 
   void agregarItem(Perfume perfume, int ml) {
@@ -148,6 +175,18 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
 
   void quitarItem(int index) {
     final nueva = List<ItemCesta>.from(state.cesta)..removeAt(index);
+    state = state.copyWith(cesta: nueva);
+  }
+
+  void setPrecioItem(int index, double nuevoPrecio) {
+    final item = state.cesta[index];
+    final nueva = List<ItemCesta>.from(state.cesta);
+    nueva[index] = ItemCesta(
+      perfume: item.perfume,
+      ml:      item.ml,
+      precio:  nuevoPrecio,
+      metodo:  item.metodo,
+    );
     state = state.copyWith(cesta: nueva);
   }
 

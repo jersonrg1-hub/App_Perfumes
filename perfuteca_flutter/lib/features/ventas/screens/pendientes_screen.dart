@@ -9,6 +9,10 @@ import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
+// IDs de órdenes removidas optimísticamente antes de que el API confirme
+final _pendientesRemovidosProvider =
+    StateProvider<Set<String>>((ref) => const {});
+
 // ── Modelo de orden agrupada ──────────────────────────────────────────────────
 
 class _Orden {
@@ -54,15 +58,26 @@ class PendientesScreen extends ConsumerWidget {
     final async      = ref.watch(pendientesProvider);
     final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
 
+    final removidos = ref.watch(_pendientesRemovidosProvider);
+
     return async.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => _ErrorView(
         mensaje: e.toString(),
-        onRetry: () => ref.invalidate(pendientesProvider),
+        onRetry: () {
+          ref.read(_pendientesRemovidosProvider.notifier).state = const {};
+          ref.invalidate(pendientesProvider);
+        },
       ),
       data: (ventas) {
-        final onRefresh = () => ref.refresh(pendientesProvider.future);
-        final ordenes = _agrupar(ventas);
+        Future<void> onRefresh() async {
+          ref.read(_pendientesRemovidosProvider.notifier).state = const {};
+          ref.invalidate(pendientesProvider);
+          await ref.read(pendientesProvider.future);
+        }
+        final ordenes = _agrupar(ventas)
+            .where((o) => !removidos.contains(o.idCompra))
+            .toList();
         return ordenes.isEmpty
             ? RefreshIndicator(onRefresh: onRefresh, child: const _EmptyView())
             : _ListaOrdenes(ordenes: ordenes, perfumesMap: perfumesMap, onRefresh: onRefresh);
@@ -166,24 +181,30 @@ class _OrdenCard extends ConsumerStatefulWidget {
 }
 
 class _OrdenCardState extends ConsumerState<_OrdenCard> {
-  bool _actualizando = false;
-
   Future<void> _cambiarEstado(String nuevoEstado) async {
-    setState(() => _actualizando = true);
+    // Optimista: ocultar la tarjeta de inmediato
+    ref.read(_pendientesRemovidosProvider.notifier)
+        .update((s) => {...s, widget.orden.idCompra});
+
     final ok = await ref.read(estadoVentaProvider.notifier).actualizar(
           idVenta:     widget.orden.idCompra,
           nuevoEstado: nuevoEstado,
           filasSheet:  widget.orden.filas,
         );
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Error al actualizar el estado'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+
+    if (!ok) {
+      // Restaurar si el API falló
+      ref.read(_pendientesRemovidosProvider.notifier)
+          .update((s) => {...s}..remove(widget.orden.idCompra));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al actualizar el estado'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
-    if (mounted) setState(() => _actualizando = false);
   }
 
   Future<void> _enviarComunidad() async {
@@ -226,7 +247,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
   Future<void> _confirmarEntregado() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Confirmar entrega'),
         content: Text(
           '¿Marcar como entregada la orden #${widget.orden.idCompra} '
@@ -234,25 +255,26 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
                 backgroundColor: AppColors.success),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Confirmar'),
           ),
         ],
       ),
     );
+    if (!mounted) return;
     if (ok == true) _cambiarEstado('Entregado');
   }
 
   Future<void> _confirmarAnular() async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Anular orden'),
         content: Text(
           '¿Anular la orden #${widget.orden.idCompra} de ${widget.orden.comprador ?? '—'}?\n'
@@ -260,18 +282,19 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(ctx, false),
             child: const Text('Cancelar'),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
                 backgroundColor: AppColors.error),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Anular'),
           ),
         ],
       ),
     );
+    if (!mounted) return;
     if (ok == true) _cambiarEstado('Anulado');
   }
 
@@ -348,6 +371,10 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                       if (orden.celular != null)
                         Text(orden.celular!,
                             style: AppTextStyles.bodySmall),
+                    if (orden.fecha != null) ...[
+                      const SizedBox(height: 3),
+                      _FechaAgeBadge(fecha: orden.fecha!),
+                    ],
                     ],
                   ),
                 ),
@@ -461,63 +488,56 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
           // ── Acciones ──────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
-            child: _actualizando
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(AppSpacing.sm),
-                      child: CircularProgressIndicator(),
+            child: Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _enviarComunidad,
+                    icon: const Icon(Icons.groups_rounded, size: 16),
+                    label: const Text('Enviar pedido a comunidad'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF128C7E),
+                      side: const BorderSide(color: Color(0xFF128C7E)),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.sm),
                     ),
-                  )
-                : Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _enviarComunidad,
-                          icon: const Icon(Icons.groups_rounded, size: 16),
-                          label: const Text('Enviar pedido a comunidad'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF128C7E),
-                            side: const BorderSide(color: Color(0xFF128C7E)),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: AppSpacing.sm),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      Row(
-                        children: [
-                          OutlinedButton.icon(
-                            onPressed: _confirmarAnular,
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.error,
-                              side: const BorderSide(color: AppColors.error),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.md,
-                                  vertical: AppSpacing.sm),
-                            ),
-                            icon: const Icon(Icons.cancel_outlined, size: 16),
-                            label: const Text('Anular'),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: _confirmarEntregado,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: AppColors.success,
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: AppSpacing.sm),
-                              ),
-                              icon: const Icon(
-                                  Icons.check_circle_outline_rounded,
-                                  size: 16),
-                              label: const Text('Marcar entregado'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _confirmarAnular,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(color: AppColors.error),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.sm),
+                      ),
+                      icon: const Icon(Icons.cancel_outlined, size: 16),
+                      label: const Text('Anular'),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _confirmarEntregado,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.success,
+                          padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.sm),
+                        ),
+                        icon: const Icon(
+                            Icons.check_circle_outline_rounded,
+                            size: 16),
+                        label: const Text('Marcar entregado'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -559,6 +579,55 @@ class _InfoChip extends StatelessWidget {
           ],
         ),
       );
+}
+
+// ── Badge de antigüedad de orden ─────────────────────────────────────────────
+
+class _FechaAgeBadge extends StatelessWidget {
+  const _FechaAgeBadge({required this.fecha});
+  final String fecha;
+
+  @override
+  Widget build(BuildContext context) {
+    try {
+      final d    = DateTime.parse(fecha);
+      final days = DateTime.now().difference(DateTime(d.year, d.month, d.day)).inDays;
+
+      final Color color;
+      final String label;
+      if (days == 0) {
+        color = AppColors.stockOk;
+        label = 'Hoy';
+      } else if (days == 1) {
+        color = AppColors.stockOk;
+        label = 'Ayer';
+      } else if (days <= 3) {
+        color = AppColors.warning;
+        label = 'Hace $days días';
+      } else {
+        color = AppColors.stockCritical;
+        label = 'Hace $days días ⚠️';
+      }
+
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.schedule_rounded, size: 10, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize:   10,
+              color:      color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      );
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+  }
 }
 
 // ── Estados vacío / error ─────────────────────────────────────────────────────

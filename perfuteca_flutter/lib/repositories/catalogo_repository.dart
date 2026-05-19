@@ -2,18 +2,23 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/core/constants/api_constants.dart';
 import 'package:perfuteca/core/errors/app_exception.dart';
+import 'package:perfuteca/core/network/cache_config.dart';
 import 'package:perfuteca/core/network/dio_client.dart';
 import 'package:perfuteca/models/paginated.dart';
 import 'package:perfuteca/models/perfume.dart';
 
 final catalogoRepositoryProvider = Provider<CatalogoRepository>((ref) {
-  return CatalogoRepository(ref.watch(dioProvider));
+  return CatalogoRepository(
+    ref.watch(dioProvider),
+    ref.watch(cacheHelperProvider),
+  );
 });
 
 class CatalogoRepository {
-  CatalogoRepository(this._dio);
+  CatalogoRepository(this._dio, this._cache);
 
-  final Dio _dio;
+  final Dio         _dio;
+  final CacheHelper _cache;
 
   Future<Paginated<Perfume>> getCatalogo({
     int limit = 100,
@@ -23,6 +28,7 @@ class CatalogoRepository {
       final res = await _dio.get<Map<String, dynamic>>(
         ApiConstants.catalogo,
         queryParameters: {'limit': limit, 'offset': offset},
+        options: _cache.cacheFor(const Duration(hours: 6)),
       );
       return Paginated.fromJson(res.data!, (e) => Perfume.fromJson(e as Map<String, dynamic>));
     } on DioException catch (e) {
@@ -47,6 +53,7 @@ class CatalogoRepository {
           'limit': limit,
           'offset': offset,
         },
+        options: _cache.cacheFor(const Duration(minutes: 30)),
       );
       return Paginated.fromJson(res.data!, (e) => Perfume.fromJson(e as Map<String, dynamic>));
     } on DioException catch (e) {
@@ -58,7 +65,10 @@ class CatalogoRepository {
 
   Future<List<String>> getMarcas() async {
     try {
-      final res = await _dio.get<List<dynamic>>(ApiConstants.catalogoMarcas);
+      final res = await _dio.get<List<dynamic>>(
+        ApiConstants.catalogoMarcas,
+        options: _cache.cacheFor(const Duration(hours: 12)),
+      );
       return res.data!.cast<String>();
     } on DioException catch (e) {
       throw mapDioError(e);
@@ -71,6 +81,7 @@ class CatalogoRepository {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
         ApiConstants.catalogoDetalle(idPerfume),
+        options: _cache.cacheFor(const Duration(hours: 1)),
       );
       return Perfume.fromJson(res.data!);
     } on DioException catch (e) {

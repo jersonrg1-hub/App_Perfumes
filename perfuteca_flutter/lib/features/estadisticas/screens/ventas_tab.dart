@@ -261,22 +261,9 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '${s.numOrdenes} venta${s.numOrdenes != 1 ? 's' : ''}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                    _HeroPill('${s.numOrdenes} venta${s.numOrdenes != 1 ? 's' : ''}'),
+                    const SizedBox(height: 6),
+                    _HeroPill('${s.totalMl} ml'),
                   ],
                 ),
               ],
@@ -541,6 +528,30 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
       ),
     );
   }
+}
+
+// ── Pill del hero semanal ─────────────────────────────────────────────────────
+
+class _HeroPill extends StatelessWidget {
+  const _HeroPill(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color:      Colors.white,
+            fontSize:   13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      );
 }
 
 // ── Pill de estadística ───────────────────────────────────────────────────────

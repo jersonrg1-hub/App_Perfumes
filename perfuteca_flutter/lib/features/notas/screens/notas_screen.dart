@@ -15,7 +15,8 @@ enum _Modo {
   perfil('Perfil',     Icons.auto_awesome_outlined),
   ocasion('Ocasión',   Icons.event_outlined),
   estacion('Estación', Icons.wb_sunny_outlined),
-  hora('Hora',         Icons.schedule_outlined);
+  hora('Hora',         Icons.schedule_outlined),
+  clave('Estilo',      Icons.label_outline_rounded);
 
   const _Modo(this.label, this.icon);
   final String   label;
@@ -35,6 +36,7 @@ String _getFieldRaw(Perfume p, _Modo modo) => switch (modo) {
   _Modo.ocasion  => p.ocasion        ?? '',
   _Modo.estacion => p.estacion       ?? '',
   _Modo.hora     => p.hora           ?? '',
+  _Modo.clave    => p.palabraClave   ?? '',
 };
 
 Map<String, int> _contarPorModo(List<Perfume> perfumes, _Modo modo) {
@@ -138,6 +140,22 @@ String _emojiValor(String valor, _Modo modo) {
       if (v.contains('noche'))                         return '🌙';
       if (v.contains('todo') || v.contains('cualquier')) return '🕐';
       return '⏰';
+    case _Modo.clave:
+      if (v.contains('dulce'))                                   return '🍦';
+      if (v.contains('intenso'))                                 return '🔥';
+      if (v.contains('elegant'))                                 return '💎';
+      if (v.contains('fresc'))                                   return '💧';
+      if (v.contains('dura') || v.contains('persist'))           return '⏳';
+      if (v.contains('versát') || v.contains('versat'))          return '🌈';
+      if (v.contains('frutal') || v.contains('frut'))            return '🍑';
+      if (v.contains('floral'))                                  return '🌸';
+      if (v.contains('mader') || v.contains('ahumad'))           return '🪵';
+      if (v.contains('sutil'))                                   return '🌿';
+      if (v.contains('distint') || v.contains('único'))          return '✨';
+      if (v.contains('postre') || v.contains('gourmand'))        return '🍰';
+      if (v.contains('romántic') || v.contains('romantico'))     return '💕';
+      if (v.contains('atrevid') || v.contains('sensual'))        return '🌹';
+      return '🏷️';
     default:
       return '🏷️';
   }
@@ -231,6 +249,7 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
         _Modo.ocasion  => 'Ocasión',
         _Modo.estacion => 'Estación',
         _Modo.hora     => 'Hora del día',
+        _Modo.clave    => 'Estilo',
       };
     }
 
@@ -417,6 +436,7 @@ class _VistaExplora extends StatelessWidget {
       _Modo.ocasion  => '$n ocasiones · toca una para filtrar',
       _Modo.estacion => '$n estaciones · toca una para filtrar',
       _Modo.hora     => '$n horarios · toca uno para filtrar',
+      _Modo.clave    => '$n descriptores · toca uno para filtrar',
     };
   }
 

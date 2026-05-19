@@ -464,7 +464,7 @@ class _InfoRow extends StatelessWidget {
 
 // ── Fila de pedido ────────────────────────────────────────────────────────────
 
-class _PedidoRow extends StatelessWidget {
+class _PedidoRow extends ConsumerWidget {
   const _PedidoRow({required this.idCompra, required this.items});
   final String              idCompra;
   final List<VentaResponse> items;
@@ -478,12 +478,22 @@ class _PedidoRow extends StatelessWidget {
     }
   }
 
+  String _nombrePerfume(VentaResponse v, Map<String, Perfume> map) {
+    if (v.idPerfume == null) return '—';
+    final normId = double.tryParse(v.idPerfume!)?.toInt().toString()
+        ?? v.idPerfume!;
+    final p = map[normId];
+    if (p != null) return '${p.nombre} · ${p.marca}';
+    return 'Perfume #${v.idPerfume}';
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final primera = items.first;
-    final total   = items.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
-    final estado  = primera.estado ?? '—';
-    final icon    = estado == 'Entregado' ? '✅' : '📦';
+  Widget build(BuildContext context, WidgetRef ref) {
+    final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
+    final primera     = items.first;
+    final total       = items.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
+    final estado      = primera.estado ?? '—';
+    final icon        = estado == 'Entregado' ? '✅' : '📦';
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -531,8 +541,8 @@ class _PedidoRow extends StatelessWidget {
             ),
           ...items.map(
             (v) => Text(
-              '  🌸 ${v.idPerfume ?? '?'}'
-              ' ${v.mlVendido != null ? '${v.mlVendido}ml' : ''}'
+              '  🌸 ${_nombrePerfume(v, perfumesMap)}'
+              '${v.mlVendido != null ? '  ${v.mlVendido}ml' : ''}'
               ' — S/ ${(v.precioCobrado ?? 0).toStringAsFixed(2)}',
               style: AppTextStyles.bodySmall,
             ),

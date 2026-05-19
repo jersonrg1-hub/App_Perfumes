@@ -4,10 +4,10 @@ import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/repositories/ventas_repository.dart';
 
-// Carga todas las ventas (limit alto) para que las estadísticas incluyan
-// registros recientes que superan el límite de 200 del historialProvider.
+// Carga todas las ventas sin caché para que las estadísticas reflejen el estado real.
 final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async {
-  final page = await ref.watch(ventasRepositoryProvider).getVentas(limit: 500);
+  final page = await ref.watch(ventasRepositoryProvider)
+      .getVentas(limit: 500, bypassCache: true);
   return page.items;
 });
 
@@ -82,8 +82,13 @@ final resumenStatsProvider = FutureProvider<ResumenStats>((ref) async {
   final hoy     = DateTime(now.year, now.month, now.day);
   final prevMes = DateTime(now.year, now.month - 1);
 
+  // Compara el prefijo YYYY-MM-DD para ser robusto ante variantes de formato
+  final todayPrefix =
+      '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
+
   bool esHoy(String? fecha) {
-    if (fecha == null) return false;
+    if (fecha == null || fecha.isEmpty) return false;
+    if (fecha.startsWith(todayPrefix)) return true;
     try {
       final d = DateTime.parse(fecha);
       return d.year == hoy.year && d.month == hoy.month && d.day == hoy.day;
@@ -112,7 +117,10 @@ final resumenStatsProvider = FutureProvider<ResumenStats>((ref) async {
     }
   }
 
-  final hoyList      = entregadas.where((v) => esHoy(v.fecha)).toList();
+  // "Hoy" muestra todas las ventas del día (incluye pendientes, excluye anuladas)
+  final hoyList      = ventas
+      .where((v) => v.estado?.toLowerCase() != 'anulado' && esHoy(v.fecha))
+      .toList();
   final mesList      = entregadas.where((v) => esMes(v.fecha)).toList();
   final mesPasadoList = entregadas.where((v) => esMesPasado(v.fecha)).toList();
 
@@ -214,6 +222,7 @@ class DiaStat {
 class SemanaStat {
   const SemanaStat({
     required this.total,
+    required this.totalMl,
     required this.numOrdenes,
     required this.porDia,
     required this.topNombre,
@@ -224,6 +233,7 @@ class SemanaStat {
     required this.fin,
   });
   final double        total;
+  final int           totalMl;
   final int           numOrdenes;
   final List<DiaStat> porDia;
   final String        topNombre;
@@ -300,6 +310,7 @@ final semanaStatsProvider = FutureProvider<SemanaStat>((ref) async {
 
   return SemanaStat(
     total:       semana.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
+    totalMl:     semana.fold(0, (s, v) => s + (v.mlVendido ?? 0)),
     numOrdenes:  semana.map((v) => v.idCompra).toSet().length,
     porDia:      porDia,
     topNombre:   topNombre,

@@ -67,26 +67,15 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                 itemCount: lista.length + 1,
                 itemBuilder: (_, i) {
                   if (i == 0) {
-                    return Padding(
-                      padding:
-                          const EdgeInsets.only(bottom: AppSpacing.md),
-                      child: Row(children: [
-                        const Icon(Icons.today_rounded,
-                            size: 14, color: AppColors.primary),
-                        const SizedBox(width: 6),
-                        Text(
-                          () {
-                            final pend = lista.where((c) =>
-                                c.estado?.toLowerCase().startsWith('aceptad') != true).length;
-                            if (pend == 0) return '${lista.length} cotización${lista.length != 1 ? 'es' : ''} hoy — todas convertidas';
-                            return '$pend pendiente${pend != 1 ? 's' : ''} de convertir · ${lista.length} hoy';
-                          }(),
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textMuted,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ]),
+                    final convertidas = lista
+                        .where((c) => c.estado?.toLowerCase().startsWith('aceptad') == true)
+                        .length;
+                    final pendientes = lista.length - convertidas;
+                    final totalS = lista.fold(0.0, (s, c) => s + (c.total ?? 0));
+                    return _ResumenHoyBanner(
+                      total:       totalS,
+                      pendientes:  pendientes,
+                      convertidas: convertidas,
                     );
                   }
                   final c = lista[i - 1];
@@ -99,6 +88,119 @@ class CotizacionesHoyScreen extends ConsumerWidget {
             ),
     );
   }
+}
+
+// ── Banner de resumen de cotizaciones de hoy ─────────────────────────────────
+
+class _ResumenHoyBanner extends StatelessWidget {
+  const _ResumenHoyBanner({
+    required this.total,
+    required this.pendientes,
+    required this.convertidas,
+  });
+  final double total;
+  final int    pendientes;
+  final int    convertidas;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2C1A0E), Color(0xFF5A3520)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      ),
+      child: Row(
+        children: [
+          // Total S/
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'COTIZACIONES HOY',
+                  style: TextStyle(
+                    color:         Color(0xFFD4A882),
+                    fontSize:      9,
+                    fontWeight:    FontWeight.w700,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'S/ ${total.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color:      Color(0xFFF5E6D8),
+                    fontSize:   22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Pendientes / Convertidas
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              _MiniChip(
+                label: '$pendientes pendiente${pendientes != 1 ? 's' : ''}',
+                color: pendientes > 0
+                    ? const Color(0xFFfef9c3)
+                    : Colors.white24,
+                textColor: pendientes > 0
+                    ? const Color(0xFF713f12)
+                    : const Color(0xFFD4A882),
+              ),
+              const SizedBox(height: 4),
+              _MiniChip(
+                label: '$convertidas convertida${convertidas != 1 ? 's' : ''}',
+                color: convertidas > 0
+                    ? const Color(0xFFdcfce7)
+                    : Colors.white24,
+                textColor: convertidas > 0
+                    ? const Color(0xFF14532d)
+                    : const Color(0xFFD4A882),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniChip extends StatelessWidget {
+  const _MiniChip({
+    required this.label,
+    required this.color,
+    required this.textColor,
+  });
+  final String label;
+  final Color  color;
+  final Color  textColor;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color:        color,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize:   10,
+            fontWeight: FontWeight.w700,
+            color:      textColor,
+          ),
+        ),
+      );
 }
 
 // ── Estado vacío ──────────────────────────────────────────────────────────────

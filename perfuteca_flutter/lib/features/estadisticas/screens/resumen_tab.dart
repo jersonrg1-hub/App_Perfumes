@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
-import 'package:perfuteca/features/estadisticas/widgets/metrica_card.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
@@ -20,9 +19,20 @@ class ResumenTab extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error:   (e, _) => _ErrorView(
         mensaje: e.toString(),
-        onRetry: () => ref.invalidate(resumenStatsProvider),
+        onRetry: () {
+          ref.invalidate(ventasParaStatsProvider);
+          ref.invalidate(resumenStatsProvider);
+        },
       ),
-      data:    (stats) => _ResumenBody(stats: stats),
+      data: (stats) => RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(ventasParaStatsProvider);
+          ref.invalidate(resumenStatsProvider);
+          await ref.read(resumenStatsProvider.future);
+        },
+        child: _ResumenBody(stats: stats),
+      ),
     );
   }
 }
@@ -56,7 +66,12 @@ class _ResumenBodyState extends State<_ResumenBody> {
         // ── Hoy ──────────────────────────────────────────────────────────────
         _SeccionLabel('☀️  Hoy · ${_diaLabel(now)}'),
         const SizedBox(height: AppSpacing.sm),
-        _SeccionHoy(stats: s),
+        _SeccionHoy(
+          ventasHoy:  widget.stats.ventasHoy,
+          totalHoy:   widget.stats.totalHoy,
+          mlHoy:      widget.stats.mlHoy,
+          ticketProm: widget.stats.ticketPromedioHoy,
+        ),
         const SizedBox(height: AppSpacing.md),
 
         // ── Pendientes ────────────────────────────────────────────────────────
@@ -283,42 +298,69 @@ class _ChipStat extends StatelessWidget {
   }
 }
 
-// ── Sección Hoy (3 MetricaCard) ───────────────────────────────────────────────
+// ── Sección Hoy ───────────────────────────────────────────────────────────────
 
 class _SeccionHoy extends StatelessWidget {
-  const _SeccionHoy({required this.stats});
-  final ResumenStats stats;
+  const _SeccionHoy({
+    required this.ventasHoy,
+    required this.totalHoy,
+    required this.mlHoy,
+    required this.ticketProm,
+  });
+  final int    ventasHoy;
+  final double totalHoy;
+  final int    mlHoy;
+  final double ticketProm;
 
   @override
   Widget build(BuildContext context) {
-    final s = stats;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.primaryLight),
+      ),
+      child: Column(
+        children: [
+          _FilaStat('Ingresos',
+              'S/ ${_fmt(totalHoy)}${mlHoy > 0 ? '  ·  $mlHoy ml' : ''}'),
+          const Divider(height: AppSpacing.md),
+          _FilaStat('Ventas', '$ventasHoy orden${ventasHoy != 1 ? 'es' : ''}'),
+          const Divider(height: AppSpacing.md),
+          _FilaStat('Ticket promedio',
+              ventasHoy > 0 ? 'S/ ${ticketProm.toStringAsFixed(0)}' : '—'),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilaStat extends StatelessWidget {
+  const _FilaStat(this.label, this.valor);
+  final String label;
+  final String valor;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Expanded(
-          child: MetricaCard(
-            titulo:    'Ingresos',
-            valor:     'S/ ${_fmt(s.totalHoy)}',
-            subtitulo: s.mlHoy > 0 ? '${s.mlHoy} ml' : null,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: MetricaCard(
-            titulo: 'Ventas',
-            valor:  '${s.ventasHoy}',
-            subtitulo: s.ventasHoy > 0 ? 'órdenes' : 'sin ventas',
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: MetricaCard(
-            titulo:    'Promedio',
-            valor:     s.ventasHoy > 0
-                ? 'S/ ${s.ticketPromedioHoy.toStringAsFixed(0)}'
-                : '—',
-            subtitulo: 'por orden',
-          ),
-        ),
+        Text(label,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textMuted,
+              fontWeight: FontWeight.w500,
+            )),
+        Text(valor,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            )),
       ],
     );
   }
@@ -502,7 +544,7 @@ class _ErrorView extends StatelessWidget {
           const Icon(Icons.wifi_off_rounded,
               size: 48, color: AppColors.textFaint),
           const SizedBox(height: 12),
-          Text('Error al cargar estadísticas',
+          const Text('Error al cargar estadísticas',
               style: AppTextStyles.body),
           const SizedBox(height: 4),
           Text(mensaje,

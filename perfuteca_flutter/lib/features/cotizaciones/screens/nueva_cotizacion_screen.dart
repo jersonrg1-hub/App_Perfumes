@@ -462,10 +462,9 @@ class _Paso2State extends ConsumerState<_Paso2> {
                         final p = perfumes[i];
                         final idx = state.cesta.indexWhere(
                             (item) => item.perfume.idPerfume == p.idPerfume);
-                        final yaEnCesta = idx != -1;
                         return _PerfumeRow(
-                          perfume:   p,
-                          yaEnCesta: yaEnCesta,
+                          perfume:     p,
+                          itemEnCesta: idx != -1 ? state.cesta[idx] : null,
                           onAgregar: (ml) {
                             HapticFeedback.lightImpact();
                             notifier.agregarItem(p, ml);
@@ -495,7 +494,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
                                 ),
                               ));
                           },
-                          onQuitar: yaEnCesta
+                          onQuitar: idx != -1
                               ? () => notifier.quitarItem(idx)
                               : null,
                         );
@@ -533,12 +532,12 @@ class _Paso2State extends ConsumerState<_Paso2> {
 class _PerfumeRow extends StatelessWidget {
   const _PerfumeRow({
     required this.perfume,
-    required this.yaEnCesta,
+    required this.itemEnCesta,
     required this.onAgregar,
     this.onQuitar,
   });
   final Perfume             perfume;
-  final bool                yaEnCesta;
+  final ItemCesta?          itemEnCesta;
   final void Function(int ml) onAgregar;
   final VoidCallback?       onQuitar;
 
@@ -550,11 +549,11 @@ class _PerfumeRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: yaEnCesta ? AppColors.primaryPale : AppColors.surface,
+        color: itemEnCesta != null ? AppColors.primaryPale : AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         border: Border.all(
-          color: yaEnCesta ? AppColors.primary : AppColors.primaryLight,
-          width: yaEnCesta ? 1.5 : 1,
+          color: itemEnCesta != null ? AppColors.primary : AppColors.primaryLight,
+          width: itemEnCesta != null ? 1.5 : 1,
         ),
       ),
       child: Row(
@@ -585,8 +584,8 @@ class _PerfumeRow extends StatelessWidget {
             ),
           ),
 
-          // Botones ml o chip "Añadido"
-          if (yaEnCesta)
+          // Chip con ml+precio o botones ml
+          if (itemEnCesta != null)
             GestureDetector(
               onTap: onQuitar,
               child: Container(
@@ -596,21 +595,21 @@ class _PerfumeRow extends StatelessWidget {
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.check_rounded, size: 14, color: Colors.white),
-                    SizedBox(width: 4),
+                    const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                    const SizedBox(width: 4),
                     Text(
-                      'Añadido',
-                      style: TextStyle(
+                      '${itemEnCesta!.ml}ml  ·  S/ ${itemEnCesta!.precio.toStringAsFixed(2)}',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(width: 6),
-                    Icon(Icons.close_rounded, size: 12, color: Colors.white70),
+                    const SizedBox(width: 6),
+                    const Icon(Icons.close_rounded, size: 12, color: Colors.white70),
                   ],
                 ),
               ),

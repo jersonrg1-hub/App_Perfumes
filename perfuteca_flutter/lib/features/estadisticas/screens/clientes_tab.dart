@@ -14,65 +14,11 @@ import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
-enum _SeccionClientes { clientes }
-
-class ClientesTab extends ConsumerStatefulWidget {
+class ClientesTab extends StatelessWidget {
   const ClientesTab({super.key});
 
   @override
-  ConsumerState<ClientesTab> createState() => _ClientesTabState();
-}
-
-class _ClientesTabState extends ConsumerState<ClientesTab> {
-  _SeccionClientes _seccion = _SeccionClientes.clientes;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // ── Chips de navegación ───────────────────────────────────────
-        SizedBox(
-          height: 44,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: 4,
-            ),
-            children: _SeccionClientes.values.map((s) {
-              final seleccionado = s == _seccion;
-              final label = switch (s) {
-                _SeccionClientes.clientes => '👥 Clientes',
-              };
-              return Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: ChoiceChip(
-                  label: Text(
-                    label,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color:      seleccionado ? Colors.white : AppColors.textMuted,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  selected:      seleccionado,
-                  selectedColor: AppColors.primaryDark,
-                  onSelected:    (_) => setState(() => _seccion = s),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-
-        // ── Contenido ────────────────────────────────────────────────
-        Expanded(
-          child: switch (_seccion) {
-            _SeccionClientes.clientes => const _ClientesView(),
-          },
-        ),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => const _ClientesView();
 }
 
 // ── Lista de clientes ─────────────────────────────────────────────────────────
@@ -280,24 +226,27 @@ class _ClienteCardState extends State<_ClienteCard> {
   Widget build(BuildContext context) {
     final c = widget.cliente;
 
-    return GestureDetector(
-      onTap: () => setState(() => _expandido = !_expandido),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(
-            color: _expandido ? AppColors.primary : AppColors.primaryLight,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color:      AppColors.shadowColor,
-              blurRadius: 4,
-              offset:     Offset(0, 1),
-            ),
-          ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: _expandido ? AppColors.primary : AppColors.primaryLight,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color:      AppColors.shadowColor,
+            blurRadius: 4,
+            offset:     Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: InkWell(
+          onTap: () => setState(() => _expandido = !_expandido),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: Column(
           children: [
             // ── Fila principal ────────────────────────────────────
@@ -409,6 +358,7 @@ class _ClienteCardState extends State<_ClienteCard> {
                 ),
               ),
           ],
+        ),
         ),
       ),
     );

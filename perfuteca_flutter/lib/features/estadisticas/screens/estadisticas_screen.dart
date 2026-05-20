@@ -22,6 +22,7 @@ class EstadisticasScreen extends ConsumerStatefulWidget {
 class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
+  bool _refrescando = false;
 
   @override
   void initState() {
@@ -51,15 +52,31 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
         ]),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 20),
+            icon: _refrescando
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 20),
             color: AppColors.textMuted,
             tooltip: 'Recargar',
-            onPressed: () {
-              ref.invalidate(historialProvider);
-              ref.invalidate(pendientesProvider);
-              ref.invalidate(ventasParaStatsProvider);
-              ref.invalidate(historialGlobalProvider);
-            },
+            onPressed: _refrescando
+                ? null
+                : () async {
+                    setState(() => _refrescando = true);
+                    ref.invalidate(historialProvider);
+                    ref.invalidate(pendientesProvider);
+                    ref.invalidate(ventasParaStatsProvider);
+                    ref.invalidate(historialGlobalProvider);
+                    try {
+                      await ref.read(ventasParaStatsProvider.future);
+                    } catch (_) {}
+                    if (mounted) setState(() => _refrescando = false);
+                  },
           ),
         ],
         bottom: TabBar(

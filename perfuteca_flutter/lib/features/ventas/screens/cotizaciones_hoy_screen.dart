@@ -252,11 +252,13 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
   bool    _registrando     = false;
   bool    _buscandoCliente = false;
   bool    _exito           = false;
+  bool    _clienteNuevo    = false;
   String? _error;
   String? _idVenta;
 
   final _compradorCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
+  final _botonKey      = GlobalKey();
   String _tipoEnvio  = '';
   String _metodoPago = 'Yape';
 
@@ -275,7 +277,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
   Future<void> _cargarDatosCliente() async {
     final celular = widget.cotizacion.celular;
     if (celular.isEmpty) return;
-    setState(() => _buscandoCliente = true);
+    setState(() { _buscandoCliente = true; _clienteNuevo = false; });
     try {
       final cliente =
           await ref.read(ventasRepositoryProvider).getClientePrevio(celular);
@@ -290,6 +292,17 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           if (_tipoEnvio.isEmpty) _tipoEnvio = cliente.tipoEnvio;
           _metodoPago = cliente.metodoPago;
         });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_botonKey.currentContext != null) {
+            Scrollable.ensureVisible(
+              _botonKey.currentContext!,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      } else if (mounted) {
+        setState(() => _clienteNuevo = true);
       }
     } catch (_) {
       // Silencioso — el usuario puede llenar manualmente
@@ -516,6 +529,26 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                 lineas: lineas,
                 total:  widget.cotizacion.total,
               ),
+              if (!_buscandoCliente && _clienteNuevo) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md),
+                  child: Row(children: [
+                    const Icon(Icons.person_add_outlined,
+                        size: 13, color: Color(0xFF8B6914)),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Cliente nuevo · llena los datos',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: const Color(0xFF8B6914),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ]),
+                ),
+              ],
               const SizedBox(height: AppSpacing.sm),
               const Divider(height: 1, color: AppColors.primaryLight),
               if (esAceptada)
@@ -608,7 +641,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
 
                     const SizedBox(height: AppSpacing.md),
 
-                    Row(children: [
+                    Row(key: _botonKey, children: [
                       OutlinedButton(
                         onPressed: _registrando
                             ? null

@@ -248,9 +248,10 @@ class _CotizacionCard extends ConsumerStatefulWidget {
 }
 
 class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
-  bool    _expandido   = false;
-  bool    _registrando = false;
-  bool    _exito       = false;
+  bool    _expandido       = false;
+  bool    _registrando     = false;
+  bool    _buscandoCliente = false;
+  bool    _exito           = false;
   String? _error;
   String? _idVenta;
 
@@ -270,6 +271,32 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
       _compradorCtrl.text.trim().isNotEmpty &&
       _direccionCtrl.text.trim().isNotEmpty &&
       _tipoEnvio.isNotEmpty;
+
+  Future<void> _cargarDatosCliente() async {
+    final celular = widget.cotizacion.celular;
+    if (celular.isEmpty) return;
+    setState(() => _buscandoCliente = true);
+    try {
+      final cliente =
+          await ref.read(ventasRepositoryProvider).getClientePrevio(celular);
+      if (cliente != null && mounted) {
+        setState(() {
+          if (_compradorCtrl.text.trim().isEmpty) {
+            _compradorCtrl.text = cliente.comprador;
+          }
+          if (_direccionCtrl.text.trim().isEmpty) {
+            _direccionCtrl.text = cliente.direccion;
+          }
+          if (_tipoEnvio.isEmpty) _tipoEnvio = cliente.tipoEnvio;
+          _metodoPago = cliente.metodoPago;
+        });
+      }
+    } catch (_) {
+      // Silencioso — el usuario puede llenar manualmente
+    } finally {
+      if (mounted) setState(() => _buscandoCliente = false);
+    }
+  }
 
   Future<void> _registrar() async {
     final catalogo = ref.read(catalogoProvider).perfumes;
@@ -369,7 +396,11 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
             InkWell(
               onTap: esAceptada
                   ? null
-                  : () => setState(() => _expandido = !_expandido),
+                  : () {
+                      final abriendo = !_expandido;
+                      setState(() => _expandido = !_expandido);
+                      if (abriendo) _cargarDatosCliente();
+                    },
               borderRadius: _expandido
                   ? const BorderRadius.vertical(
                       top: Radius.circular(AppSpacing.radiusMd))
@@ -474,6 +505,12 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
             // ── Formulario expandible ───────────────────────────────────
             if (_expandido) ...[
               const Divider(height: 1, color: AppColors.primaryLight),
+              if (_buscandoCliente)
+                const LinearProgressIndicator(
+                  minHeight: 2,
+                  backgroundColor: AppColors.primaryPale,
+                  color: AppColors.primary,
+                ),
               const SizedBox(height: AppSpacing.sm),
               _MiniResumen(
                 lineas: lineas,

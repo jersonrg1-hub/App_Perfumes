@@ -1116,55 +1116,13 @@ class _TicketExitoState extends State<_TicketExito>
               style: AppTextStyles.heading2,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primaryPale,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              ),
-              child: Text(
-                'ID: ${widget.idCotizacion}',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 16,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: AppColors.primaryPale,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: AppColors.primaryLight),
-              ),
-              child: Column(
-                children: [
-                  _InfoLine(label: 'Celular', value: widget.celular),
-                  const Divider(height: 16),
-                  ...widget.cesta.map((i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: _InfoLine(
-                      label: '${i.perfume.nombre} ${i.ml}ml',
-                      value: 'S/ ${i.precio.toStringAsFixed(2)}',
-                    ),
-                  )),
-                  if (widget.conDelivery) ...[
-                    const _InfoLine(label: 'Delivery', value: '+ S/ 10.00'),
-                    const SizedBox(height: 4),
-                  ],
-                  const Divider(height: 12),
-                  _InfoLine(
-                    label: 'Total cliente',
-                    value: 'S/ ${widget.total.toStringAsFixed(2)}',
-                    highlight: true,
-                  ),
-                ],
-              ),
+            const SizedBox(height: AppSpacing.lg),
+            _ReceiptCard(
+              idCotizacion: widget.idCotizacion,
+              celular:      widget.celular,
+              cesta:        widget.cesta,
+              conDelivery:  widget.conDelivery,
+              total:        widget.total,
             ),
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
@@ -1334,30 +1292,240 @@ class _CestaPanelState extends State<_CestaPanel> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Ticket de recibo ──────────────────────────────────────────────────────────
 
-class _InfoLine extends StatelessWidget {
-  const _InfoLine({
-    required this.label,
-    required this.value,
-    this.highlight = false,
+class _ReceiptCard extends StatelessWidget {
+  const _ReceiptCard({
+    required this.idCotizacion,
+    required this.celular,
+    required this.cesta,
+    required this.conDelivery,
+    required this.total,
   });
-  final String label;
-  final String value;
-  final bool   highlight;
+  final String          idCotizacion;
+  final String          celular;
+  final List<ItemCesta> cesta;
+  final bool            conDelivery;
+  final double          total;
 
   @override
-  Widget build(BuildContext context) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFFDF9),
+        boxShadow: [
+          BoxShadow(color: Color(0x28000000), blurRadius: 24, offset: Offset(0, 8)),
+          BoxShadow(color: Color(0x0F000000), blurRadius: 4,  offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
         children: [
-          Text(label, style: AppTextStyles.bodySmall),
-          Text(
-            value,
-            style: AppTextStyles.body.copyWith(
-              fontWeight: FontWeight.w700,
-              color: highlight ? AppColors.primaryDark : AppColors.textPrimary,
+          const _PerforatedEdge(),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            child: Column(
+              children: [
+                // Cabecera: tienda + ID
+                Row(
+                  children: [
+                    const Text(
+                      'PERFUTECA',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primaryDark,
+                        letterSpacing: 2,
+                      ),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPale,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        idCotizacion,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primaryDark,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                // Celular
+                Row(
+                  children: [
+                    const Icon(Icons.phone_outlined,
+                        size: 13, color: AppColors.textMuted),
+                    const SizedBox(width: 6),
+                    Text(
+                      celular,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const _DashedDivider(),
+                const SizedBox(height: AppSpacing.md),
+                // Items
+                ...cesta.map((i) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.local_florist_outlined,
+                          size: 11, color: AppColors.primary),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '${i.perfume.nombre}  ${i.ml}ml',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'S/ ${i.precio.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+                if (conDelivery)
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.delivery_dining_rounded,
+                            size: 11, color: AppColors.textMuted),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Delivery',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textMuted,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '+ S/ 10.00',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                const _DashedDivider(),
+                const SizedBox(height: AppSpacing.md),
+                // Total
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'TOTAL',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textMuted,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    Text(
+                      'S/ ${total.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
             ),
           ),
+          const _PerforatedEdge(),
         ],
+      ),
+    );
+  }
+}
+
+class _PerforatedEdge extends StatelessWidget {
+  const _PerforatedEdge();
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+        builder: (_, constraints) {
+          final count = (constraints.maxWidth / 16).floor();
+          return SizedBox(
+            height: 10,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: List.generate(
+                count,
+                (_) => Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).scaffoldBackgroundColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       );
+}
+
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        height: 1,
+        width: double.infinity,
+        child: CustomPaint(painter: _DashedLinePainter()),
+      );
+}
+
+class _DashedLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.primaryLight
+      ..strokeWidth = 1.2;
+    double x = 0;
+    const dashWidth = 5.0;
+    const gapWidth  = 4.0;
+    while (x < size.width) {
+      canvas.drawLine(Offset(x, 0), Offset(x + dashWidth, 0), paint);
+      x += dashWidth + gapWidth;
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedLinePainter _) => false;
 }

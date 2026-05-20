@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/screens/analisis_tab.dart';
 import 'package:perfuteca/features/estadisticas/screens/clientes_tab.dart';
+import 'package:perfuteca/features/estadisticas/screens/historico_tab.dart';
 import 'package:perfuteca/features/estadisticas/screens/resumen_tab.dart';
 import 'package:perfuteca/features/estadisticas/screens/ventas_tab.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
@@ -25,7 +26,7 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
+    _tab = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -57,6 +58,7 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
               ref.invalidate(historialProvider);
               ref.invalidate(pendientesProvider);
               ref.invalidate(ventasParaStatsProvider);
+              ref.invalidate(historialGlobalProvider);
             },
           ),
         ],
@@ -90,6 +92,11 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
             Tab(
               icon: Icon(Icons.inventory_2_rounded, size: 18),
               text: 'Stock',
+              iconMargin: EdgeInsets.only(bottom: 2),
+            ),
+            Tab(
+              icon: Icon(Icons.history_rounded, size: 18),
+              text: 'Histórico',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
           ],
@@ -135,6 +142,7 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
                 VentasTab(),
                 ClientesTab(),
                 AnalisisTab(),
+                HistoricoTab(),
               ],
             ),
           ),

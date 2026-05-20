@@ -427,3 +427,127 @@ final clientesStatsProvider = FutureProvider<List<ClienteStat>>((ref) async {
   }).toList()
     ..sort((a, b) => b.totalGastado.compareTo(a.totalGastado));
 });
+
+// ── Historial global (todo el tiempo) ─────────────────────────────────────────
+
+class MesStatHistorico {
+  const MesStatHistorico({
+    required this.clave,
+    required this.label,
+    required this.numOrdenes,
+    required this.total,
+    required this.totalMl,
+  });
+  final String clave;
+  final String label;
+  final int    numOrdenes;
+  final double total;
+  final int    totalMl;
+}
+
+class HistorialGlobalStats {
+  const HistorialGlobalStats({
+    required this.totalVentas,
+    required this.totalIngresos,
+    required this.totalMl,
+    required this.ticketPromedio,
+    required this.clientesUnicos,
+    required this.diasActivo,
+    required this.primeraVenta,
+    required this.promedioMensual,
+    required this.porMes,
+    required this.mejorMesClave,
+  });
+  final int                    totalVentas;
+  final double                 totalIngresos;
+  final int                    totalMl;
+  final double                 ticketPromedio;
+  final int                    clientesUnicos;
+  final int                    diasActivo;
+  final String?                primeraVenta;
+  final double                 promedioMensual;
+  final List<MesStatHistorico> porMes;
+  final String?                mejorMesClave;
+}
+
+final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async {
+  final ventas     = await ref.watch(ventasParaStatsProvider.future);
+  final entregadas = ventas
+      .where((v) => v.estado?.toLowerCase() == 'entregado')
+      .toList();
+
+  final totalVentas    = entregadas.map((v) => v.idCompra).toSet().length;
+  final totalIngresos  = entregadas.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
+  final totalMl        = entregadas.fold(0, (s, v) => s + (v.mlVendido ?? 0));
+  final ticketProm     = totalVentas > 0 ? totalIngresos / totalVentas : 0.0;
+  final clientesUnicos = entregadas
+      .map((v) => v.celular ?? '')
+      .where((c) => c.isNotEmpty)
+      .toSet()
+      .length;
+
+  final fechas = entregadas
+      .where((v) => v.fecha != null)
+      .map((v) => v.fecha!)
+      .toList()
+    ..sort();
+  final primeraVenta = fechas.isEmpty ? null : fechas.first;
+
+  int diasActivo = 0;
+  if (primeraVenta != null) {
+    try {
+      final primera = DateTime.parse(primeraVenta);
+      diasActivo = DateTime.now().difference(primera).inDays + 1;
+    } catch (_) {}
+  }
+
+  const mesesCortos = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+                       'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+  final mesMap = <String, List<VentaResponse>>{};
+  for (final v in entregadas) {
+    if (v.fecha == null) continue;
+    try {
+      final d   = DateTime.parse(v.fecha!);
+      final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
+      (mesMap[key] ??= []).add(v);
+    } catch (_) {}
+  }
+
+  final porMes = mesMap.entries.map((e) {
+    final parts   = e.key.split('-');
+    final month   = int.tryParse(parts[1]) ?? 0;
+    final year    = parts[0];
+    final total   = e.value.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
+    final mlMes   = e.value.fold(0, (s, v) => s + (v.mlVendido ?? 0));
+    final ordenes = e.value.map((v) => v.idCompra).toSet().length;
+    return MesStatHistorico(
+      clave:      e.key,
+      label:      '${mesesCortos[month]} $year',
+      numOrdenes: ordenes,
+      total:      total,
+      totalMl:    mlMes,
+    );
+  }).toList()
+    ..sort((a, b) => a.clave.compareTo(b.clave));
+
+  final mejorMesClave = porMes.isEmpty
+      ? null
+      : porMes.reduce((a, b) => a.total > b.total ? a : b).clave;
+
+  final promedioMensual =
+      porMes.isNotEmpty ? totalIngresos / porMes.length : 0.0;
+
+  return HistorialGlobalStats(
+    totalVentas:     totalVentas,
+    totalIngresos:   totalIngresos,
+    totalMl:         totalMl,
+    ticketPromedio:  ticketProm,
+    clientesUnicos:  clientesUnicos,
+    diasActivo:      diasActivo,
+    primeraVenta:    primeraVenta,
+    promedioMensual: promedioMensual,
+    porMes:          porMes,
+    mejorMesClave:   mejorMesClave,
+  );
+});

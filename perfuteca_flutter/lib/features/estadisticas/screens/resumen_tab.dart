@@ -39,21 +39,13 @@ class ResumenTab extends ConsumerWidget {
 
 // ── Body ──────────────────────────────────────────────────────────────────────
 
-class _ResumenBody extends StatefulWidget {
+class _ResumenBody extends StatelessWidget {
   const _ResumenBody({required this.stats});
   final ResumenStats stats;
 
   @override
-  State<_ResumenBody> createState() => _ResumenBodyState();
-}
-
-class _ResumenBodyState extends State<_ResumenBody> {
-  static const _limit = 5;
-  bool _verTodos = false;
-
-  @override
   Widget build(BuildContext context) {
-    final s   = widget.stats;
+    final s   = stats;
     final now = DateTime.now();
 
     return ListView(
@@ -67,10 +59,10 @@ class _ResumenBodyState extends State<_ResumenBody> {
         _SeccionLabel('☀️  Hoy · ${_diaLabel(now)}'),
         const SizedBox(height: AppSpacing.sm),
         _SeccionHoy(
-          ventasHoy:  widget.stats.ventasHoy,
-          totalHoy:   widget.stats.totalHoy,
-          mlHoy:      widget.stats.mlHoy,
-          ticketProm: widget.stats.ticketPromedioHoy,
+          ventasHoy:  s.ventasHoy,
+          totalHoy:   s.totalHoy,
+          mlHoy:      s.mlHoy,
+          ticketProm: s.ticketPromedioHoy,
         ),
         const SizedBox(height: AppSpacing.md),
 
@@ -78,46 +70,6 @@ class _ResumenBodyState extends State<_ResumenBody> {
         if (s.pendientesCount > 0) ...[
           _PendientesBanner(count: s.pendientesCount),
           const SizedBox(height: AppSpacing.md),
-        ],
-
-        // ── Top perfumes ──────────────────────────────────────────────────────
-        Text(
-          '🏆  Perfumes más vendidos',
-          style: AppTextStyles.heading2.copyWith(fontSize: 15),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-
-        if (s.masVendidos.isEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: AppSpacing.md),
-            child: Center(
-              child: Text(
-                'Sin ventas entregadas aún',
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.textMuted),
-              ),
-            ),
-          )
-        else ...[
-          ...s.masVendidos
-              .take(_verTodos ? s.masVendidos.length : _limit)
-              .toList()
-              .asMap()
-              .entries
-              .map((e) => _TopPerfumeRow(pos: e.key + 1, item: e.value)),
-
-          if (s.masVendidos.length > _limit)
-            Center(
-              child: TextButton(
-                onPressed: () => setState(() => _verTodos = !_verTodos),
-                child: Text(
-                  _verTodos
-                      ? '▲ Ver menos'
-                      : '▼ Ver más (${s.masVendidos.length - _limit} más)',
-                  style: const TextStyle(color: AppColors.primary),
-                ),
-              ),
-            ),
         ],
 
         const SizedBox(height: AppSpacing.xl),
@@ -419,109 +371,6 @@ class _SeccionLabel extends StatelessWidget {
         fontWeight: FontWeight.w700,
         fontSize: 11,
         letterSpacing: 0.8,
-      ),
-    );
-  }
-}
-
-// ── Fila de top perfume ───────────────────────────────────────────────────────
-
-class _TopPerfumeRow extends StatelessWidget {
-  const _TopPerfumeRow({required this.pos, required this.item});
-  final int        pos;
-  final TopPerfume item;
-
-  @override
-  Widget build(BuildContext context) {
-    final Color rankBg;
-    final Color rankFg;
-    if (pos == 1) {
-      rankBg = AppColors.textPrimary;
-      rankFg = Colors.white;
-    } else if (pos == 2) {
-      rankBg = AppColors.textMuted;
-      rankFg = Colors.white;
-    } else {
-      rankBg = AppColors.primaryPale;
-      rankFg = AppColors.textMuted;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.primaryLight),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 26,
-            height: 26,
-            decoration: BoxDecoration(color: rankBg, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: Text(
-              '$pos',
-              style: TextStyle(
-                color: rankFg,
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '🌸 ${item.nombre}',
-                  style: AppTextStyles.body.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (item.marca.isNotEmpty)
-                  Text(item.marca, style: AppTextStyles.bodySmall),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryPale,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primaryLight),
-                ),
-                child: Text(
-                  '${item.totalMl}ml',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 3),
-              Text(
-                'S/ ${item.totalSoles.toStringAsFixed(0)}',
-                style: AppTextStyles.bodySmall.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryDark,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

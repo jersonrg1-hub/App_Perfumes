@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
-import 'package:perfuteca/features/estadisticas/widgets/metrica_card.dart';
+import 'package:perfuteca/features/estadisticas/screens/clientes_tab.dart';
 import 'package:perfuteca/features/ventas/screens/historial_screen.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
-enum _SeccionVentas { historial, tamanios, semanal }
+enum _SeccionVentas { historial, tamanios, semanal, cotizaciones }
 
 class VentasTab extends ConsumerStatefulWidget {
   const VentasTab({super.key});
@@ -36,9 +36,10 @@ class _VentasTabState extends ConsumerState<VentasTab> {
             children: _SeccionVentas.values.map((s) {
               final seleccionado = s == _seccion;
               final label = switch (s) {
-                _SeccionVentas.historial => '📋 Historial',
-                _SeccionVentas.tamanios  => '📏 Tamaños',
-                _SeccionVentas.semanal   => '📅 Semanal',
+                _SeccionVentas.historial    => '📋 Historial',
+                _SeccionVentas.tamanios     => '📏 Tamaños',
+                _SeccionVentas.semanal      => '📅 Semanal',
+                _SeccionVentas.cotizaciones => '💰 Cotizaciones',
               };
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -63,9 +64,10 @@ class _VentasTabState extends ConsumerState<VentasTab> {
         // ── Contenido ────────────────────────────────────────────────
         Expanded(
           child: switch (_seccion) {
-            _SeccionVentas.historial => const HistorialScreen(),
-            _SeccionVentas.tamanios  => const _TamanosView(),
-            _SeccionVentas.semanal   => const _SemanalView(),
+            _SeccionVentas.historial    => const HistorialScreen(),
+            _SeccionVentas.tamanios     => const _TamanosView(),
+            _SeccionVentas.semanal      => const _SemanalView(),
+            _SeccionVentas.cotizaciones => const CotizacionesTodasView(),
           },
         ),
       ],
@@ -176,23 +178,13 @@ class _SemanalView extends ConsumerStatefulWidget {
 }
 
 class _SemanalViewState extends ConsumerState<_SemanalView> {
-  String? _mes1;
-  String? _mes2;
-
   static const _dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
   String _fmt(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
   @override
   Widget build(BuildContext context) {
-    final semana   = ref.watch(semanaStatsProvider);
-    final meses    = ref.watch(mesesDisponiblesProvider).valueOrNull ?? [];
-    final statsMap = ref.watch(mesStatsMapProvider).valueOrNull ?? {};
-
-    if (meses.isNotEmpty) {
-      _mes1 ??= meses.last;
-      _mes2 ??= meses.length >= 2 ? meses[meses.length - 2] : meses.last;
-    }
+    final semana = ref.watch(semanaStatsProvider);
 
     return semana.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -451,78 +443,6 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
               );
             },
           ),
-          const SizedBox(height: AppSpacing.lg),
-
-          // ── Comparar meses ────────────────────────────────────
-          const Divider(color: AppColors.primaryLight),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            '📆 Comparar meses',
-            style: AppTextStyles.heading2.copyWith(fontSize: 15),
-          ),
-          const SizedBox(height: AppSpacing.md),
-
-          if (meses.length < 2)
-            Text(
-              'Se necesitan al menos 2 meses de datos para comparar',
-              style: AppTextStyles.bodySmall
-                  .copyWith(color: AppColors.textMuted),
-            )
-          else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _MesDropdown(
-                    label: 'Mes 1',
-                    value: _mes1,
-                    meses: meses,
-                    onChanged: (v) => setState(() => _mes1 = v),
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: _MesDropdown(
-                    label: 'Mes 2',
-                    value: _mes2,
-                    meses: meses,
-                    onChanged: (v) => setState(() => _mes2 = v),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (_mes1 != null && _mes2 != null) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: _MesCard(
-                      mes:   _mes1!,
-                      stats: statsMap[_mes1],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _MesCard(
-                      mes:   _mes2!,
-                      stats: statsMap[_mes2],
-                    ),
-                  ),
-                ],
-              ),
-              if (statsMap[_mes1] != null &&
-                  statsMap[_mes2] != null &&
-                  statsMap[_mes1]!.total > 0) ...[
-                const SizedBox(height: AppSpacing.md),
-                _DiferenciaBanner(
-                  mes1:  _mes1!,
-                  mes2:  _mes2!,
-                  stat1: statsMap[_mes1]!,
-                  stat2: statsMap[_mes2]!,
-                ),
-              ],
-            ],
-          ],
-
           const SizedBox(height: AppSpacing.xl),
         ],
       ),
@@ -596,156 +516,3 @@ class _StatPill extends StatelessWidget {
       );
 }
 
-// ── Dropdown de mes ───────────────────────────────────────────────────────────
-
-class _MesDropdown extends StatelessWidget {
-  const _MesDropdown({
-    required this.label,
-    required this.value,
-    required this.meses,
-    required this.onChanged,
-  });
-  final String        label;
-  final String?       value;
-  final List<String>  meses;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return InputDecorator(
-      decoration: InputDecoration(
-        labelText: label,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      ),
-      child: DropdownButton<String>(
-        value:      value,
-        isExpanded: true,
-        isDense:    true,
-        underline:  const SizedBox.shrink(),
-        items: meses
-            .map((m) => DropdownMenuItem(
-                  value: m,
-                  child: Text(m, style: AppTextStyles.bodySmall),
-                ))
-            .toList(),
-        onChanged: onChanged,
-      ),
-    );
-  }
-}
-
-// ── Tarjeta de mes ────────────────────────────────────────────────────────────
-
-class _MesCard extends StatelessWidget {
-  const _MesCard({required this.mes, required this.stats});
-  final String  mes;
-  final MesStat? stats;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.primaryLight),
-      ),
-      child: Column(
-        children: [
-          Text(
-            mes,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textMuted,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '${stats?.numOrdenes ?? 0} ventas',
-            style: AppTextStyles.bodySmall.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          Text(
-            'S/ ${(stats?.total ?? 0).toStringAsFixed(2)}',
-            style: AppTextStyles.price.copyWith(
-              color: AppColors.primaryDark,
-              fontSize: 18,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Banner diferencia ─────────────────────────────────────────────────────────
-
-class _DiferenciaBanner extends StatelessWidget {
-  const _DiferenciaBanner({
-    required this.mes1,
-    required this.mes2,
-    required this.stat1,
-    required this.stat2,
-  });
-  final String  mes1;
-  final String  mes2;
-  final MesStat stat1;
-  final MesStat stat2;
-
-  @override
-  Widget build(BuildContext context) {
-    final diff     = stat2.total - stat1.total;
-    final pct      = diff / stat1.total * 100;
-    final positivo = diff >= 0;
-    final color    = positivo
-        ? const Color(0xFF16a34a)
-        : const Color(0xFFdc2626);
-    final bgColor  = positivo
-        ? const Color(0xFFf0faf4)
-        : const Color(0xFFfff5f5);
-    final borde    = positivo
-        ? const Color(0xFFb7e4c7)
-        : const Color(0xFFfed7d7);
-    final simbolo  = positivo ? '📈' : '📉';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: borde),
-      ),
-      child: Column(
-        children: [
-          Text(
-            'Diferencia',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textMuted,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '$simbolo S/ ${diff.abs().toStringAsFixed(2)}'
-            ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)',
-            style: AppTextStyles.price.copyWith(color: color, fontSize: 18),
-            textAlign: TextAlign.center,
-          ),
-          Text(
-            '$mes2 vs $mes1',
-            style: AppTextStyles.bodySmall
-                .copyWith(color: AppColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-}

@@ -14,7 +14,7 @@ import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
-enum _SeccionClientes { clientes, cotizaciones }
+enum _SeccionClientes { clientes }
 
 class ClientesTab extends ConsumerStatefulWidget {
   const ClientesTab({super.key});
@@ -42,8 +42,7 @@ class _ClientesTabState extends ConsumerState<ClientesTab> {
             children: _SeccionClientes.values.map((s) {
               final seleccionado = s == _seccion;
               final label = switch (s) {
-                _SeccionClientes.clientes     => '👥 Clientes',
-                _SeccionClientes.cotizaciones => '💰 Cotizaciones',
+                _SeccionClientes.clientes => '👥 Clientes',
               };
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -68,8 +67,7 @@ class _ClientesTabState extends ConsumerState<ClientesTab> {
         // ── Contenido ────────────────────────────────────────────────
         Expanded(
           child: switch (_seccion) {
-            _SeccionClientes.clientes     => const _ClientesView(),
-            _SeccionClientes.cotizaciones => const _CotizacionesTodasView(),
+            _SeccionClientes.clientes => const _ClientesView(),
           },
         ),
       ],
@@ -555,16 +553,16 @@ class _PedidoRow extends ConsumerWidget {
 
 // ── Todas las cotizaciones (paginadas) ────────────────────────────────────────
 
-class _CotizacionesTodasView extends ConsumerStatefulWidget {
-  const _CotizacionesTodasView();
+class CotizacionesTodasView extends ConsumerStatefulWidget {
+  const CotizacionesTodasView({super.key});
 
   @override
-  ConsumerState<_CotizacionesTodasView> createState() =>
-      _CotizacionesTodasViewState();
+  ConsumerState<CotizacionesTodasView> createState() =>
+      CotizacionesTodasViewState();
 }
 
-class _CotizacionesTodasViewState
-    extends ConsumerState<_CotizacionesTodasView> {
+class CotizacionesTodasViewState
+    extends ConsumerState<CotizacionesTodasView> {
   static const _pageSize = 10;
 
   final List<CotizacionResponse> _items     = [];

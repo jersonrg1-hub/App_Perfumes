@@ -10,6 +10,8 @@ class HistoricoTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final masVendidos =
+        ref.watch(resumenStatsProvider).valueOrNull?.masVendidos ?? [];
     return ref.watch(historialGlobalProvider).when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error:   (e, _) => Center(
@@ -44,7 +46,7 @@ class HistoricoTab extends ConsumerWidget {
           ref.invalidate(historialGlobalProvider);
           await ref.read(historialGlobalProvider.future);
         },
-        child: _HistoricoBody(stats: stats),
+        child: _HistoricoBody(stats: stats, masVendidos: masVendidos),
       ),
     );
   }
@@ -53,8 +55,9 @@ class HistoricoTab extends ConsumerWidget {
 // ── Body ──────────────────────────────────────────────────────────────────────
 
 class _HistoricoBody extends StatelessWidget {
-  const _HistoricoBody({required this.stats});
+  const _HistoricoBody({required this.stats, required this.masVendidos});
   final HistorialGlobalStats stats;
+  final List<TopPerfume>     masVendidos;
 
   @override
   Widget build(BuildContext context) {
@@ -176,6 +179,8 @@ class _HistoricoBody extends StatelessWidget {
             mejorMes: s.mejorMesClave,
           ),
 
+        _TopPerfumesSection(masVendidos: masVendidos),
+        const _ComparaMesesSection(),
         const SizedBox(height: AppSpacing.xl),
       ],
     );
@@ -389,5 +394,348 @@ String _fmtFecha(String fecha) {
     return '${d.day} ${meses[d.month]} ${d.year}';
   } catch (_) {
     return fecha;
+  }
+}
+
+// ── Top perfumes ──────────────────────────────────────────────────────────────
+
+class _TopPerfumesSection extends StatefulWidget {
+  const _TopPerfumesSection({required this.masVendidos});
+  final List<TopPerfume> masVendidos;
+
+  @override
+  State<_TopPerfumesSection> createState() => _TopPerfumesSectionState();
+}
+
+class _TopPerfumesSectionState extends State<_TopPerfumesSection> {
+  static const _limit = 5;
+  bool _verTodos = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final masVendidos = widget.masVendidos;
+    if (masVendidos.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        Text('🏆  Perfumes más vendidos',
+            style: AppTextStyles.heading2.copyWith(fontSize: 15)),
+        const SizedBox(height: AppSpacing.sm),
+        ...masVendidos
+            .take(_verTodos ? masVendidos.length : _limit)
+            .toList()
+            .asMap()
+            .entries
+            .map((e) => _TopPerfumeRow(pos: e.key + 1, item: e.value)),
+        if (masVendidos.length > _limit)
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => _verTodos = !_verTodos),
+              child: Text(
+                _verTodos
+                    ? '▲ Ver menos'
+                    : '▼ Ver más (${masVendidos.length - _limit} más)',
+                style: const TextStyle(color: AppColors.primary),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _TopPerfumeRow extends StatelessWidget {
+  const _TopPerfumeRow({required this.pos, required this.item});
+  final int        pos;
+  final TopPerfume item;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color rankBg;
+    final Color rankFg;
+    if (pos == 1) {
+      rankBg = AppColors.textPrimary;
+      rankFg = Colors.white;
+    } else if (pos == 2) {
+      rankBg = AppColors.textMuted;
+      rankFg = Colors.white;
+    } else {
+      rankBg = AppColors.primaryPale;
+      rankFg = AppColors.textMuted;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.primaryLight),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 26, height: 26,
+            decoration: BoxDecoration(color: rankBg, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Text('$pos',
+                style: TextStyle(
+                    color: rankFg, fontSize: 11, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('🌸 ${item.nombre}',
+                    style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                if (item.marca.isNotEmpty)
+                  Text(item.marca, style: AppTextStyles.bodySmall),
+              ],
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPale,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primaryLight),
+                ),
+                child: Text('${item.totalMl}ml',
+                    style: AppTextStyles.bodySmall.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary)),
+              ),
+              const SizedBox(height: 3),
+              Text('S/ ${item.totalSoles.toStringAsFixed(0)}',
+                  style: AppTextStyles.bodySmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryDark,
+                      fontSize: 11)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Comparar meses ────────────────────────────────────────────────────────────
+
+class _ComparaMesesSection extends ConsumerStatefulWidget {
+  const _ComparaMesesSection();
+
+  @override
+  ConsumerState<_ComparaMesesSection> createState() =>
+      _ComparaMesesSectionState();
+}
+
+class _ComparaMesesSectionState extends ConsumerState<_ComparaMesesSection> {
+  String? _mes1;
+  String? _mes2;
+
+  @override
+  Widget build(BuildContext context) {
+    final meses    = ref.watch(mesesDisponiblesProvider).valueOrNull ?? [];
+    final statsMap = ref.watch(mesStatsMapProvider).valueOrNull ?? {};
+
+    if (meses.isNotEmpty) {
+      _mes1 ??= meses.last;
+      _mes2 ??= meses.length >= 2 ? meses[meses.length - 2] : meses.last;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        const Divider(color: AppColors.primaryLight),
+        const SizedBox(height: AppSpacing.sm),
+        Text('📆 Comparar meses',
+            style: AppTextStyles.heading2.copyWith(fontSize: 15)),
+        const SizedBox(height: AppSpacing.md),
+
+        if (meses.length < 2)
+          Text(
+            'Se necesitan al menos 2 meses de datos para comparar',
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+          )
+        else ...[
+          Row(
+            children: [
+              Expanded(
+                child: _MesDropdown(
+                  label: 'Mes 1',
+                  value: _mes1,
+                  meses: meses,
+                  onChanged: (v) => setState(() => _mes1 = v),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _MesDropdown(
+                  label: 'Mes 2',
+                  value: _mes2,
+                  meses: meses,
+                  onChanged: (v) => setState(() => _mes2 = v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (_mes1 != null && _mes2 != null) ...[
+            Row(
+              children: [
+                Expanded(child: _MesCard(mes: _mes1!, stats: statsMap[_mes1])),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(child: _MesCard(mes: _mes2!, stats: statsMap[_mes2])),
+              ],
+            ),
+            if (statsMap[_mes1] != null &&
+                statsMap[_mes2] != null &&
+                statsMap[_mes1]!.total > 0) ...[
+              const SizedBox(height: AppSpacing.md),
+              _DiferenciaBanner(
+                mes1:  _mes1!,
+                mes2:  _mes2!,
+                stat1: statsMap[_mes1]!,
+                stat2: statsMap[_mes2]!,
+              ),
+            ],
+          ],
+        ],
+      ],
+    );
+  }
+}
+
+class _MesDropdown extends StatelessWidget {
+  const _MesDropdown({
+    required this.label,
+    required this.value,
+    required this.meses,
+    required this.onChanged,
+  });
+  final String              label;
+  final String?             value;
+  final List<String>        meses;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) => InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        ),
+        child: DropdownButton<String>(
+          value:      value,
+          isExpanded: true,
+          isDense:    true,
+          underline:  const SizedBox.shrink(),
+          items: meses
+              .map((m) => DropdownMenuItem(
+                    value: m,
+                    child: Text(m, style: AppTextStyles.bodySmall),
+                  ))
+              .toList(),
+          onChanged: onChanged,
+        ),
+      );
+}
+
+class _MesCard extends StatelessWidget {
+  const _MesCard({required this.mes, required this.stats});
+  final String   mes;
+  final MesStat? stats;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: AppColors.primaryLight),
+        ),
+        child: Column(
+          children: [
+            Text(mes,
+                style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textMuted, fontWeight: FontWeight.w600),
+                textAlign: TextAlign.center),
+            const SizedBox(height: AppSpacing.xs),
+            Text('${stats?.numOrdenes ?? 0} ventas',
+                style: AppTextStyles.bodySmall.copyWith(
+                    fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                textAlign: TextAlign.center),
+            Text('S/ ${(stats?.total ?? 0).toStringAsFixed(2)}',
+                style: AppTextStyles.price
+                    .copyWith(color: AppColors.primaryDark, fontSize: 18),
+                textAlign: TextAlign.center),
+          ],
+        ),
+      );
+}
+
+class _DiferenciaBanner extends StatelessWidget {
+  const _DiferenciaBanner({
+    required this.mes1,
+    required this.mes2,
+    required this.stat1,
+    required this.stat2,
+  });
+  final String  mes1;
+  final String  mes2;
+  final MesStat stat1;
+  final MesStat stat2;
+
+  @override
+  Widget build(BuildContext context) {
+    final diff     = stat2.total - stat1.total;
+    final pct      = diff / stat1.total * 100;
+    final positivo = diff >= 0;
+    final color    = positivo ? const Color(0xFF16a34a) : const Color(0xFFdc2626);
+    final bgColor  = positivo ? const Color(0xFFf0faf4) : const Color(0xFFfff5f5);
+    final borde    = positivo ? const Color(0xFFb7e4c7) : const Color(0xFFfed7d7);
+    final simbolo  = positivo ? '📈' : '📉';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: borde),
+      ),
+      child: Column(
+        children: [
+          Text('Diferencia',
+              style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.8)),
+          const SizedBox(height: 4),
+          Text(
+            '$simbolo S/ ${diff.abs().toStringAsFixed(2)}'
+            ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)',
+            style: AppTextStyles.price.copyWith(color: color, fontSize: 18),
+            textAlign: TextAlign.center,
+          ),
+          Text('$mes2 vs $mes1',
+              style:
+                  AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+        ],
+      ),
+    );
   }
 }

@@ -191,9 +191,16 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
       error:   (e, _) => Center(
         child: Text(e.toString(), style: AppTextStyles.bodySmall),
       ),
-      data: (s) => ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        children: [
+      data: (s) => RefreshIndicator(
+        color: AppColors.primary,
+        onRefresh: () async {
+          ref.invalidate(ventasParaStatsProvider);
+          ref.invalidate(semanaStatsProvider);
+          await ref.read(semanaStatsProvider.future);
+        },
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          children: [
           // ── Encabezado ────────────────────────────────────────
           Text(
             '📅 Resumen de esta semana',
@@ -445,6 +452,7 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
           ),
           const SizedBox(height: AppSpacing.xl),
         ],
+        ),
       ),
     );
   }

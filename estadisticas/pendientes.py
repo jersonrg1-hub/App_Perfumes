@@ -33,8 +33,15 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         if df_catalogo is not None and not df_catalogo.empty else {}
     )
 
+    st.markdown(
+        "<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+        "font-weight:700;letter-spacing:0.12em;padding-bottom:0.4rem;"
+        "border-bottom:1px solid #ede0d4;margin-bottom:0.6rem;'>🔍 Buscar pedido</div>",
+        unsafe_allow_html=True,
+    )
     buscar = st.text_input(
-        "🔍 Buscar", placeholder="Nombre o ID de compra...", key="pend_buscar"
+        "Buscar", placeholder="Nombre o ID de compra...", key="pend_buscar",
+        label_visibility="collapsed",
     )
     if buscar:
         mask = (
@@ -44,7 +51,16 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
         pendientes = pendientes[mask]
 
     grupos = pendientes.groupby("ID_Compra")
-    st.markdown(f"**{grupos.ngroups} compra(s) pendiente(s)**")
+    n_g = grupos.ngroups
+    s = "s" if n_g != 1 else ""
+    st.markdown(
+        f"<div style='display:inline-flex;align-items:center;"
+        f"background:#fff7ed;border:1px solid #f59e0b;border-radius:8px;"
+        f"padding:0.35rem 0.8rem;margin-bottom:0.6rem;'>"
+        f"<span style='color:#92400e;font-size:0.85rem;font-weight:700;'>"
+        f"📦 {n_g} compra{s} pendiente{s}</span></div>",
+        unsafe_allow_html=True,
+    )
 
     COL_METODO = COLUMNAS_VENTAS.index("Metodo_Pago") + 1
     COL_ENVIO  = COLUMNAS_VENTAS.index("Tipo_Envio") + 1
@@ -148,9 +164,9 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
             st.markdown(
                 f'<a href="https://wa.me/?text={quote(msg_comunidad)}" target="_blank"'
                 f' style="text-decoration:none;display:block;background:#128C7E;'
-                f'color:white !important;padding:10px;border-radius:8px;'
-                f'text-align:center;font-weight:700;font-size:0.85rem;margin-bottom:0.6rem;">'
-                f'📲 Enviar pedido a comunidad</a>',
+                f'color:white !important;padding:11px;border-radius:10px;'
+                f'text-align:center;font-weight:700;font-size:0.9rem;margin-bottom:0.7rem;">'
+                f'📣 Avisar a la comunidad de despacho</a>',
                 unsafe_allow_html=True,
             )
 
@@ -158,9 +174,10 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
             modo = st.session_state.get(modo_key, "normal")
 
             if modo == "normal":
-                col_ent, col_edit, col_anul = st.columns(3)
+                col_ent, col_edit, col_sp, col_anul = st.columns([3, 2, 1, 2])
                 with col_ent:
-                    if st.button("✅ Marcar entregado", key=f"ent_{id_compra}", use_container_width=True):
+                    if st.button("✅ Marcar entregado", key=f"ent_{id_compra}",
+                                 type="primary", use_container_width=True):
                         st.session_state[modo_key] = "confirmar_entrega"
                         st.rerun()
                 with col_edit:
@@ -173,7 +190,13 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                         st.rerun()
 
             elif modo == "confirmar_entrega":
-                st.success(f"¿Confirmas que **{id_compra}** fue entregado a **{primera.get('Comprador', '')}**?")
+                st.markdown(
+                    f"<div style='background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;"
+                    f"padding:0.7rem 1rem;margin-bottom:0.5rem;font-size:0.9rem;color:#166534;font-weight:600;'>"
+                    f"✅ ¿Confirmas que <b>{html.escape(str(id_compra))}</b> fue entregado "
+                    f"a <b>{html.escape(str(primera.get('Comprador', '')))}?</b></div>",
+                    unsafe_allow_html=True,
+                )
                 col_si, col_no = st.columns(2)
                 with col_si:
                     filas = grupo["fila_sheet"].tolist()
@@ -191,7 +214,12 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                         st.rerun()
 
             elif modo == "editar":
-                st.markdown("**✏️ Editar datos de la venta:**")
+                st.markdown(
+                    "<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+                    "font-weight:700;letter-spacing:0.12em;padding-bottom:0.4rem;"
+                    "border-bottom:1px solid #ede0d4;margin-bottom:0.6rem;'>✏️ Editar pedido</div>",
+                    unsafe_allow_html=True,
+                )
 
                 metodo_actual = str(primera.get("Metodo_Pago", METODOS_PAGO[0]))
                 idx_metodo = METODOS_PAGO.index(metodo_actual) if metodo_actual in METODOS_PAGO else 0
@@ -234,7 +262,13 @@ def mostrar_ventas_pendientes(df_ventas, df_catalogo=None):
                         st.rerun()
 
             elif modo == "anular":
-                st.warning(f"⚠️ ¿Seguro que quieres anular **{id_compra}**? Esta acción cambia el estado a Anulado en Sheets.")
+                st.markdown(
+                    f"<div style='background:#fff5f5;border:1px solid #fca5a5;border-radius:10px;"
+                    f"padding:0.7rem 1rem;margin-bottom:0.5rem;font-size:0.88rem;color:#7f1d1d;'>"
+                    f"🚫 ¿Seguro que quieres anular <b>{html.escape(str(id_compra))}</b>? "
+                    f"Esta acción cambia el estado a <b>Anulado</b> en Sheets.</div>",
+                    unsafe_allow_html=True,
+                )
 
                 col_conf, col_canc = st.columns(2)
                 with col_conf:

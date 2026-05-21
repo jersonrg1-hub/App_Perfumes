@@ -195,9 +195,9 @@ h1, h2, h3, h4 {
 }
 
 .stButton > button:active {
-    transform: scale(0.95) !important;
+    transform: scale(0.97) !important;
     box-shadow: none !important;
-    transition: transform 0.10s ease !important;
+    transition: transform 0.13s cubic-bezier(0.23, 1, 0.32, 1) !important;
 }
 
 [data-testid="stVerticalBlockBorderWrapper"] {
@@ -298,6 +298,53 @@ html {
 
 .perfume-card {
     animation: slideUpFade 0.28s ease-out both;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes celebrarEntrada {
+    from { opacity: 0; transform: scale(0.96) translateY(-6px); }
+    to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+@keyframes formEntrada {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Hover en cards de cotizaciones e items de cesta */
+@media (hover: hover) and (pointer: fine) {
+    .cot-card {
+        transition: transform 180ms ease-out, box-shadow 180ms ease-out;
+    }
+    .cot-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 18px rgba(200,149,108,0.2) !important;
+    }
+    .item-cesta-card {
+        transition: transform 160ms ease-out, box-shadow 160ms ease-out;
+    }
+    .item-cesta-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(44,26,14,0.12) !important;
+    }
+}
+
+/* Press state en botones WhatsApp */
+.wa-btn {
+    transition: transform 130ms cubic-bezier(0.23, 1, 0.32, 1), filter 130ms ease-out !important;
+}
+.wa-btn:active {
+    transform: scale(0.98) !important;
+    filter: brightness(0.91) !important;
+}
+
+/* Animación entrada formulario de conversión inline */
+.conv-form-entrada {
+    animation: formEntrada 200ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
 """

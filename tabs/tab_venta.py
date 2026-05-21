@@ -305,14 +305,19 @@ def _render_cotizaciones_hoy(df: pd.DataFrame, state: dict) -> None:
     if df_hoy.empty:
         return
 
+    n_cot = len(df_hoy)
     st.markdown(
-        '<div style="font-size:0.75rem;color:#a07850;text-transform:uppercase;'
-        'font-weight:700;letter-spacing:0.12em;padding-bottom:0.4rem;'
-        'border-bottom:1px solid #ede0d4;margin-bottom:0.7rem;">📋 Cotizaciones de hoy</div>',
+        f'<div style="font-size:0.68rem;color:#a07850;text-transform:uppercase;'
+        f'font-weight:700;letter-spacing:0.12em;padding-bottom:0.4rem;'
+        f'border-bottom:1px solid #ede0d4;margin-bottom:0.7rem;">'
+        f'📋 Cotizaciones de hoy'
+        f'<span style="background:#c8956c;color:white;border-radius:10px;'
+        f'padding:0.05rem 0.5rem;font-size:0.7rem;font-weight:700;margin-left:0.5rem;">'
+        f'{n_cot}</span></div>',
         unsafe_allow_html=True,
     )
 
-    for row in df_hoy.sort_values("Fecha", ascending=False).to_dict("records"):
+    for idx, row in enumerate(df_hoy.sort_values("Fecha", ascending=False).to_dict("records")):
         id_cot      = str(row.get("ID_Cotizacion", ""))
         celular     = str(row.get("Celular", ""))
         perfumes_txt = str(row.get("Perfumes", ""))
@@ -325,14 +330,18 @@ def _render_cotizaciones_hoy(df: pd.DataFrame, state: dict) -> None:
             for i in perfumes_txt.split(" | ") if i.strip()
         )
         st.markdown(
-            f'<div style="background:#f5ede6;border-left:3px solid #c8956c;'
-            f'border-radius:10px;padding:0.6rem 0.9rem;margin-bottom:0.5rem;">'
+            f'<div class="cot-card" style="--i:{idx};background:#ffffff;border:1px solid #ede0d4;border-left:3px solid #c8956c;'
+            f'border-radius:10px;padding:0.65rem 1rem;margin-bottom:0.4rem;'
+            f'box-shadow:0 1px 4px rgba(200,149,108,0.08);'
+            f'animation:fadeInUp 240ms cubic-bezier(0.23,1,0.32,1) both;'
+            f'animation-delay:calc(var(--i) * 55ms);">'
             f'<div style="display:flex;justify-content:space-between;align-items:center;">'
-            f'<span style="font-weight:700;color:#2c1a0e;">📱 {html.escape(celular)}</span>'
-            f'<span style="font-weight:700;color:#c8956c;font-family:Inter,sans-serif;">'
-            f'S/ {fmt_precio(total)}</span></div>'
-            f'<div style="font-size:0.78rem;color:#6b4226;margin-top:0.2rem;">'
-            f'{html.escape(preview)}</div></div>',
+            f'<span style="font-weight:700;color:#2c1a0e;font-size:0.92rem;">📱 {html.escape(celular)}</span>'
+            f'<span style="font-weight:800;color:#c8956c;font-family:Inter,sans-serif;'
+            f'font-variant-numeric:tabular-nums;font-size:1rem;">S/ {fmt_precio(total)}</span></div>'
+            f'<div style="font-size:0.77rem;color:#6b4226;margin-top:0.25rem;'
+            f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+            f'🌸 {html.escape(preview)}</div></div>',
             unsafe_allow_html=True,
         )
 
@@ -359,20 +368,29 @@ def _render_form_conversion(
     conv_key: str,
 ) -> None:
     """Formulario inline para convertir una cotización a venta directa."""
+    st.markdown(
+        "<div class='conv-form-entrada' style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+        "font-weight:700;letter-spacing:0.12em;padding-bottom:0.4rem;"
+        "border-bottom:1px solid #ede0d4;margin-bottom:0.6rem;'>📦 Confirmar pedido</div>",
+        unsafe_allow_html=True,
+    )
     comprador_raw = st.text_input("👤 Nombre", placeholder="Nombre completo",
                                   key=f"conv_comp_{fila_cot}")
     comprador  = comprador_raw.title() if comprador_raw else ""
-    tipo_envio = st.selectbox("🚚 Envío", TIPOS_ENVIO, key=f"conv_envio_{fila_cot}")
+    col_env, col_pago = st.columns(2)
+    with col_env:
+        tipo_envio = st.selectbox("🚚 Envío", TIPOS_ENVIO, key=f"conv_envio_{fila_cot}")
+    with col_pago:
+        metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key=f"conv_pago_{fila_cot}")
     direccion  = st.text_input("📍 Dirección", placeholder="Distrito / Referencia",
                                key=f"conv_dir_{fila_cot}")
-    metodo_pago = st.selectbox("💳 Pago", METODOS_PAGO, key=f"conv_pago_{fila_cot}")
 
-    col_ok, col_cancel = st.columns(2)
+    col_ok, col_cancel = st.columns([2, 1])
     with col_ok:
-        if st.button("✅ Confirmar", key=f"conv_ok_{fila_cot}",
+        if st.button("✅ Confirmar venta", key=f"conv_ok_{fila_cot}",
                      type="primary", use_container_width=True):
             if not comprador:
-                st.error("⚠️ Ingresa el nombre")
+                st.error("⚠️ Ingresa el nombre del comprador")
             elif tipo_envio != "Contraentrega" and not direccion.strip():
                 st.error(f"⚠️ Dirección requerida para {tipo_envio}")
             else:
@@ -518,13 +536,15 @@ def _render_cesta(state: dict, total_precalc: float | None = None) -> None:
     st.markdown(f"**🛍️ Cesta — {len(cesta)} item(s)**")
     st.markdown("")
 
-    for item in cesta:
+    for idx, item in enumerate(cesta):
         col_item, col_del = st.columns([6, 1])
         with col_item:
             st.markdown(
-                f"""<div style="background:#ffffff;border:1px solid #ede0d4;
+                f"""<div class="item-cesta-card" style="--i:{idx};background:#ffffff;border:1px solid #ede0d4;
                     border-radius:10px;padding:0.65rem 1rem;
-                    display:flex;justify-content:space-between;align-items:center;">
+                    display:flex;justify-content:space-between;align-items:center;
+                    animation:fadeInUp 220ms cubic-bezier(0.23,1,0.32,1) both;
+                    animation-delay:calc(var(--i) * 45ms);">
                     <div>
                         <div style="font-size:0.9rem;font-weight:600;color:#2c1a0e;">
                             🌸 {html.escape(str(item['perfume']))} · {item['ml']}ml
@@ -636,11 +656,24 @@ def _render_paso_2(df: pd.DataFrame, state: dict) -> None:
                     costo_est = costo_total_item(ml_sel, cb, mb)
                     gan_est = precio_cat - costo_est
                     st.markdown(
-                        f"<div style='font-size:0.78rem;color:#6b7280;margin:0.3rem 0 0.5rem;'>"
-                        f"💸 Costo estimado: <b>S/ {fmt_precio(costo_est)}</b>"
-                        f"&nbsp;&nbsp;|&nbsp;&nbsp;"
-                        f"💰 Ganancia: <b style='color:#16a34a'>S/ {fmt_precio(gan_est)}</b>"
-                        f"</div>",
+                        f"""<div style='display:flex;gap:0.6rem;margin:0.4rem 0 0.6rem;'>
+                        <div style='flex:1;background:#f0fdf4;border:1px solid #bbf7d0;
+                            border-radius:8px;padding:0.45rem 0.75rem;'>
+                            <div style='font-size:0.65rem;color:#6b7280;text-transform:uppercase;
+                                font-weight:700;letter-spacing:0.08em;'>Costo est.</div>
+                            <div style='font-size:0.95rem;font-weight:700;color:#374151;
+                                font-family:Inter,sans-serif;font-variant-numeric:tabular-nums;'>
+                                S/ {fmt_precio(costo_est)}</div>
+                        </div>
+                        <div style='flex:1;background:#f0fdf4;border:1px solid #4ade80;
+                            border-radius:8px;padding:0.45rem 0.75rem;'>
+                            <div style='font-size:0.65rem;color:#166534;text-transform:uppercase;
+                                font-weight:700;letter-spacing:0.08em;'>Ganancia</div>
+                            <div style='font-size:0.95rem;font-weight:800;color:#16a34a;
+                                font-family:Inter,sans-serif;font-variant-numeric:tabular-nums;'>
+                                S/ {fmt_precio(gan_est)}</div>
+                        </div>
+                        </div>""",
                         unsafe_allow_html=True,
                     )
                 except Exception:
@@ -675,6 +708,15 @@ def _render_paso_2(df: pd.DataFrame, state: dict) -> None:
         else:
             st.warning("⚠️ Perfume no encontrado. Recarga los datos.")
 
+    if cesta:
+        st.markdown(
+            "<div style='border-top:2px solid #ede0d4;margin:1rem 0 0.2rem;"
+            "display:flex;align-items:center;gap:0.5rem;'>"
+            "<span style='font-size:0.65rem;color:#a07850;text-transform:uppercase;"
+            "font-weight:700;letter-spacing:0.1em;white-space:nowrap;padding-top:0.5rem;'>"
+            "🛍️ Cesta actual</span></div>",
+            unsafe_allow_html=True,
+        )
     _render_cesta(state, total_precalc=total_cesta)
 
     st.markdown("")
@@ -786,7 +828,8 @@ def _render_venta_guardada(state: dict) -> None:
 
     st.markdown(
         f"""<div style="background:linear-gradient(135deg,#16a34a 0%,#15803d 100%);
-            border-radius:16px;padding:1.2rem 1.4rem;text-align:center;margin-bottom:0.8rem;">
+            border-radius:16px;padding:1.2rem 1.4rem;text-align:center;margin-bottom:0.8rem;
+            animation:celebrarEntrada 350ms cubic-bezier(0.23,1,0.32,1) both;">
             <div style="font-size:2.2rem;margin-bottom:0.3rem;">✅</div>
             <div style="color:white;font-size:1.1rem;font-weight:700;margin-bottom:0.2rem;">
                 ¡Venta guardada!</div>
@@ -799,21 +842,17 @@ def _render_venta_guardada(state: dict) -> None:
         unsafe_allow_html=True,
     )
 
-    if st.button("🆕 Nueva venta", key="btn_nueva_venta",
-                 type="primary", use_container_width=True):
-        _on_nueva_venta()
-
     url_wa = venta.get("url_wa", "")
     if url_wa:
         st.markdown(
-            f"""<a href="{url_wa}"
+            f"""<a href="{url_wa}" class="wa-btn"
                 onclick="window.open(this.href,'_blank','noopener,noreferrer');return false;"
                 target="_blank" rel="noopener noreferrer"
-                style="text-decoration:none;display:block;margin-top:0.6rem;">
-            <div style="background:#25D366;color:white;padding:14px;border-radius:10px;
-            text-align:center;font-weight:700;font-size:1rem;">
-                📲 Enviar Comprobante por WhatsApp
-            </div></a>""",
+                style="text-decoration:none;display:block;margin-top:0.4rem;
+                background:#25D366;color:white;padding:14px;border-radius:10px;
+                text-align:center;font-weight:700;font-size:1rem;">
+                📲 Enviar comprobante al cliente
+            </a>""",
             unsafe_allow_html=True,
         )
 
@@ -831,13 +870,18 @@ def _render_venta_guardada(state: dict) -> None:
         f"💳 *Pago:* {cesta[0]['metodo'] if cesta else ''}"
     )
     st.markdown(
-        f'<a href="https://wa.me/?text={quote(msg_comunidad)}" target="_blank"'
+        f'<a href="https://wa.me/?text={quote(msg_comunidad)}" class="wa-btn" target="_blank"'
         f' style="text-decoration:none;display:block;background:#128C7E;'
         f'color:white !important;padding:12px;border-radius:10px;'
-        f'text-align:center;font-weight:700;font-size:1rem;margin-top:0.5rem;">'
-        f'📲 Enviar pedido a comunidad</a>',
+        f'text-align:center;font-weight:600;font-size:0.9rem;margin-top:0.5rem;">'
+        f'📣 Avisar a la comunidad de despacho</a>',
         unsafe_allow_html=True,
     )
+
+    st.markdown("<div style='margin-top:0.8rem;'></div>", unsafe_allow_html=True)
+    if st.button("🆕 Nueva venta", key="btn_nueva_venta",
+                 type="primary", use_container_width=True):
+        _on_nueva_venta()
 
     st.markdown("<br>", unsafe_allow_html=True)
     with st.expander("📋 Ver detalle de la venta"):
@@ -914,7 +958,7 @@ def mostrar_tab_venta(df: pd.DataFrame, n_pend: int = 0) -> None:
 
     # ── Wizard de venta directa ───────────────────────────────────────────────
     paso = state["venta"]["paso"]
-    with st.expander("🛒 Registrar Venta Directa", expanded=paso > 1):
+    with st.expander("🛒 Registrar Venta Directa", expanded=True):
         _render_barra_progreso(paso)
 
         if paso == 1:

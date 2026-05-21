@@ -14,7 +14,7 @@ abstract class AppColors {
 
   // Fondos
   static const background   = Color(0xFFFAF5F0);
-  static const surface      = Color(0xFFFFFFFF);
+  static const surface      = Color(0xFFFFFCFA);
   static const surfaceVariant = Color(0xFFF5EDE4);
 
   // Texto

@@ -1,4 +1,3 @@
-import 'dart:math' show min;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -64,8 +63,9 @@ class CotizacionesHoyScreen extends ConsumerWidget {
           : RefreshIndicator(
               onRefresh: () async => ref.invalidate(cotizacionesHoyProvider),
               child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 80),
+                padding: EdgeInsets.fromLTRB(
+                    AppSpacing.lg, AppSpacing.md, AppSpacing.lg,
+                    80 + MediaQuery.of(context).padding.bottom),
                 itemCount: lista.length + 1,
                 itemBuilder: (_, i) {
                   if (i == 0) {
@@ -76,7 +76,7 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                     final totalS = lista.fold(0.0, (s, c) => s + (c.total ?? 0));
                     return _AnimatedListItem(
                       index: 0,
-                      child: _ResumenHoyBanner(
+                      child: _MetricasHoyRow(
                         total:       totalS,
                         pendientes:  pendientes,
                         convertidas: convertidas,
@@ -98,10 +98,10 @@ class CotizacionesHoyScreen extends ConsumerWidget {
   }
 }
 
-// ── Banner de resumen de cotizaciones de hoy ─────────────────────────────────
+// ── Métricas planas del día ───────────────────────────────────────────────────
 
-class _ResumenHoyBanner extends StatelessWidget {
-  const _ResumenHoyBanner({
+class _MetricasHoyRow extends StatelessWidget {
+  const _MetricasHoyRow({
     required this.total,
     required this.pendientes,
     required this.convertidas,
@@ -114,97 +114,73 @@ class _ResumenHoyBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2C1A0E), Color(0xFF5A3520)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.primaryLight),
       ),
-      child: Row(
-        children: [
-          // Total S/
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'COTIZACIONES HOY',
-                  style: AppTextStyles.notasLabel.copyWith(
-                    color: const Color(0xFFD4A882),
-                    letterSpacing: 1.0,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'S/ ${total.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    color:      Color(0xFFF5E6D8),
-                    fontSize:   22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            _MetricaItem(
+              label: 'TOTAL HOY',
+              value: 'S/ ${total.toStringAsFixed(2)}',
+              valueColor: AppColors.primaryDark,
             ),
-          ),
-          // Pendientes / Convertidas
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _MiniChip(
-                label: '$pendientes pendiente${pendientes != 1 ? 's' : ''}',
-                color: pendientes > 0
-                    ? AppColors.warning.withValues(alpha: 0.22)
-                    : Colors.white24,
-                textColor: pendientes > 0
-                    ? AppColors.warning
-                    : const Color(0xFFD4A882),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              _MiniChip(
-                label: '$convertidas convertida${convertidas != 1 ? 's' : ''}',
-                color: convertidas > 0
-                    ? AppColors.stockOk.withValues(alpha: 0.22)
-                    : Colors.white24,
-                textColor: convertidas > 0
-                    ? AppColors.stockOk
-                    : const Color(0xFFD4A882),
-              ),
-            ],
-          ),
-        ],
+            const VerticalDivider(width: 1, thickness: 1, color: AppColors.primaryLight),
+            _MetricaItem(
+              label: 'PENDIENTES',
+              value: '$pendientes',
+              valueColor: pendientes > 0 ? AppColors.warning : AppColors.textFaint,
+            ),
+            const VerticalDivider(width: 1, thickness: 1, color: AppColors.primaryLight),
+            _MetricaItem(
+              label: 'CONVERTIDAS',
+              value: '$convertidas',
+              valueColor: convertidas > 0 ? AppColors.stockOk : AppColors.textFaint,
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _MiniChip extends StatelessWidget {
-  const _MiniChip({
+class _MetricaItem extends StatelessWidget {
+  const _MetricaItem({
     required this.label,
-    required this.color,
-    required this.textColor,
+    required this.value,
+    required this.valueColor,
   });
   final String label;
-  final Color  color;
-  final Color  textColor;
+  final String value;
+  final Color  valueColor;
 
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
-        decoration: BoxDecoration(
-          color:        color,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusXxl),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize:   10,
-            fontWeight: FontWeight.w700,
-            color:      textColor,
+  Widget build(BuildContext context) => Expanded(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm, vertical: AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: AppTextStyles.notasLabel.copyWith(
+                  color: AppColors.textFaint,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize:   label == 'TOTAL HOY' ? 18 : 22,
+                  fontWeight: FontWeight.w800,
+                  color:      valueColor,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -260,6 +236,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
   bool    _buscandoCliente = false;
   bool    _exito           = false;
   bool    _clienteNuevo    = false;
+  bool    _confirmando     = false;
   String? _error;
   String? _idVenta;
 
@@ -382,14 +359,15 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
       ref.read(_cotizacionesAceptadasProvider.notifier)
           .update((s) => {...s, widget.cotizacion.idCotizacion});
     } catch (e) {
-      setState(() { _registrando = false; _error = e.toString(); });
+      setState(() { _registrando = false; _error = e.toString(); _confirmando = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final aceptadas  = ref.watch(_cotizacionesAceptadasProvider);
-    final esAceptada = aceptadas.contains(widget.cotizacion.idCotizacion) ||
+    final esAceptada =
+        ref.watch(_cotizacionesAceptadasProvider
+            .select((s) => s.contains(widget.cotizacion.idCotizacion))) ||
         widget.cotizacion.estado?.toLowerCase().startsWith('aceptad') == true;
 
     if (_exito) {
@@ -436,12 +414,20 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // ── Cabecera (siempre visible, tappeable) ───────────────────
-            InkWell(
+            Semantics(
+              button: true,
+              label: esAceptada
+                  ? 'Cotización ${widget.cotizacion.idCotizacion}, aceptada'
+                  : 'Cotización ${widget.cotizacion.idCotizacion} · ${widget.cotizacion.celular} · S/${widget.cotizacion.total?.toStringAsFixed(2) ?? '0'}. Toca para convertir a venta.',
+              child: InkWell(
               onTap: esAceptada
                   ? null
                   : () {
                       final abriendo = !_expandido;
-                      setState(() => _expandido = !_expandido);
+                      setState(() {
+                        _expandido   = !_expandido;
+                        if (!abriendo) _confirmando = false;
+                      });
                       if (abriendo) _cargarDatosCliente();
                     },
               splashColor: AppColors.primaryLight,
@@ -547,6 +533,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                 ),
               ),
             ),
+            ),
 
             // ── Formulario expandible ───────────────────────────────────
             if (_expandido) ...[
@@ -607,177 +594,98 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                   ]),
                 )
               else
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      const Icon(Icons.edit_note_rounded,
-                          size: 14, color: AppColors.primary),
-                      const SizedBox(width: 4),
-                      Text('Completa los datos para la venta',
-                          style: AppTextStyles.notasLabel.copyWith(
-                              color: AppColors.primary, fontSize: 10)),
-                    ]),
-                    const SizedBox(height: AppSpacing.md),
-
-                    const _FieldLabel('Nombre del comprador',
-                        Icons.person_outline_rounded),
-                    _Field(
-                      controller: _compradorCtrl,
-                      hint: 'Nombre completo',
-                      capitalization: TextCapitalization.words,
-                    ),
-
-                    const _FieldLabel('Dirección de entrega',
-                        Icons.location_on_outlined),
-                    _Field(
-                      controller: _direccionCtrl,
-                      hint: 'Jr. Los Jardines 123',
-                      capitalization: TextCapitalization.words,
-                    ),
-
-                    const _FieldLabel('Tipo de envío',
-                        Icons.local_shipping_outlined),
-                    _Chips(
-                      opciones: const ['Shalom', 'Motorizado', 'Contraentrega'],
-                      valor: _tipoEnvio,
-                      onSelect: (v) { setState(() => _tipoEnvio = v); _checkForm(); },
-                    ),
-
-                    const _FieldLabel('Método de pago', Icons.payment_outlined),
-                    _Chips(
-                      opciones: const ['Yape', 'Plin', 'Transferencia', 'Tarjeta'],
-                      valor: _metodoPago,
-                      onSelect: (v) => setState(() => _metodoPago = v),
-                    ),
-
-                    if (_error != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Container(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.07),
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusSm),
-                          border: Border.all(
-                              color: AppColors.error.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(_error!,
-                            style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.error)),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: _confirmando
+                  ? _ConfirmacionInline(
+                      key: const ValueKey('confirm'),
+                      comprador:  _compradorCtrl.text.trim(),
+                      celular:    widget.cotizacion.celular,
+                      tipoEnvio:  _tipoEnvio,
+                      direccion:  _direccionCtrl.text.trim(),
+                      metodoPago: _metodoPago,
+                      total:      widget.cotizacion.total,
+                      botonKey:   _botonKey,
+                      registrando: _registrando,
+                      error:      _error,
+                      onEditar:   () => setState(() => _confirmando = false),
+                      onConfirmar: _registrar,
+                    )
+                  : Padding(
+                      key: const ValueKey('form'),
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            const Icon(Icons.edit_note_rounded,
+                                size: 14, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Text('Completa los datos para la venta',
+                                style: AppTextStyles.notasLabel.copyWith(
+                                    color: AppColors.primary, fontSize: 10)),
+                          ]),
+                          const SizedBox(height: AppSpacing.md),
+                          const _FieldLabel('Nombre del comprador',
+                              Icons.person_outline_rounded),
+                          _Field(
+                            controller: _compradorCtrl,
+                            hint: 'Nombre completo',
+                            capitalization: TextCapitalization.words,
+                          ),
+                          const _FieldLabel('Dirección de entrega',
+                              Icons.location_on_outlined),
+                          _Field(
+                            controller: _direccionCtrl,
+                            hint: 'Jr. Los Jardines 123',
+                            capitalization: TextCapitalization.words,
+                          ),
+                          const _FieldLabel('Tipo de envío',
+                              Icons.local_shipping_outlined),
+                          _Chips(
+                            opciones: const ['Shalom', 'Motorizado', 'Contraentrega'],
+                            valor: _tipoEnvio,
+                            onSelect: (v) { setState(() => _tipoEnvio = v); _checkForm(); },
+                          ),
+                          const _FieldLabel('Método de pago', Icons.payment_outlined),
+                          _Chips(
+                            opciones: const ['Yape', 'Plin', 'Transferencia', 'Tarjeta'],
+                            valor: _metodoPago,
+                            onSelect: (v) => setState(() => _metodoPago = v),
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          ValueListenableBuilder<bool>(
+                            valueListenable: _formValidoNotifier,
+                            builder: (context, formValido, _) => Row(key: _botonKey, children: [
+                              OutlinedButton(
+                                onPressed: _registrando
+                                    ? null
+                                    : () => setState(() {
+                                          _expandido   = false;
+                                          _confirmando = false;
+                                          _error       = null;
+                                        }),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.textMuted,
+                                  side: const BorderSide(color: AppColors.primaryLight),
+                                ),
+                                child: const Text('Cancelar'),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Expanded(
+                                child: FilledButton.icon(
+                                  onPressed: (!formValido || _registrando)
+                                      ? null
+                                      : () => setState(() => _confirmando = true),
+                                  icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                                  label: const Text('Revisar pedido'),
+                                ),
+                              ),
+                            ]),
+                          ),
+                        ],
                       ),
-                    ],
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    ValueListenableBuilder<bool>(
-                      valueListenable: _formValidoNotifier,
-                      builder: (context, formValido, _) => Row(key: _botonKey, children: [
-                      OutlinedButton(
-                        onPressed: _registrando
-                            ? null
-                            : () => setState(
-                                () { _expandido = false; _error = null; }),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textMuted,
-                          side: const BorderSide(color: AppColors.primaryLight),
-                        ),
-                        child: const Text('Cancelar'),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: (!formValido || _registrando)
-                              ? null
-                              : () async {
-                                  final confirmar = await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Row(
-                                        children: [
-                                          Icon(Icons.sell_outlined,
-                                              color: AppColors.primary,
-                                              size: 20),
-                                          SizedBox(width: 8),
-                                          Text('Confirmar venta'),
-                                        ],
-                                      ),
-                                      content: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _ResumenFila('Cliente',
-                                              _compradorCtrl.text.trim()),
-                                          _ResumenFila('Celular',
-                                              widget.cotizacion.celular),
-                                          _ResumenFila(
-                                              'Envío', _tipoEnvio),
-                                          _ResumenFila(
-                                              'Dirección',
-                                              _direccionCtrl.text.trim()),
-                                          _ResumenFila(
-                                              'Pago', _metodoPago),
-                                          if (widget.cotizacion.total !=
-                                              null) ...[
-                                            const Divider(height: 16),
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Text('TOTAL',
-                                                    style: AppTextStyles
-                                                        .notasLabel
-                                                        .copyWith(
-                                                            color: AppColors
-                                                                .textMuted)),
-                                                Text(
-                                                  'S/ ${widget.cotizacion.total!.toStringAsFixed(2)}',
-                                                  style: AppTextStyles.price
-                                                      .copyWith(
-                                                          color: AppColors
-                                                              .primaryDark,
-                                                          fontSize: 16),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx, false),
-                                          child: const Text('Cancelar'),
-                                        ),
-                                        FilledButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx, true),
-                                          child: const Text('Guardar venta'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirmar == true) _registrar();
-                                },
-                          icon: _registrando
-                              ? const SizedBox(
-                                  width: 14, height: 14,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white))
-                              : const Icon(Icons.check_circle_rounded, size: 16),
-                          label: Text(_registrando
-                              ? 'Registrando...'
-                              : 'Registrar venta'),
-                        ),
-                      ),
-                    ]),
                     ),
-                  ],
-                ),
               ),
             ],
           ],
@@ -786,6 +694,111 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
     );
   }
 
+}
+
+// ── Confirmación inline (reemplaza modal) ─────────────────────────────────────
+
+class _ConfirmacionInline extends StatelessWidget {
+  const _ConfirmacionInline({
+    super.key,
+    required this.comprador,
+    required this.celular,
+    required this.tipoEnvio,
+    required this.direccion,
+    required this.metodoPago,
+    required this.total,
+    required this.botonKey,
+    required this.registrando,
+    required this.error,
+    required this.onEditar,
+    required this.onConfirmar,
+  });
+  final String      comprador;
+  final String      celular;
+  final String      tipoEnvio;
+  final String      direccion;
+  final String      metodoPago;
+  final double?     total;
+  final GlobalKey   botonKey;
+  final bool        registrando;
+  final String?     error;
+  final VoidCallback onEditar;
+  final VoidCallback onConfirmar;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.receipt_long_rounded,
+                  size: 14, color: AppColors.primary),
+              const SizedBox(width: 4),
+              Text('Confirma antes de registrar',
+                  style: AppTextStyles.notasLabel
+                      .copyWith(color: AppColors.primary, fontSize: 10)),
+            ]),
+            const SizedBox(height: AppSpacing.md),
+            _ResumenFila('Cliente',   comprador),
+            _ResumenFila('Celular',   celular),
+            _ResumenFila('Envío',     tipoEnvio),
+            _ResumenFila('Dirección', direccion),
+            _ResumenFila('Pago',      metodoPago),
+            if (total != null) ...[
+              const Divider(height: 20, color: AppColors.primaryLight),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('TOTAL',
+                      style: AppTextStyles.notasLabel
+                          .copyWith(color: AppColors.textMuted)),
+                  Text('S/ ${total!.toStringAsFixed(2)}',
+                      style: AppTextStyles.price.copyWith(
+                          color: AppColors.primaryDark, fontSize: 16)),
+                ],
+              ),
+            ],
+            if (error != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Container(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+                ),
+                child: Text(error!,
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.error)),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            Row(key: botonKey, children: [
+              OutlinedButton(
+                onPressed: registrando ? null : onEditar,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textMuted,
+                  side: const BorderSide(color: AppColors.primaryLight),
+                ),
+                child: const Text('Editar'),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: registrando ? null : onConfirmar,
+                  icon: registrando
+                      ? const SizedBox(
+                          width: 14, height: 14,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.check_circle_rounded, size: 16),
+                  label: Text(registrando ? 'Registrando...' : 'Confirmar venta'),
+                ),
+              ),
+            ]),
+          ],
+        ),
+      );
 }
 
 // ── Tarjeta de éxito ──────────────────────────────────────────────────────────
@@ -915,7 +928,10 @@ class _Field extends StatelessWidget {
   final TextCapitalization     capitalization;
 
   @override
-  Widget build(BuildContext context) => TextField(
+  Widget build(BuildContext context) => Semantics(
+        label: hint,
+        textField: true,
+        child: TextField(
         controller:           controller,
         textCapitalization:   capitalization,
         decoration: InputDecoration(
@@ -939,7 +955,8 @@ class _Field extends StatelessWidget {
           contentPadding:
               const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
-      );
+      ),
+    );
 }
 
 class _Chips extends StatelessWidget {
@@ -961,34 +978,39 @@ class _Chips extends StatelessWidget {
           children: opciones.map((op) {
             final sel = valor == op;
             final radius = BorderRadius.circular(AppSpacing.radiusSm);
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                color: sel ? AppColors.primary : AppColors.surface,
-                borderRadius: radius,
-                border: Border.all(
-                  color: sel ? AppColors.primary : AppColors.primaryLight,
-                  width: sel ? 1.5 : 1,
+            return Semantics(
+              button: true,
+              label: op,
+              selected: sel,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  color: sel ? AppColors.primary : AppColors.surface,
+                  borderRadius: radius,
+                  border: Border.all(
+                    color: sel ? AppColors.primary : AppColors.primaryLight,
+                    width: sel ? 1.5 : 1,
+                  ),
                 ),
-              ),
-              child: InkWell(
-                onTap: () => onSelect(op),
-                borderRadius: radius,
-                splashColor: sel
-                    ? AppColors.primaryDark.withValues(alpha: 0.25)
-                    : AppColors.primaryLight,
-                highlightColor: Colors.transparent,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  child: Text(op,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
-                          color: sel
-                              ? const Color(0xFFFAF5F0)
-                              : AppColors.textSecondary)),
+                child: InkWell(
+                  onTap: () => onSelect(op),
+                  borderRadius: radius,
+                  splashColor: sel
+                      ? AppColors.primaryDark.withValues(alpha: 0.25)
+                      : AppColors.primaryLight,
+                  highlightColor: Colors.transparent,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 10),
+                    child: Text(op,
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                            color: sel
+                                ? AppColors.background
+                                : AppColors.textSecondary)),
+                  ),
                 ),
               ),
             );
@@ -1144,7 +1166,7 @@ class _AnimatedListItemState extends State<_AnimatedListItem>
     _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _slide   = Tween(begin: const Offset(0, 0.07), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    Future.delayed(Duration(milliseconds: min(widget.index * 20, 100)), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _ctrl.forward();
     });
   }

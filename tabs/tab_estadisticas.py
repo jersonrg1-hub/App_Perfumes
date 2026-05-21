@@ -64,14 +64,17 @@ def _resumen_hoy_banner(df_ventas):
 
 @st.fragment
 def mostrar_tab_estadisticas(df):
-    st.markdown("### 📊 Estadísticas de Ventas")
+    col_titulo, col_reload = st.columns([5, 1])
+    with col_titulo:
+        st.markdown("### 📊 Estadísticas de Ventas")
+    with col_reload:
+        st.markdown("<div style='padding-top:0.6rem;'></div>", unsafe_allow_html=True)
+        if st.button("🔄 Recargar", key="reload", use_container_width=True,
+                     help="Recargar datos desde Google Sheets"):
+            limpiar_cache_ventas()
+            limpiar_cache_catalogo()
+            st.rerun(scope="app")
 
-    if st.button("🔄 Recargar datos", key="reload"):
-        limpiar_cache_ventas()
-        limpiar_cache_catalogo()
-        st.rerun(scope="app")
-
-    st.markdown("---")
     try:
         with st.spinner("Cargando ventas..."):
             df_ventas = cargar_ventas()
@@ -80,14 +83,15 @@ def mostrar_tab_estadisticas(df):
         if df_ventas.empty and any("cargar_ventas" in entry for entry in error_log):
             st.warning(
                 "⚠️ Los datos de ventas pueden estar incompletos — "
-                "hubo un error al cargar. Presiona **Recargar datos** para intentar de nuevo."
+                "hubo un error al cargar. Presiona **Recargar** para intentar de nuevo."
             )
 
         _resumen_hoy_banner(df_ventas)
 
-        subtab1, subtab2, subtab3, subtab4 = st.tabs([
+        subtab1, subtab2, subtab3, subtab4, subtab5 = st.tabs([
             "📊 Resumen",
-            "📦 Ventas",
+            "📦 Pendientes",
+            "📋 Historial",
             "👥 Clientes",
             "📈 Análisis",
         ])
@@ -96,24 +100,25 @@ def mostrar_tab_estadisticas(df):
             mostrar_estadisticas(df_ventas, df)
 
         with subtab2:
-            seccion_ventas = st.radio(
-                "seccion_ventas",
-                ["📦 Pendientes", "📋 Historial", "📏 Tamaños", "📅 Semanal"],
-                horizontal=True,
-                label_visibility="collapsed",
-                key="ventas_radio",
-            )
-            st.markdown("")
-            if seccion_ventas == "📦 Pendientes":
-                mostrar_ventas_pendientes(df_ventas, df)
-            elif seccion_ventas == "📋 Historial":
-                mostrar_historial_ventas(df_ventas, df)
-            elif seccion_ventas == "📏 Tamaños":
-                mostrar_tamanios_populares(df_ventas)
-            elif seccion_ventas == "📅 Semanal":
-                mostrar_resumen_semanal(df_ventas, df)
+            mostrar_ventas_pendientes(df_ventas, df)
 
         with subtab3:
+            seccion_hist = st.radio(
+                "seccion_hist",
+                ["📋 Historial", "📏 Tamaños", "📅 Semanal"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="hist_radio",
+            )
+            st.markdown("")
+            if seccion_hist == "📋 Historial":
+                mostrar_historial_ventas(df_ventas, df)
+            elif seccion_hist == "📏 Tamaños":
+                mostrar_tamanios_populares(df_ventas)
+            elif seccion_hist == "📅 Semanal":
+                mostrar_resumen_semanal(df_ventas, df)
+
+        with subtab4:
             seccion_clientes = st.radio(
                 "seccion_clientes",
                 ["👥 Clientes Frecuentes", "💰 Cotizaciones"],
@@ -127,7 +132,7 @@ def mostrar_tab_estadisticas(df):
             elif seccion_clientes == "💰 Cotizaciones":
                 mostrar_historial_cotizaciones()
 
-        with subtab4:
+        with subtab5:
             seccion_analisis = st.radio(
                 "seccion_analisis",
                 ["📈 Gráficos", "🧪 Stock", "🏆 Rentabilidad", "💾 Backup"],

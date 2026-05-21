@@ -7,17 +7,17 @@ from config import fmt_precio, fmt_fecha
 from costos import construir_costo_ml_dict, costo_por_item, COSTO_VIAL, COSTO_EMPAQUE, calcular_costo_ventas_df
 
 
-def _card_hist(titulo, valor):
+def _card_hist(titulo, valor, color="#c8956c"):
     t = html.escape(str(titulo))
     v = html.escape(str(valor))
     return f"""
     <div style="background:white; border-radius:12px; padding:1rem;
         text-align:center; border:1px solid #ede0d4;
-        border-top:3px solid #c8956c;
+        border-top:3px solid {color};
         box-shadow:0 2px 8px rgba(200,149,108,0.08);">
         <div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;
             font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">{t}</div>
-        <div style="color:#c8956c; font-size:1.5rem; font-weight:700;
+        <div style="color:{color}; font-size:1.5rem; font-weight:700;
             font-family:Inter,sans-serif;
             font-variant-numeric:tabular-nums;
             white-space:nowrap;">{v}</div>
@@ -54,7 +54,7 @@ def _mostrar_resumen_total(entregadas, df_catalogo):
     with col3:
         st.markdown(_card_hist("Total costo", f"S/ {fmt_precio(total_costo)}"), unsafe_allow_html=True)
     with col4:
-        st.markdown(_card_hist("Total ganancia", f"S/ {fmt_precio(total_ganancia)}"), unsafe_allow_html=True)
+        st.markdown(_card_hist("Total ganancia", f"S/ {fmt_precio(total_ganancia)}", color="#16a34a"), unsafe_allow_html=True)
 
     st.markdown("")
     col5, col6, col7, col8 = st.columns(4)
@@ -185,41 +185,91 @@ def mostrar_historial_ventas(df_ventas, df_catalogo=None):
             f"✅ {id_compra} — {primera.get('Comprador', '')} | "
             f"{fecha_str} | S/ {fmt_precio(total_compra)}{gan_header}"
         ):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write(f"📅 **Fecha:** {fecha_str}")
-                st.write(f"📱 **Celular:** {primera.get('Celular', '')}")
-                st.write(f"🚚 **Envío:** {primera.get('Tipo_Envio', '')}")
-            with col2:
-                st.write(f"📍 **Dirección:** {primera.get('Direccion', '')}")
-                st.write(f"💳 **Pago:** {primera.get('Metodo_Pago', '')}")
-                st.write(f"📦 **Estado:** ✅ Entregado")
+            celular_h  = html.escape(str(primera.get("Celular", "")))
+            envio_h    = html.escape(str(primera.get("Tipo_Envio", "")))
+            dir_h      = html.escape(str(primera.get("Direccion", "") or "—"))
+            pago_h     = html.escape(str(primera.get("Metodo_Pago", "")))
+            comp_h     = html.escape(str(primera.get("Comprador", "")))
 
-            st.markdown("**🛍️ Productos:**")
+            st.markdown(
+                f"""<div style="background:#fdf6f0;border:1px solid #ede0d4;border-radius:12px;
+                    padding:0.85rem 1.1rem;margin-bottom:0.6rem;
+                    display:grid;grid-template-columns:1fr 1fr;gap:0.45rem;
+                    font-size:0.88rem;color:#2c1a0e;">
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">👤 Comprador</span>
+                        <br><strong>{comp_h}</strong></div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">📱 Celular</span>
+                        <br><strong>{celular_h}</strong></div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">📅 Fecha</span>
+                        <br><strong>{fecha_str}</strong></div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">💳 Pago</span>
+                        <br><strong>{pago_h}</strong></div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">🚚 Envío</span>
+                        <br><strong>{envio_h}</strong></div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">📍 Dirección</span>
+                        <br><strong>{dir_h}</strong></div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+            st.markdown(
+                "<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+                "font-weight:700;letter-spacing:0.12em;padding-bottom:0.35rem;"
+                "border-bottom:1px solid #ede0d4;margin-bottom:0.4rem;'>🛍️ Productos</div>",
+                unsafe_allow_html=True,
+            )
+            items_rows = []
             for item in grupo.to_dict("records"):
-                nombre = nombre_por_id(catalogo_dict, item.get("ID_Perfume", ""))
+                nombre = html.escape(str(nombre_por_id(catalogo_dict, item.get("ID_Perfume", ""))))
+                precio_cob = float(item.get("Precio_Cobrado", 0))
+                gan_html = ""
                 try:
                     ml = int(item.get("Ml_Vendido", 0))
-                    precio_cob = float(item.get("Precio_Cobrado", 0))
                     costo_ml = costo_ml_dict.get(str(item.get("ID_Perfume", "")), 0.0)
                     costo_est = costo_por_item(ml) + costo_ml * ml
                     gan = precio_cob - costo_est
-                    gan_txt = f" | 💰 gan. S/ {fmt_precio(gan)}"
+                    gan_html = (
+                        f"<span style='font-size:0.75rem;color:#16a34a;font-weight:600;"
+                        f"margin-left:0.5rem;'>+S/ {fmt_precio(gan)}</span>"
+                    )
                 except Exception:
-                    gan_txt = ""
-                st.markdown(
-                    f"- 🌸 **{nombre}** — "
-                    f"{item.get('Ml_Vendido', '')}ml "
-                    f"| S/ {fmt_precio(item.get('Precio_Cobrado', 0))}"
-                    f"{gan_txt}"
+                    pass
+                items_rows.append(
+                    f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                    f"padding:0.35rem 0;border-bottom:1px solid #f5ede6;font-size:0.88rem;'>"
+                    f"<span style='color:#2c1a0e;font-weight:500;'>"
+                    f"🌸 {nombre} · {item.get('Ml_Vendido','')}ml</span>"
+                    f"<span style='display:flex;align-items:center;gap:0.3rem;'>"
+                    f"<span style='font-weight:700;color:#c8956c;font-family:Inter,sans-serif;"
+                    f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(precio_cob)}</span>"
+                    f"{gan_html}</span></div>"
                 )
-
+            total_gan_html = ""
+            if ganancia_compra is not None:
+                total_gan_html = (
+                    f"<span style='color:#16a34a;font-weight:700;font-family:Inter,sans-serif;"
+                    f"font-variant-numeric:tabular-nums;margin-left:0.8rem;'>"
+                    f"💰 S/ {fmt_precio(ganancia_compra)}</span>"
+                )
             st.markdown(
-                f"<div style='text-align:right; margin-top:0.5rem; font-size:0.88rem;'>"
-                f"🧾 <b>Total venta: S/ {fmt_precio(total_compra)}</b>"
-                + (f"&nbsp;&nbsp;|&nbsp;&nbsp;💰 <b>Ganancia: S/ {fmt_precio(ganancia_compra)}</b>" if ganancia_compra is not None else "")
-                + "</div>",
-                unsafe_allow_html=True
+                f"<div style='background:white;border:1px solid #ede0d4;border-radius:10px;"
+                f"padding:0.6rem 1rem;margin-bottom:0.4rem;'>"
+                f"{''.join(items_rows)}"
+                f"<div style='display:flex;justify-content:flex-end;align-items:center;"
+                f"margin-top:0.5rem;padding-top:0.4rem;border-top:1px solid #ede0d4;'>"
+                f"<span style='font-size:0.8rem;color:#a07850;font-weight:600;'>"
+                f"Total</span>"
+                f"<span style='font-weight:800;color:#2c1a0e;font-family:Inter,sans-serif;"
+                f"font-variant-numeric:tabular-nums;margin-left:0.5rem;'>"
+                f"S/ {fmt_precio(total_compra)}</span>"
+                f"{total_gan_html}</div></div>",
+                unsafe_allow_html=True,
             )
 
     if mostrados < len(orden_ids):

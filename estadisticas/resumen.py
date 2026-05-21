@@ -25,17 +25,17 @@ def _pdf_especifico(df_ventas: pd.DataFrame, df_catalogo: pd.DataFrame, anio: in
     return exportar_pdf_mes_especifico(df_ventas, df_catalogo, anio, mes)
 
 
-def _metrica_card(titulo, valor):
+def _metrica_card(titulo, valor, color="#c8956c"):
     titulo_safe = html.escape(str(titulo))
     valor_safe = html.escape(str(valor))
     return f"""
     <div style="background:white; border-radius:12px; padding:1rem;
         text-align:center; border:1px solid #ede0d4;
-        border-top:3px solid #c8956c;
+        border-top:3px solid {color};
         box-shadow:0 2px 8px rgba(200,149,108,0.08);">
         <div style="color:#a07850; font-size:0.68rem; text-transform:uppercase;
             font-weight:600; letter-spacing:0.1em; margin-bottom:0.3rem;">{titulo_safe}</div>
-        <div style="color:#c8956c; font-size:1.7rem; font-weight:700;
+        <div style="color:{color}; font-size:1.7rem; font-weight:700;
             font-family:Inter,sans-serif;
             font-variant-numeric:tabular-nums;
             white-space:nowrap;">{valor_safe}</div>
@@ -50,10 +50,14 @@ def _calcular_mas_vendidos(df_ventas, df_catalogo):
     df = df_ventas.copy()
     df["ID_Perfume"] = df["ID_Perfume"].astype(str)
     df["Ml_Vendido"] = pd.to_numeric(df["Ml_Vendido"], errors="coerce").fillna(0)
+    agg_cols = {"Total_ml": ("Ml_Vendido", "sum")}
+    if "ID_Compra" in df.columns:
+        agg_cols["N_Ventas"] = ("ID_Compra", "nunique")
     mas_vendidos = (
-        df.groupby("ID_Perfume")["Ml_Vendido"]
-        .sum().reset_index(name="Cantidad")
-        .sort_values("Cantidad", ascending=False)
+        df.groupby("ID_Perfume")
+        .agg(**agg_cols)
+        .reset_index()
+        .sort_values("Total_ml", ascending=False)
     )
     return mas_vendidos.merge(
         df_catalogo[["ID_Perfume", "Nombre", "Marca"]].assign(
@@ -99,33 +103,55 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
 
     def _label_periodo(texto):
         return (
-            f"<div style='font-size:0.72rem; text-transform:uppercase; font-weight:700;"
-            f"color:#a07850; letter-spacing:0.1em; margin:0.6rem 0 0.4rem;'>{texto}</div>"
+            f"<div style='font-size:0.68rem; text-transform:uppercase; font-weight:700;"
+            f"color:#a07850; letter-spacing:0.12em; border-bottom:1px solid #ede0d4;"
+            f"padding-bottom:0.35rem; margin:0.8rem 0 0.5rem;'>{texto}</div>"
         )
 
     st.markdown(_label_periodo("☀️ Hoy"), unsafe_allow_html=True)
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown(_metrica_card("Ventas", n_hoy), unsafe_allow_html=True)
-    with col2:
-        st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total_hoy)}"), unsafe_allow_html=True)
-    with col3:
-        st.markdown(_metrica_card("Costo", f"S/ {fmt_precio(costo_hoy)}"), unsafe_allow_html=True)
-    with col4:
-        st.markdown(_metrica_card("Ganancia", f"S/ {fmt_precio(ganancia_hoy)}"), unsafe_allow_html=True)
+    if n_hoy == 0:
+        st.markdown(
+            "<div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;"
+            "padding:0.75rem 1.2rem;text-align:center;color:#9ca3af;font-size:0.88rem;"
+            "margin-bottom:0.5rem;'>Sin ventas entregadas hoy todavía</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.markdown(_metrica_card("Ventas", n_hoy), unsafe_allow_html=True)
+        with col2:
+            st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total_hoy)}"), unsafe_allow_html=True)
+        with col3:
+            st.markdown(_metrica_card("Costo", f"S/ {fmt_precio(costo_hoy)}"), unsafe_allow_html=True)
+        with col4:
+            st.markdown(_metrica_card("Ganancia", f"S/ {fmt_precio(ganancia_hoy)}", color="#16a34a"), unsafe_allow_html=True)
 
     st.markdown(_label_periodo("📅 Este mes"), unsafe_allow_html=True)
-    col5, col6, col7, col8 = st.columns(4)
-    with col5:
-        st.markdown(_metrica_card("Ventas", n_mes), unsafe_allow_html=True)
-    with col6:
-        st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
-    with col7:
-        st.markdown(_metrica_card("Costo", f"S/ {fmt_precio(costo_mes)}"), unsafe_allow_html=True)
-    with col8:
-        st.markdown(_metrica_card("Ganancia", f"S/ {fmt_precio(ganancia_mes)}"), unsafe_allow_html=True)
+    if n_mes == 0:
+        st.markdown(
+            "<div style='background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;"
+            "padding:0.75rem 1.2rem;text-align:center;color:#9ca3af;font-size:0.88rem;"
+            "margin-bottom:0.5rem;'>Sin ventas entregadas este mes todavía</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        col5, col6, col7, col8 = st.columns(4)
+        with col5:
+            st.markdown(_metrica_card("Ventas", n_mes), unsafe_allow_html=True)
+        with col6:
+            st.markdown(_metrica_card("Total", f"S/ {fmt_precio(total_mes)}"), unsafe_allow_html=True)
+        with col7:
+            st.markdown(_metrica_card("Costo", f"S/ {fmt_precio(costo_mes)}"), unsafe_allow_html=True)
+        with col8:
+            st.markdown(_metrica_card("Ganancia", f"S/ {fmt_precio(ganancia_mes)}", color="#16a34a"), unsafe_allow_html=True)
 
-    st.markdown("")
+    st.markdown(
+        "<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+        "font-weight:700;letter-spacing:0.12em;padding-bottom:0.35rem;"
+        "border-bottom:1px solid #ede0d4;margin:0.8rem 0 0.5rem;'>📄 Exportar PDF</div>",
+        unsafe_allow_html=True,
+    )
     col_pdf1, col_pdf2 = st.columns(2)
     with col_pdf1:
         pdf_bytes_hoy = _pdf_hoy(df_ventas, df_catalogo)
@@ -194,11 +220,19 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
     # ────────────────────────────────────────────────────────────────────
 
     separador()
-    st.markdown("#### 🏆 Perfumes más vendidos")
+    st.markdown(
+        "<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+        "font-weight:700;letter-spacing:0.12em;padding-bottom:0.35rem;"
+        "border-bottom:1px solid #ede0d4;margin-bottom:0.6rem;'>🏆 Perfumes más vendidos</div>",
+        unsafe_allow_html=True,
+    )
 
     if "ID_Perfume" in df_ventas.columns:
+        cols_mv = ["ID_Perfume", "Ml_Vendido"]
+        if "ID_Compra" in df_ventas.columns:
+            cols_mv.append("ID_Compra")
         mas_vendidos = _calcular_mas_vendidos(
-            df_ventas[["ID_Perfume", "Ml_Vendido"]],
+            df_ventas[cols_mv],
             df_catalogo[["ID_Perfume", "Nombre", "Marca"]]
         )
         _LIMIT = 5
@@ -207,10 +241,13 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
         filas_mv = mas_vendidos.to_dict("records")
         mostrar_mv = filas_mv if st.session_state.mv_ver_todos else filas_mv[:_LIMIT]
         for pos, row in enumerate(mostrar_mv, 1):
-            nombre = html.escape(str(row.get("Nombre", "Desconocido")))
-            marca  = html.escape(str(row.get("Marca", "")))
-            cant   = int(row["Cantidad"])
+            nombre   = html.escape(str(row.get("Nombre", "Desconocido")))
+            marca    = html.escape(str(row.get("Marca", "")))
+            cant     = int(row["Total_ml"])
+            n_ventas = int(row.get("N_Ventas", 0))
             cant_txt = f"{cant}ml"
+            if n_ventas:
+                cant_txt += f" · {n_ventas} venta{'s' if n_ventas != 1 else ''}"
 
             if pos == 1:
                 rank_bg, rank_color = "#2c1a0e", "white"
@@ -254,12 +291,4 @@ def mostrar_estadisticas(df_ventas, df_catalogo):
                 st.session_state.mv_ver_todos = not st.session_state.mv_ver_todos
                 st.rerun()
 
-    st.markdown("")
-    st.markdown("#### 📋 Historial completo")
-    with st.expander("Ver todas las ventas"):
-        cols_mostrar = [c for c in df_ventas.columns if c != "fila_sheet"]
-        st.dataframe(
-            df_ventas[cols_mostrar].sort_values("Fecha", ascending=False),
-            use_container_width=True, hide_index=True
-        )
 

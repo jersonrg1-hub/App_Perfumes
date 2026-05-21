@@ -2,17 +2,22 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/core/constants/api_constants.dart';
 import 'package:perfuteca/core/errors/app_exception.dart';
+import 'package:perfuteca/core/network/cache_config.dart';
 import 'package:perfuteca/core/network/dio_client.dart';
 import 'package:perfuteca/models/cotizacion.dart';
 import 'package:perfuteca/models/paginated.dart';
 
 final cotizacionesRepositoryProvider = Provider<CotizacionesRepository>((ref) {
-  return CotizacionesRepository(ref.watch(dioProvider));
+  return CotizacionesRepository(
+    ref.watch(dioProvider),
+    ref.watch(cacheHelperProvider),
+  );
 });
 
 class CotizacionesRepository {
-  CotizacionesRepository(this._dio);
-  final Dio _dio;
+  CotizacionesRepository(this._dio, this._cache);
+  final Dio         _dio;
+  final CacheHelper _cache;
 
   Future<Paginated<CotizacionResponse>> getCotizaciones({
     int limit = 100,
@@ -27,6 +32,7 @@ class CotizacionesRepository {
           'offset': offset,
           if (estado != null) 'estado': estado,
         },
+        options: _cache.cacheFor(const Duration(minutes: 3)),
       );
       return Paginated.fromJson(
         res.data!,

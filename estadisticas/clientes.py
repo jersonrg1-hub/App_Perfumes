@@ -80,8 +80,15 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
         st.info("😔 No se encontró ningún cliente")
         return
 
-    st.markdown(f"**{len(df_mostrar)} cliente(s) encontrado(s)**")
-    st.markdown("")
+    n_cl = len(df_mostrar)
+    s = "s" if n_cl != 1 else ""
+    st.markdown(
+        f"<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+        f"font-weight:700;letter-spacing:0.12em;padding-bottom:0.35rem;"
+        f"border-bottom:1px solid #ede0d4;margin-bottom:0.6rem;'>"
+        f"👥 {n_cl} cliente{s}</div>",
+        unsafe_allow_html=True,
+    )
 
     catalogo_dict = construir_catalogo_dict(df_catalogo)
 
@@ -107,21 +114,43 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
         with st.expander(
             f"👤 {nombre} — {celular} | S/ {fmt_precio(total_gastado)} | {n_compras} compra(s)"
         ):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.markdown(
-                    f"<span style='color:{badge_color}; font-weight:600'>{badge}</span>",
-                    unsafe_allow_html=True
-                )
-                st.write(f"📱 **Celular:** {celular}")
-                st.write(f"🛍️ **Compras:** {n_compras} pedidos / {n_items} items")
-            with col2:
-                st.write(f"💰 **Total gastado:** S/ {fmt_precio(total_gastado)}")
-                st.write(f"📅 **Primera compra:** {primera}")
-                st.write(f"📅 **Última compra:** {ultima}")
+            nombre_esc = html.escape(str(nombre))
+            celular_esc = html.escape(str(celular))
+            st.markdown(
+                f"""<div style="background:#fdf6f0;border:1px solid #ede0d4;border-radius:12px;
+                    padding:0.85rem 1.1rem;margin-bottom:0.6rem;
+                    display:grid;grid-template-columns:1fr 1fr;gap:0.45rem;
+                    font-size:0.88rem;color:#2c1a0e;">
+                    <div style="grid-column:1/-1;margin-bottom:0.2rem;">
+                        <span style="background:{badge_color};color:white;border-radius:20px;
+                        padding:0.15rem 0.65rem;font-size:0.72rem;font-weight:700;
+                        letter-spacing:0.06em;">{badge}</span>
+                    </div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">📱 Celular</span>
+                        <br><strong>{celular_esc}</strong></div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">💰 Total gastado</span>
+                        <br><strong style="color:#c8956c;font-family:Inter,sans-serif;
+                        font-variant-numeric:tabular-nums;">S/ {fmt_precio(total_gastado)}</strong></div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">🛍️ Pedidos</span>
+                        <br><strong>{n_compras} compra{"s" if n_compras != 1 else ""} · {n_items} items</strong></div>
+                    <div><span style="color:#a07850;font-size:0.68rem;text-transform:uppercase;
+                        font-weight:700;letter-spacing:0.08em;">📅 Primera / Última</span>
+                        <br><strong>{primera}</strong>
+                        <span style="color:#a07850;"> → </span>
+                        <strong>{ultima}</strong></div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
 
-            st.markdown("---")
-            st.markdown("**🧾 Historial de pedidos:**")
+            st.markdown(
+                "<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+                "font-weight:700;letter-spacing:0.12em;padding-bottom:0.35rem;"
+                "border-bottom:1px solid #ede0d4;margin-bottom:0.5rem;'>🧾 Historial de pedidos</div>",
+                unsafe_allow_html=True,
+            )
 
             pedidos_cliente = df[df["Celular"].astype(str) == celular]
             orden = (
@@ -138,29 +167,37 @@ def mostrar_clientes_frecuentes(df_ventas, df_catalogo=None):
                 fecha_pedido = fmt_fecha(primera_fila["Fecha"]) if pd.notna(primera_fila.get("Fecha")) else "—"
                 estado = primera_fila.get("Estado", "—")
                 estado_icon = "✅" if estado == "Entregado" else "📦"
-
+                items_html = "".join([
+                    f"<div style='display:flex;justify-content:space-between;"
+                    f"padding:0.25rem 0;border-bottom:1px solid #f5ede6;font-size:0.82rem;'>"
+                    f"<span style='color:#2c1a0e;'>🌸 {html.escape(str(nombre_por_id(catalogo_dict, it.get('ID_Perfume',''))))}"
+                    f" · {it.get('Ml_Vendido','')}ml</span>"
+                    f"<span style='color:#c8956c;font-weight:700;font-family:Inter,sans-serif;"
+                    f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(it.get('Precio_Cobrado',0))}</span>"
+                    f"</div>"
+                    for it in grupo.to_dict("records")
+                ])
                 st.markdown(
-                    f"**{estado_icon} {id_compra}** — {fecha_pedido} — "
-                    f"S/ {fmt_precio(total_pedido)} — {primera_fila.get('Tipo_Envio', '')} — "
-                    f"{primera_fila.get('Metodo_Pago', '')}"
+                    f"<div style='background:white;border:1px solid #ede0d4;border-radius:10px;"
+                    f"padding:0.55rem 0.9rem;margin-bottom:0.4rem;'>"
+                    f"<div style='display:flex;justify-content:space-between;align-items:center;"
+                    f"margin-bottom:0.3rem;'>"
+                    f"<span style='font-weight:700;color:#2c1a0e;font-size:0.88rem;'>"
+                    f"{estado_icon} {html.escape(str(id_compra))}</span>"
+                    f"<span style='font-size:0.78rem;color:#a07850;'>{fecha_pedido} · "
+                    f"{html.escape(str(primera_fila.get('Tipo_Envio','')))} · "
+                    f"{html.escape(str(primera_fila.get('Metodo_Pago','')))}</span>"
+                    f"<span style='font-weight:800;color:#c8956c;font-family:Inter,sans-serif;"
+                    f"font-variant-numeric:tabular-nums;'>S/ {fmt_precio(total_pedido)}</span>"
+                    f"</div>{items_html}</div>",
+                    unsafe_allow_html=True,
                 )
 
-                for item in grupo.to_dict("records"):
-                    nombre_perfume = nombre_por_id(catalogo_dict, item.get("ID_Perfume", ""))
-                    st.markdown(
-                        f"&nbsp;&nbsp;&nbsp;&nbsp;🌸 {nombre_perfume} "
-                        f"— {item.get('Ml_Vendido', '')}ml "
-                        f"— S/ {fmt_precio(item.get('Precio_Cobrado', 0))}",
-                        unsafe_allow_html=True
-                    )
-
-            st.markdown("")
             wa_url = f"https://wa.me/51{celular}"
             st.markdown(
-                f"""<a href="{wa_url}" target="_blank" style="text-decoration:none;">
-                <div style="background:#25D366; color:white; padding:10px; border-radius:8px;
-                text-align:center; font-weight:600; font-size:0.9rem;">
-                    📲 Escribir por WhatsApp
-                </div></a>""",
-                unsafe_allow_html=True
+                f'<a href="{wa_url}" target="_blank" style="text-decoration:none;display:block;margin-top:0.6rem;">'
+                f'<div style="background:#25D366;color:white;padding:11px;border-radius:10px;'
+                f'text-align:center;font-weight:700;font-size:0.9rem;">'
+                f'📲 Escribir a {nombre_esc} por WhatsApp</div></a>',
+                unsafe_allow_html=True,
             )

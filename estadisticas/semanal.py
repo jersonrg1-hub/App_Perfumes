@@ -64,11 +64,14 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
         (df_ventas["Fecha"].dt.normalize() <= fin_semana.normalize())
     ]
 
-    st.markdown("#### 📅 Resumen de esta semana")
     st.markdown(
-        f"<div style='font-size:0.85rem; color:#a07850; font-weight:600; margin-bottom:0.5rem;'>"
-        f"{inicio_semana.strftime('%d/%m/%Y')} — {fin_semana.strftime('%d/%m/%Y')}</div>",
-        unsafe_allow_html=True
+        f"<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+        f"font-weight:700;letter-spacing:0.12em;padding-bottom:0.35rem;"
+        f"border-bottom:1px solid #ede0d4;margin-bottom:0.5rem;'>"
+        f"📅 Esta semana &nbsp;"
+        f"<span style='font-size:0.75rem;text-transform:none;font-weight:600;letter-spacing:0;'>"
+        f"{inicio_semana.strftime('%d/%m')} – {fin_semana.strftime('%d/%m/%Y')}</span></div>",
+        unsafe_allow_html=True,
     )
 
     total_semana = ventas_semana["Precio_Cobrado"].sum()
@@ -90,10 +93,10 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
     with col4:
         st.markdown(_metrica_card("Costo semana", f"S/ {fmt_precio(costo_semana)}"), unsafe_allow_html=True)
     with col5:
-        st.markdown(_metrica_card("Ganancia semana", f"S/ {fmt_precio(ganancia_semana)}"), unsafe_allow_html=True)
+        st.markdown(_metrica_card("Ganancia semana", f"S/ {fmt_precio(ganancia_semana)}", color="#16a34a"), unsafe_allow_html=True)
 
     if not ventas_semana.empty and "ID_Perfume" in ventas_semana.columns:
-        st.markdown("")
+        st.markdown("<div style='margin-top:0.5rem;'></div>", unsafe_allow_html=True)
 
         conteo = (
             ventas_semana.assign(ID_Perfume=ventas_semana["ID_Perfume"].astype(str))
@@ -133,8 +136,12 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
         st.info("Sin ventas esta semana aún")
 
     if not ventas_semana.empty:
-        st.markdown("")
-        st.markdown("**📊 Ventas por día:**")
+        st.markdown(
+            "<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+            "font-weight:700;letter-spacing:0.12em;padding-bottom:0.35rem;"
+            "border-bottom:1px solid #ede0d4;margin:0.8rem 0 0.5rem;'>📊 Ventas por día</div>",
+            unsafe_allow_html=True,
+        )
         dias = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
         cols = st.columns(7)
         for i, dia in enumerate(dias):
@@ -162,8 +169,12 @@ def mostrar_resumen_semanal(df_ventas, df_catalogo):
                 </div>
                 """, unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.markdown("#### 📆 Comparar meses")
+    st.markdown(
+        "<div style='font-size:0.68rem;color:#a07850;text-transform:uppercase;"
+        "font-weight:700;letter-spacing:0.12em;padding-bottom:0.35rem;"
+        "border-bottom:1px solid #ede0d4;margin:1rem 0 0.6rem;'>📆 Comparar meses</div>",
+        unsafe_allow_html=True,
+    )
 
     opciones_meses = [
         str(m) for m in sorted(

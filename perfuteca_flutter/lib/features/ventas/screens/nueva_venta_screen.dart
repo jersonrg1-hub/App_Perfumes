@@ -33,8 +33,8 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
     ref.read(nuevaVentaProvider.notifier).irPaso(paso);
     _pageController.animateToPage(
       paso - 1,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -54,23 +54,33 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
     );
 
     if (state.ventaRegistrada != null) {
-      return _TicketExito(
-        idCompra:   state.ventaRegistrada!.idCompra,
-        warning:    state.ventaRegistrada!.warning,
-        celular:    state.celular,
-        comprador:  state.comprador,
-        tipoEnvio:  state.tipoEnvio,
-        direccion:  state.direccion,
-        metodoPago: state.metodoPago,
-        total:      state.total,
-        cesta:      state.cesta,
-        onNueva: () {
-          ref.read(nuevaVentaProvider.notifier).reset();
-          ref.invalidate(historialProvider);
-          ref.invalidate(pendientesProvider);
-          ref.invalidate(ventasParaStatsProvider);
-          _pageController.jumpToPage(0);
-        },
+      return TweenAnimationBuilder<double>(
+        key: const ValueKey('ticket_exito'),
+        tween: Tween(begin: 0.0, end: 1.0),
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        builder: (context, v, child) => Opacity(
+          opacity: v,
+          child: Transform.scale(scale: 0.94 + 0.06 * v, child: child),
+        ),
+        child: _TicketExito(
+          idCompra:   state.ventaRegistrada!.idCompra,
+          warning:    state.ventaRegistrada!.warning,
+          celular:    state.celular,
+          comprador:  state.comprador,
+          tipoEnvio:  state.tipoEnvio,
+          direccion:  state.direccion,
+          metodoPago: state.metodoPago,
+          total:      state.total,
+          cesta:      state.cesta,
+          onNueva: () {
+            ref.read(nuevaVentaProvider.notifier).reset();
+            ref.invalidate(historialProvider);
+            ref.invalidate(pendientesProvider);
+            ref.invalidate(ventasParaStatsProvider);
+            _pageController.jumpToPage(0);
+          },
+        ),
       );
     }
 
@@ -844,17 +854,20 @@ class _BottomPanel extends StatelessWidget {
                       child: ListView.builder(
                         shrinkWrap: true,
                         itemCount: state.cesta.length,
-                        itemBuilder: (_, i) => ItemCestaCard(
-                          item:     state.cesta[i],
-                          index:    i,
-                          onQuitar: () => onQuitarItem(i),
-                          onEditarPrecio: onEditarPrecio == null
-                              ? null
-                              : () => onEditarPrecio!(
-                                    i,
-                                    state.cesta[i].precio,
-                                    state.cesta[i].perfume.nombre,
-                                  ),
+                        itemBuilder: (_, i) => _FadeSlideIn(
+                          delay: Duration(milliseconds: i * 45),
+                          child: ItemCestaCard(
+                            item:     state.cesta[i],
+                            index:    i,
+                            onQuitar: () => onQuitarItem(i),
+                            onEditarPrecio: onEditarPrecio == null
+                                ? null
+                                : () => onEditarPrecio!(
+                                      i,
+                                      state.cesta[i].precio,
+                                      state.cesta[i].perfume.nombre,
+                                    ),
+                          ),
                         ),
                       ),
                     )
@@ -992,10 +1005,8 @@ class _PerfumeItem extends StatelessWidget {
             Row(
               children: precios.entries.map((e) => Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: InkWell(
+                child: _ScaleTap(
                   onTap: () => onAgregar(e.key),
-                  borderRadius:
-                      BorderRadius.circular(AppSpacing.radiusSm),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.md, vertical: 6),
@@ -1744,4 +1755,99 @@ String _formatFecha(String isoDate) {
   } catch (_) {
     return isoDate;
   }
+}
+
+// ── Entrada escalonada (stagger fadeInUp) ────────────────────────────────────
+
+class _FadeSlideIn extends StatefulWidget {
+  const _FadeSlideIn({required this.child, required this.delay});
+  final Widget   child;
+  final Duration delay;
+
+  @override
+  State<_FadeSlideIn> createState() => _FadeSlideInState();
+}
+
+class _FadeSlideInState extends State<_FadeSlideIn>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 240),
+      vsync: this,
+    );
+    _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide   = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end:   Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+
+    Future.delayed(widget.delay, () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: _opacity,
+        child: SlideTransition(position: _slide, child: widget.child),
+      );
+}
+
+// ── Press con escala (reemplaza InkWell en chips de precio) ──────────────────
+
+class _ScaleTap extends StatefulWidget {
+  const _ScaleTap({required this.child, required this.onTap});
+  final Widget       child;
+  final VoidCallback onTap;
+
+  @override
+  State<_ScaleTap> createState() => _ScaleTapState();
+}
+
+class _ScaleTapState extends State<_ScaleTap>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double>   _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync:           this,
+      duration:        const Duration(milliseconds: 130),
+      reverseDuration: const Duration(milliseconds: 200),
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.93)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTapDown:  (_) => _ctrl.forward(),
+        onTapUp:    (_) {
+          _ctrl.reverse();
+          HapticFeedback.selectionClick();
+          widget.onTap();
+        },
+        onTapCancel: () => _ctrl.reverse(),
+        child: ScaleTransition(scale: _scale, child: widget.child),
+      );
 }

@@ -46,7 +46,8 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
             ? clientes
             : clientes.where((c) =>
                 c.nombre.toLowerCase().contains(_buscar.toLowerCase()) ||
-                c.celular.contains(_buscar),
+                c.celular.contains(_buscar) ||
+                c.direccion.toLowerCase().contains(_buscar.toLowerCase()),
               ).toList();
 
         final top  = clientes.isNotEmpty ? clientes.first : null;
@@ -305,12 +306,12 @@ class _ClienteCardState extends State<_ClienteCard> {
                           color: AppColors.primaryDark,
                         ),
                       ),
-                      Icon(
-                        _expandido
-                            ? Icons.expand_less_rounded
-                            : Icons.expand_more_rounded,
-                        size: 18,
-                        color: AppColors.textMuted,
+                      AnimatedRotation(
+                        turns: _expandido ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        child: const Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 18, color: AppColors.textMuted),
                       ),
                     ],
                   ),
@@ -319,8 +320,10 @@ class _ClienteCardState extends State<_ClienteCard> {
             ),
 
             // ── Detalle expandible ────────────────────────────────
-            if (_expandido)
-              Container(
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              child: _expandido ? Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(
                     AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
@@ -345,6 +348,8 @@ class _ClienteCardState extends State<_ClienteCard> {
                         '📅 Primera compra', _fmtFecha(c.primeraCompra)),
                     _InfoRow(
                         '📅 Última compra', _fmtFecha(c.ultimaCompra)),
+                    if (c.direccion.isNotEmpty)
+                      _InfoRowMultiline('📍 Dirección', c.direccion),
 
                     const SizedBox(height: AppSpacing.sm),
                     Text(
@@ -359,7 +364,8 @@ class _ClienteCardState extends State<_ClienteCard> {
                         .map((e) => _PedidoRow(idCompra: e.key, items: e.value)),
                   ],
                 ),
-              ),
+              ) : const SizedBox.shrink(),
+            ),
           ],
         ),
         ),
@@ -405,6 +411,38 @@ class _InfoRow extends StatelessWidget {
             style: AppTextStyles.bodySmall.copyWith(
               fontWeight: FontWeight.w600,
               color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRowMultiline extends StatelessWidget {
+  const _InfoRowMultiline(this.label, this.valor);
+  final String label;
+  final String valor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(label, style: AppTextStyles.bodySmall),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              valor,
+              style: AppTextStyles.bodySmall.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
         ],

@@ -144,7 +144,7 @@ final resumenStatsProvider = FutureProvider<ResumenStats>((ref) async {
   final sorted = mlPorId.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
 
-  final masVendidos = sorted.take(10).map((e) {
+  final masVendidos = sorted.map((e) {
     final p = perfumesMap[_normId(e.key)];
     return TopPerfume(
       nombre:     p?.nombre ?? 'Perfume #${e.key}',
@@ -177,46 +177,87 @@ class TamanioStat {
     required this.ml,
     required this.cantidad,
     required this.total,
+    required this.topPerfumes,
   });
-  final int    ml;
-  final int    cantidad;
-  final double total;
+  final int                  ml;
+  final int                  cantidad;
+  final double               total;
+  final List<PerfumeDiaStat> topPerfumes;
 }
 
 final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
-  final ventas = await ref.watch(ventasParaStatsProvider.future);
+  final ventas      = await ref.watch(ventasParaStatsProvider.future);
+  final perfumesMap = await ref.watch(perfumesMapProvider.future);
 
-  final count = <int, int>{};
-  final total = <int, double>{};
+  final count   = <int, int>{};
+  final total   = <int, double>{};
+  final cntPerf = <int, Map<String, int>>{};
+  final solPerf = <int, Map<String, double>>{};
 
   for (final v in ventas) {
     final ml = v.mlVendido;
     if (ml == null) continue;
     count[ml] = (count[ml] ?? 0) + 1;
     total[ml] = (total[ml] ?? 0.0) + (v.precioCobrado ?? 0);
+    if (v.idPerfume != null) {
+      final id = v.idPerfume!;
+      final cp = cntPerf[ml] ??= {};
+      final sp = solPerf[ml] ??= {};
+      cp[id] = (cp[id] ?? 0)   + 1;
+      sp[id] = (sp[id] ?? 0.0) + (v.precioCobrado ?? 0);
+    }
   }
 
-  return count.entries
-      .map((e) => TamanioStat(
-            ml:       e.key,
-            cantidad: e.value,
-            total:    total[e.key] ?? 0,
-          ))
-      .toList()
+  return count.entries.map((e) {
+    final mlVal = e.key;
+    final cp    = cntPerf[mlVal] ?? {};
+    final sp    = solPerf[mlVal] ?? {};
+    final top   = (cp.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(5)
+        .map((pe) {
+          final p = perfumesMap[_normId(pe.key)];
+          return PerfumeDiaStat(
+            nombre:     p?.nombre ?? 'Perfume #${pe.key}',
+            totalMl:    pe.value * mlVal,
+            totalSoles: sp[pe.key] ?? 0,
+          );
+        })
+        .toList();
+    return TamanioStat(
+      ml:          mlVal,
+      cantidad:    e.value,
+      total:       total[mlVal] ?? 0,
+      topPerfumes: top,
+    );
+  }).toList()
     ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
 });
 
 // ── Semanal ───────────────────────────────────────────────────────────────────
+
+class PerfumeDiaStat {
+  const PerfumeDiaStat({
+    required this.nombre,
+    required this.totalMl,
+    required this.totalSoles,
+  });
+  final String nombre;
+  final int    totalMl;
+  final double totalSoles;
+}
 
 class DiaStat {
   const DiaStat({
     required this.fecha,
     required this.numOrdenes,
     required this.total,
+    required this.topPerfumes,
   });
-  final DateTime fecha;
-  final int      numOrdenes;
-  final double   total;
+  final DateTime              fecha;
+  final int                   numOrdenes;
+  final double                total;
+  final List<PerfumeDiaStat>  topPerfumes;
 }
 
 class SemanaStat {
@@ -231,6 +272,7 @@ class SemanaStat {
     required this.topTotal,
     required this.inicio,
     required this.fin,
+    required this.totalSemanaAnterior,
   });
   final double        total;
   final int           totalMl;
@@ -242,6 +284,11 @@ class SemanaStat {
   final double        topTotal;
   final DateTime      inicio;
   final DateTime      fin;
+  final double        totalSemanaAnterior;
+
+  double get variacionSemana => totalSemanaAnterior > 0
+      ? (total - totalSemanaAnterior) / totalSemanaAnterior * 100
+      : 0;
 }
 
 final semanaStatsProvider = FutureProvider<SemanaStat>((ref) async {
@@ -278,10 +325,34 @@ final semanaStatsProvider = FutureProvider<SemanaStat>((ref) async {
         return false;
       }
     }).toList();
+
+    // Perfumes del día: agrupar ml y soles por id
+    final mlDia  = <String, int>{};
+    final solDia = <String, double>{};
+    for (final v in diaV) {
+      if (v.idPerfume == null) continue;
+      final id = v.idPerfume!;
+      mlDia[id]  = (mlDia[id]  ?? 0) + (v.mlVendido ?? 0);
+      solDia[id] = (solDia[id] ?? 0.0) + (v.precioCobrado ?? 0);
+    }
+    final topDia = (mlDia.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+        .take(5)
+        .map((e) {
+          final p = perfumesMap[_normId(e.key)];
+          return PerfumeDiaStat(
+            nombre:     p?.nombre ?? 'Perfume #${e.key}',
+            totalMl:    e.value,
+            totalSoles: solDia[e.key] ?? 0,
+          );
+        })
+        .toList();
+
     return DiaStat(
-      fecha:      dia,
-      numOrdenes: diaV.map((v) => v.idCompra).toSet().length,
-      total:      diaV.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
+      fecha:        dia,
+      numOrdenes:   diaV.map((v) => v.idCompra).toSet().length,
+      total:        diaV.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
+      topPerfumes:  topDia,
     );
   });
 
@@ -308,17 +379,29 @@ final semanaStatsProvider = FutureProvider<SemanaStat>((ref) async {
     topNombre = p?.nombre ?? 'Perfume #${top.key}';
   }
 
+  final inicioAnterior = inicio.subtract(const Duration(days: 7));
+  final finAnterior    = inicio.subtract(const Duration(days: 1));
+  final semanaAnterior = entregadas.where((v) {
+    if (v.fecha == null) return false;
+    try {
+      final d  = DateTime.parse(v.fecha!);
+      final dn = DateTime(d.year, d.month, d.day);
+      return !dn.isBefore(inicioAnterior) && !dn.isAfter(finAnterior);
+    } catch (_) { return false; }
+  }).toList();
+
   return SemanaStat(
-    total:       semana.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
-    totalMl:     semana.fold(0, (s, v) => s + (v.mlVendido ?? 0)),
-    numOrdenes:  semana.map((v) => v.idCompra).toSet().length,
-    porDia:      porDia,
-    topNombre:   topNombre,
-    topCantidad: topCant,
-    topMl:       topMl,
-    topTotal:    topTotal,
-    inicio:      inicio,
-    fin:         fin,
+    total:                semana.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
+    totalMl:              semana.fold(0, (s, v) => s + (v.mlVendido ?? 0)),
+    numOrdenes:           semana.map((v) => v.idCompra).toSet().length,
+    porDia:               porDia,
+    topNombre:            topNombre,
+    topCantidad:          topCant,
+    topMl:                topMl,
+    topTotal:             topTotal,
+    inicio:               inicio,
+    fin:                  fin,
+    totalSemanaAnterior:  semanaAnterior.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
   );
 });
 
@@ -375,6 +458,7 @@ class ClienteStat {
   const ClienteStat({
     required this.celular,
     required this.nombre,
+    required this.direccion,
     required this.totalCompras,
     required this.totalItems,
     required this.totalGastado,
@@ -384,6 +468,7 @@ class ClienteStat {
   });
   final String              celular;
   final String              nombre;
+  final String              direccion;
   final int                 totalCompras;
   final int                 totalItems;
   final double              totalGastado;
@@ -414,9 +499,14 @@ final clientesStatsProvider = FutureProvider<List<ClienteStat>>((ref) async {
         .map((v) => v.fecha!)
         .toList()
       ..sort();
+    final direccion = list
+        .lastWhere((v) => (v.direccion ?? '').trim().isNotEmpty,
+            orElse: () => list.first)
+        .direccion ?? '';
     return ClienteStat(
       celular:       e.key,
       nombre:        list.first.comprador ?? e.key,
+      direccion:     direccion,
       totalCompras:  entregadas.map((v) => v.idCompra).toSet().length,
       totalItems:    entregadas.length,
       totalGastado:  entregadas.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),

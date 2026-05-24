@@ -408,13 +408,16 @@ class _TopPerfumesSection extends StatefulWidget {
 }
 
 class _TopPerfumesSectionState extends State<_TopPerfumesSection> {
-  static const _limit = 5;
-  bool _verTodos = false;
+  static const _paso = 5;
+  int _visible = _paso;
 
   @override
   Widget build(BuildContext context) {
     final masVendidos = widget.masVendidos;
     if (masVendidos.isEmpty) return const SizedBox.shrink();
+
+    final mostrados = masVendidos.take(_visible).toList();
+    final quedan    = masVendidos.length - _visible;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -423,21 +426,28 @@ class _TopPerfumesSectionState extends State<_TopPerfumesSection> {
         Text('🏆  Perfumes más vendidos',
             style: AppTextStyles.heading2.copyWith(fontSize: 15)),
         const SizedBox(height: AppSpacing.sm),
-        ...masVendidos
-            .take(_verTodos ? masVendidos.length : _limit)
-            .toList()
+        ...mostrados
             .asMap()
             .entries
             .map((e) => _TopPerfumeRow(pos: e.key + 1, item: e.value)),
-        if (masVendidos.length > _limit)
+        if (quedan > 0)
           Center(
             child: TextButton(
-              onPressed: () => setState(() => _verTodos = !_verTodos),
+              onPressed: () => setState(() => _visible += _paso),
               child: Text(
-                _verTodos
-                    ? '▲ Ver menos'
-                    : '▼ Ver más (${masVendidos.length - _limit} más)',
+                '▼ Ver ${quedan > _paso ? _paso : quedan} más'
+                '${quedan > _paso ? ' ($quedan restantes)' : ''}',
                 style: const TextStyle(color: AppColors.primary),
+              ),
+            ),
+          ),
+        if (_visible > _paso)
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => _visible = _paso),
+              child: const Text(
+                '▲ Ver menos',
+                style: TextStyle(color: AppColors.textMuted),
               ),
             ),
           ),

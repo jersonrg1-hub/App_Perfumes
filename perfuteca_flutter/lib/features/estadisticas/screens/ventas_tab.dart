@@ -76,6 +76,104 @@ class _VentasTabState extends ConsumerState<VentasTab> {
   }
 }
 
+void _mostrarDetalleTamanio(BuildContext ctx, TamanioStat t) {
+  showDialog<void>(
+    context: ctx,
+    barrierDismissible: true,
+    builder: (dialogCtx) => Dialog(
+      backgroundColor: AppColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.water_drop_outlined,
+                  size: 16, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text('${t.ml}ml — Top perfumes',
+                  style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary)),
+              const Spacer(),
+              Text('${t.cantidad} ventas',
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.textMuted)),
+            ]),
+            const Divider(height: AppSpacing.lg),
+            ...t.topPerfumes.asMap().entries.map((e) {
+              final idx = e.key;
+              final p   = e.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPale,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${idx + 1}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        p.nombre,
+                        style: AppTextStyles.bodySmall.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      '${p.totalMl}ml',
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.textMuted),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'S/${p.totalSoles.toStringAsFixed(0)}',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primaryDark,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: AppSpacing.md),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cerrar'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 // ── Tamaños ───────────────────────────────────────────────────────────────────
 
 class _TamanosView extends ConsumerWidget {
@@ -141,55 +239,65 @@ class _TamanosView extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             ...tamanios.map((t) {
               final pct = totalCount > 0 ? t.cantidad / totalCount : 0.0;
-              return Container(
-                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  border: Border.all(color: AppColors.primaryLight),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '📦 ${t.ml}ml',
-                          style: AppTextStyles.body.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
+              return GestureDetector(
+                onTap: t.topPerfumes.isEmpty ? null : () => _mostrarDetalleTamanio(context, t),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    border: Border.all(color: AppColors.primaryLight),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '📦 ${t.ml}ml',
+                            style: AppTextStyles.body.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                            ),
                           ),
-                        ),
-                        Text(
-                          '${t.cantidad} venta${t.cantidad != 1 ? 's' : ''}'
-                          ' — S/ ${t.total.toStringAsFixed(2)}',
-                          style: AppTextStyles.bodySmall,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value:      pct,
-                        minHeight:  10,
-                        backgroundColor: AppColors.primaryPale,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                            AppColors.primary),
+                          Row(
+                            children: [
+                              Text(
+                                '${t.cantidad} venta${t.cantidad != 1 ? 's' : ''}'
+                                ' — S/ ${t.total.toStringAsFixed(2)}',
+                                style: AppTextStyles.bodySmall,
+                              ),
+                              const SizedBox(width: 6),
+                              const Icon(Icons.chevron_right_rounded,
+                                  size: 16, color: AppColors.textMuted),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        '${(pct * 100).toStringAsFixed(1)}% del total',
-                        style: AppTextStyles.bodySmall
-                            .copyWith(color: AppColors.primary),
+                      const SizedBox(height: AppSpacing.sm),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value:      pct,
+                          minHeight:  10,
+                          backgroundColor: AppColors.primaryPale,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                              AppColors.primary),
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${(pct * 100).toStringAsFixed(1)}% del total',
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.primary),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               );
             }),
@@ -261,6 +369,71 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
                           fontSize: 14, color: AppColors.primaryDark)),
                 ],
               ),
+              if (dia.topPerfumes.isNotEmpty) ...[
+                const Divider(height: AppSpacing.lg),
+                Text(
+                  '🌸 Top perfumes del día',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                ...dia.topPerfumes.asMap().entries.map((e) {
+                  final idx = e.key;
+                  final p   = e.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryPale,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${idx + 1}',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.primaryDark,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            p.nombre,
+                            style: AppTextStyles.bodySmall.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Text(
+                          '${p.totalMl}ml',
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.textMuted),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'S/${p.totalSoles.toStringAsFixed(0)}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
               const SizedBox(height: AppSpacing.md),
               Align(
                 alignment: Alignment.centerRight,
@@ -281,7 +454,7 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
     final semana = ref.watch(semanaStatsProvider);
 
     return semana.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _SemanalSkeleton(),
       error:   (e, _) => Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -362,6 +535,31 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
                           height: 1.1,
                         ),
                       ),
+                      if (s.totalSemanaAnterior > 0) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              s.variacionSemana >= 0
+                                  ? Icons.trending_up_rounded
+                                  : Icons.trending_down_rounded,
+                              size: 13,
+                              color: s.variacionSemana >= 0
+                                  ? const Color(0xFF90EE90)
+                                  : const Color(0xFFFF8A80),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${s.variacionSemana >= 0 ? '+' : ''}${s.variacionSemana.toStringAsFixed(1)}% vs sem. anterior',
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -632,6 +830,45 @@ class _StatPill extends StatelessWidget {
                 color: highlight ? AppColors.primaryDark : AppColors.textMuted,
               ),
             ),
+          ],
+        ),
+      );
+}
+
+// ── Skeleton semanal ──────────────────────────────────────────────────────────
+
+class _SemanalSkeleton extends StatelessWidget {
+  const _SemanalSkeleton();
+
+  static Widget _box({double? w, required double h, double r = 8}) =>
+      Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) => Shimmer.fromColors(
+        baseColor: AppColors.primaryLight,
+        highlightColor: AppColors.surface,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _box(w: 180, h: 14),
+            const SizedBox(height: 4),
+            _box(w: 140, h: 11),
+            const SizedBox(height: AppSpacing.md),
+            _box(h: 80, r: AppSpacing.radiusMd),
+            const SizedBox(height: AppSpacing.md),
+            _box(h: 72, r: AppSpacing.radiusMd),
+            const SizedBox(height: AppSpacing.md),
+            _box(w: 100, h: 12),
+            const SizedBox(height: AppSpacing.sm),
+            _box(h: 112, r: AppSpacing.radiusSm),
           ],
         ),
       );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
@@ -36,7 +37,7 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
   @override
   Widget build(BuildContext context) {
     return ref.watch(clientesStatsProvider).when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _ClientesSkeleton(),
       error:   (e, _) => Center(
         child: Text(e.toString(), style: AppTextStyles.bodySmall),
       ),
@@ -133,8 +134,10 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
                         horizontal: AppSpacing.md,
                       ),
                       itemCount: filtrados.length,
-                      itemBuilder: (_, i) =>
-                          _ClienteCard(cliente: filtrados[i]),
+                      itemBuilder: (_, i) => _AnimatedListItem(
+                            index: i,
+                            child: _ClienteCard(cliente: filtrados[i]),
+                          ),
                     ),
             ),
           ],
@@ -202,9 +205,9 @@ class _ClienteCardState extends State<_ClienteCard> {
   bool _expandido = false;
 
   String _badge(int compras) {
-    if (compras >= 5) return '⭐ Cliente VIP';
-    if (compras >= 3) return '🔁 Cliente frecuente';
-    return '🆕 Cliente nuevo';
+    if (compras >= 5) return 'Cliente VIP';
+    if (compras >= 3) return 'Cliente frecuente';
+    return 'Cliente nuevo';
   }
 
   Color _badgeColor(int compras) {
@@ -257,7 +260,7 @@ class _ClienteCardState extends State<_ClienteCard> {
                   Container(
                     width: 36,
                     height: 36,
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppColors.primaryPale,
                       shape: BoxShape.circle,
                     ),
@@ -702,7 +705,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
 
   Future<void> _registrar() async {
     final catalogo = ref.read(catalogoProvider).perfumes;
-    final cesta    = _parsearCesta(widget.c.items ?? '', catalogo);
+    final cesta    = _parsearCesta(widget.c.items ?? '', catalogo, _metodoPago);
 
     if (cesta.isEmpty) {
       setState(() =>
@@ -947,7 +950,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                   decoration: BoxDecoration(
-                    color: AppColors.stockOk.withValues(alpha: 0.08),
+                    color: AppColors.successSurface,
                     borderRadius:
                         BorderRadius.circular(AppSpacing.radiusMd),
                     border: Border.all(
@@ -1026,7 +1029,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                       Container(
                         padding: const EdgeInsets.all(AppSpacing.sm),
                         decoration: BoxDecoration(
-                          color: AppColors.error.withValues(alpha: 0.07),
+                          color: AppColors.errorSurface,
                           borderRadius: BorderRadius.circular(
                               AppSpacing.radiusSm),
                           border: Border.all(
@@ -1209,7 +1212,7 @@ class _CartaExitoCliente extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: AppSpacing.md),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: AppColors.stockOk.withValues(alpha: 0.08),
+          color: AppColors.successSurface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           border:
               Border.all(color: AppColors.stockOk.withValues(alpha: 0.4)),
@@ -1242,7 +1245,7 @@ class _CartaExitoCliente extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: _enviarComunidad,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
+                  backgroundColor: AppColors.whatsapp,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
                 icon: const Icon(Icons.send_rounded, size: 16),
@@ -1336,29 +1339,34 @@ class _CotChips extends StatelessWidget {
           runSpacing: 6,
           children: opciones.map((op) {
             final sel = valor == op;
-            return GestureDetector(
-              onTap: () => onSelect(op),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: sel ? AppColors.primary : AppColors.surface,
-                  borderRadius:
-                      BorderRadius.circular(AppSpacing.radiusSm),
-                  border: Border.all(
-                    color: sel ? AppColors.primary : AppColors.primaryLight,
-                    width: sel ? 1.5 : 1,
+            return Semantics(
+              button: true,
+              label: op,
+              selected: sel,
+              child: GestureDetector(
+                onTap: () => onSelect(op),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: sel ? AppColors.primary : AppColors.surface,
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusSm),
+                    border: Border.all(
+                      color: sel ? AppColors.primary : AppColors.primaryLight,
+                      width: sel ? 1.5 : 1,
+                    ),
                   ),
+                  child: Text(op,
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              sel ? FontWeight.w700 : FontWeight.w500,
+                          color: sel
+                              ? Colors.white
+                              : AppColors.textSecondary)),
                 ),
-                child: Text(op,
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight:
-                            sel ? FontWeight.w700 : FontWeight.w500,
-                        color: sel
-                            ? Colors.white
-                            : AppColors.textSecondary)),
               ),
             );
           }).toList(),
@@ -1398,7 +1406,7 @@ class _ResumenFilaCot extends StatelessWidget {
 // ── Parser: items string → List<ItemCesta> ────────────────────────────────────
 // Formato: "Perfume A 2ml S/10.00 | Perfume B 5ml S/25.00"
 
-List<ItemCesta> _parsearCesta(String itemsStr, List<Perfume> catalogo) {
+List<ItemCesta> _parsearCesta(String itemsStr, List<Perfume> catalogo, String metodoPago) {
   if (itemsStr.isEmpty) return [];
   final result = <ItemCesta>[];
   final rx = RegExp(r'^(.+?)\s+(\d+)ml\s+S/(\d+\.?\d*)$');
@@ -1426,7 +1434,119 @@ List<ItemCesta> _parsearCesta(String itemsStr, List<Perfume> catalogo) {
       }
     }
     result.add(
-        ItemCesta(perfume: perfume, ml: ml, precio: precio, metodo: 'Yape'));
+        ItemCesta(perfume: perfume, ml: ml, precio: precio, metodo: metodoPago));
   }
   return result;
+}
+
+// ── Stagger animation wrapper ─────────────────────────────────────────────────
+
+class _AnimatedListItem extends StatefulWidget {
+  const _AnimatedListItem({required this.index, required this.child});
+  final int    index;
+  final Widget child;
+
+  @override
+  State<_AnimatedListItem> createState() => _AnimatedListItemState();
+}
+
+class _AnimatedListItemState extends State<_AnimatedListItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double>   _fade;
+  late final Animation<Offset>   _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end:   Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    final delayMs = (widget.index * 40).clamp(0, 280);
+    Future.delayed(Duration(milliseconds: delayMs), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: _fade,
+        child: SlideTransition(position: _slide, child: widget.child),
+      );
+}
+
+// ── Skeleton clientes ─────────────────────────────────────────────────────────
+
+class _ClientesSkeleton extends StatelessWidget {
+  const _ClientesSkeleton();
+
+  static Widget _box({double? w, required double h, double r = 8}) =>
+      Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+        ),
+      );
+
+  Widget _clientCard() => Container(
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+        height: 74,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppColors.primaryLight,
+      highlightColor: AppColors.surface,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+            child: Row(children: [
+              _box(w: 88, h: 44, r: 10),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(child: _box(h: 44, r: 10)),
+              const SizedBox(width: AppSpacing.sm),
+              _box(w: 88, h: 44, r: 10),
+            ]),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: _box(h: 44, r: AppSpacing.radiusMd),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              physics: const NeverScrollableScrollPhysics(),
+              children: [
+                _clientCard(),
+                _clientCard(),
+                _clientCard(),
+                _clientCard(),
+                _clientCard(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

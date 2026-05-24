@@ -12,6 +12,8 @@ class ItemCestaCard extends StatelessWidget {
     this.onQuitar,
     this.onEditarPrecio,
     this.readOnly = false,
+    this.nombreFontSize = 13,
+    this.marcaFontSize  = 10,
   });
 
   final ItemCesta item;
@@ -19,6 +21,8 @@ class ItemCestaCard extends StatelessWidget {
   final VoidCallback? onQuitar;
   final VoidCallback? onEditarPrecio;
   final bool      readOnly;
+  final double    nombreFontSize;
+  final double    marcaFontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +63,11 @@ class ItemCestaCard extends StatelessWidget {
               children: [
                 Text(
                   item.perfume.nombre,
-                  style: AppTextStyles.perfumeName.copyWith(fontSize: 13),
+                  style: AppTextStyles.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: nombreFontSize,
+                    color: AppColors.textPrimary,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -68,7 +76,7 @@ class ItemCestaCard extends StatelessWidget {
                   children: [
                     Text(
                       item.perfume.marca,
-                      style: AppTextStyles.marca.copyWith(fontSize: 10),
+                      style: AppTextStyles.marca.copyWith(fontSize: marcaFontSize),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Container(
@@ -123,30 +131,28 @@ class ItemCestaCard extends StatelessWidget {
                       color: AppColors.primaryDark,
                     ),
                   ),
-                  if (!readOnly && onEditarPrecio != null) ...[
-                    const SizedBox(width: 6),
-                    GestureDetector(
-                      onTap: onEditarPrecio,
-                      child: const Icon(
-                        Icons.edit_rounded,
-                        size: 14,
-                        color: AppColors.textMuted,
-                      ),
+                  if (!readOnly && onEditarPrecio != null)
+                    IconButton(
+                      onPressed: onEditarPrecio,
+                      icon: const Icon(Icons.edit_rounded, size: 14),
+                      color: AppColors.textMuted,
+                      tooltip: 'Editar precio',
+                      constraints: const BoxConstraints(
+                        minWidth: 44, minHeight: 44),
+                      padding: EdgeInsets.zero,
                     ),
-                  ],
                 ],
               ),
               if (!readOnly && onQuitar != null)
-                GestureDetector(
-                  onTap: onQuitar,
-                  child: const Padding(
-                    padding: EdgeInsets.only(top: 4),
-                    child: Icon(
-                      Icons.remove_circle_outline_rounded,
-                      size: 18,
-                      color: AppColors.error,
-                    ),
-                  ),
+                IconButton(
+                  onPressed: onQuitar,
+                  icon: const Icon(
+                      Icons.remove_circle_outline_rounded, size: 18),
+                  color: AppColors.error,
+                  tooltip: 'Quitar ítem',
+                  constraints: const BoxConstraints(
+                      minWidth: 44, minHeight: 44),
+                  padding: EdgeInsets.zero,
                 ),
             ],
           ),

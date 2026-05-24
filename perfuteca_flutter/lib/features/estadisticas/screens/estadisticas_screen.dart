@@ -81,10 +81,15 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
         ],
         bottom: TabBar(
           controller: _tab,
-          labelColor:          AppColors.primaryDark,
+          labelColor:           AppColors.primaryDark,
           unselectedLabelColor: AppColors.textMuted,
-          indicatorColor:      AppColors.primary,
-          indicatorWeight:     2.5,
+          indicator: BoxDecoration(
+            color:        AppColors.primaryPale,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            border:       Border.all(color: AppColors.primaryLight),
+          ),
+          indicatorSize:    TabBarIndicatorSize.tab,
+          indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
           labelStyle: AppTextStyles.button.copyWith(fontSize: 11),
           unselectedLabelStyle: const TextStyle(
             fontSize: 11,
@@ -125,13 +130,13 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
           ref.watch(ventasParaStatsProvider).maybeWhen(
             data: (ventas) => ventas.length >= 500
                 ? Material(
-                    color: const Color(0xFFFFF3CD),
+                    color: AppColors.goldLight,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
                       child: Row(children: [
                         const Icon(Icons.warning_amber_rounded,
-                            size: 16, color: Color(0xFF856404)),
+                            size: 16, color: AppColors.gold),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -139,7 +144,7 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
                             'Los datos históricos pueden estar incompletos.',
                             style: const TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF856404),
+                              color: AppColors.gold,
                               fontWeight: FontWeight.w500,
                             ),
                           ),

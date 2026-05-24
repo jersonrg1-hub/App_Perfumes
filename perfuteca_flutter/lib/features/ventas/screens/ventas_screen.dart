@@ -68,13 +68,18 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
         ],
         bottom: TabBar(
           controller: _tab,
-          labelColor: AppColors.primaryDark,
+          labelColor:           AppColors.primaryDark,
           unselectedLabelColor: AppColors.textMuted,
-          indicatorColor: AppColors.primary,
-          indicatorWeight: 2.5,
-          labelStyle: AppTextStyles.button.copyWith(fontSize: 12),
+          indicator: BoxDecoration(
+            color:        AppColors.primaryPale,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            border:       Border.all(color: AppColors.primaryLight),
+          ),
+          indicatorSize:    TabBarIndicatorSize.tab,
+          indicatorPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+          labelStyle: AppTextStyles.button.copyWith(fontSize: 11),
           unselectedLabelStyle: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w500),
+              fontSize: 11, fontWeight: FontWeight.w500),
           tabs: [
             const Tab(
               icon: Icon(Icons.today_rounded, size: 18),

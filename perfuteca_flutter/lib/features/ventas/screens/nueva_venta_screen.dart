@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
@@ -12,7 +13,6 @@ import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
-import 'package:perfuteca/widgets/common/app_loading_widget.dart';
 
 class NuevaVentaScreen extends ConsumerStatefulWidget {
   const NuevaVentaScreen({super.key});
@@ -49,6 +49,16 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
         if (next == 1 && prev != null && prev > 1 &&
             _pageController.hasClients) {
           _pageController.jumpToPage(0);
+        }
+      },
+    );
+
+    // Refrescar stock al registrar venta exitosamente
+    ref.listen(
+      nuevaVentaProvider.select((s) => s.ventaRegistrada),
+      (prev, next) {
+        if (prev == null && next != null) {
+          ref.read(catalogoProvider.notifier).load();
         }
       },
     );
@@ -115,14 +125,17 @@ class _StepIndicator extends StatelessWidget {
       color: AppColors.surface,
       padding: const EdgeInsets.fromLTRB(
           AppSpacing.xl, AppSpacing.md, AppSpacing.xl, AppSpacing.md),
-      child: Row(
-        children: [
-          _StepDot(n: 1, estado: _estadoPaso(1), label: 'Cliente'),
-          _StepLine(activo: pasoActual >= 2),
-          _StepDot(n: 2, estado: _estadoPaso(2), label: 'Cesta'),
-          _StepLine(activo: pasoActual >= 3),
-          _StepDot(n: 3, estado: _estadoPaso(3), label: 'Confirmar'),
-        ],
+      child: Semantics(
+        label: 'Paso $pasoActual de 3',
+        child: Row(
+          children: [
+            _StepDot(n: 1, estado: _estadoPaso(1), label: 'Cliente'),
+            _StepLine(activo: pasoActual >= 2),
+            _StepDot(n: 2, estado: _estadoPaso(2), label: 'Cesta'),
+            _StepLine(activo: pasoActual >= 3),
+            _StepDot(n: 3, estado: _estadoPaso(3), label: 'Confirmar'),
+          ],
+        ),
       ),
     );
   }
@@ -396,9 +409,9 @@ class _ClienteBanner extends StatelessWidget {
         padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md, vertical: AppSpacing.sm),
         decoration: BoxDecoration(
-          color: AppColors.stockOk.withOpacity(0.08),
+          color: AppColors.successSurface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: AppColors.stockOk.withOpacity(0.35)),
+          border: Border.all(color: AppColors.stockOk.withValues(alpha: 0.35)),
         ),
         child: Row(
           children: [
@@ -500,43 +513,48 @@ class _ChipSelector extends StatelessWidget {
           children: opciones.asMap().entries.map((e) {
             final selected = valor == e.value;
             final icon     = iconos?[e.key];
-            return GestureDetector(
-              onTap: () => onSelect(e.value),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                decoration: BoxDecoration(
-                  color: selected ? AppColors.primary : AppColors.surface,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  border: Border.all(
-                    color: selected ? AppColors.primary : AppColors.primaryLight,
-                    width: selected ? 1.5 : 1,
-                  ),
-                  boxShadow: selected
-                      ? const [BoxShadow(
-                          color: AppColors.shadowColor,
-                          blurRadius: 4, offset: Offset(0, 2))]
-                      : null,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon,
-                          size: 14,
-                          color: selected ? Colors.white : AppColors.textMuted),
-                      const SizedBox(width: 5),
-                    ],
-                    Text(
-                      e.value,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                        color: selected ? Colors.white : AppColors.textSecondary,
-                      ),
+            return Semantics(
+              button: true,
+              label: e.value,
+              selected: selected,
+              child: GestureDetector(
+                onTap: () => onSelect(e.value),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.primary : AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    border: Border.all(
+                      color: selected ? AppColors.primary : AppColors.primaryLight,
+                      width: selected ? 1.5 : 1,
                     ),
-                  ],
+                    boxShadow: selected
+                        ? const [BoxShadow(
+                            color: AppColors.shadowColor,
+                            blurRadius: 4, offset: Offset(0, 2))]
+                        : null,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon,
+                            size: 14,
+                            color: selected ? Colors.white : AppColors.textMuted),
+                        const SizedBox(width: 5),
+                      ],
+                      Text(
+                        e.value,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          color: selected ? Colors.white : AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
@@ -592,7 +610,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
         // ── Filtro por marca ───────────────────────────────────────────────
         if (marcas.isNotEmpty)
           SizedBox(
-            height: 38,
+            height: 44,
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(
@@ -656,7 +674,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
         // ── Lista de perfumes ─────────────────────────────────────────────
         Expanded(
           child: catalogoState.isLoading
-              ? const AppLoadingWidget()
+              ? const _CatalogoSkeleton()
               : perfumes.isEmpty
                   ? Center(
                       child: Column(
@@ -725,6 +743,10 @@ class _Paso2State extends ConsumerState<_Paso2> {
                       controller: ctrl,
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*[.,]?\d{0,2}')),
+                      ],
                       autofocus: true,
                       decoration: InputDecoration(
                         prefixText: 'S/ ',
@@ -784,10 +806,10 @@ class _BottomPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppColors.surface,
         border: Border(top: BorderSide(color: AppColors.primaryLight)),
-        boxShadow: const [BoxShadow(
+        boxShadow: [BoxShadow(
           color: AppColors.shadowColor, blurRadius: 8, offset: Offset(0, -2))],
       ),
       child: Column(
@@ -874,7 +896,7 @@ class _BottomPanel extends StatelessWidget {
                   : const SizedBox.shrink(),
             ),
 
-            Divider(height: 1, color: AppColors.primaryLight),
+            const Divider(height: 1, color: AppColors.primaryLight),
           ],
 
           // ── Botones de navegación ─────────────────────────────────────
@@ -941,9 +963,9 @@ class _PerfumeItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         border: Border(
           left: BorderSide(color: enCestaColor, width: 3),
-          top: BorderSide(color: AppColors.primaryLight),
-          right: BorderSide(color: AppColors.primaryLight),
-          bottom: BorderSide(color: AppColors.primaryLight),
+          top: const BorderSide(color: AppColors.primaryLight),
+          right: const BorderSide(color: AppColors.primaryLight),
+          bottom: const BorderSide(color: AppColors.primaryLight),
         ),
       ),
       child: Column(
@@ -980,14 +1002,14 @@ class _PerfumeItem extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: AppColors.stockOk.withOpacity(0.12),
+                        color: AppColors.successSurface,
                         borderRadius: BorderRadius.circular(4),
                         border: Border.all(
-                            color: AppColors.stockOk.withOpacity(0.4)),
+                            color: AppColors.stockOk.withValues(alpha: 0.4)),
                       ),
                       child: Text(
                         '✓ $enCesta en cesta',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w700,
                           color: AppColors.stockOk,
@@ -1008,6 +1030,7 @@ class _PerfumeItem extends StatelessWidget {
                 child: _ScaleTap(
                   onTap: () => onAgregar(e.key),
                   child: Container(
+                    constraints: const BoxConstraints(minHeight: 44),
                     padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.md, vertical: 6),
                     decoration: BoxDecoration(
@@ -1168,9 +1191,9 @@ class _Paso3 extends ConsumerWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               margin: const EdgeInsets.only(bottom: AppSpacing.md),
               decoration: BoxDecoration(
-                color:  AppColors.error.withOpacity(0.08),
+                color:  AppColors.errorSurface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -1258,17 +1281,26 @@ class _TicketExito extends StatelessWidget {
           const SizedBox(height: AppSpacing.xl),
 
           // Ícono de éxito animado
-          Container(
-            width: 88, height: 88,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.stockOk.withOpacity(0.12),
-              border: Border.all(color: AppColors.stockOk, width: 2),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: 1.0),
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.elasticOut,
+            builder: (_, v, child) => Opacity(
+              opacity: v.clamp(0.0, 1.0),
+              child: Transform.scale(scale: v.clamp(0.0, 1.0), child: child),
             ),
-            child: const Icon(
-              Icons.check_circle_rounded,
-              color: AppColors.stockOk,
-              size: 52,
+            child: Container(
+              width: 88, height: 88,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.successSurface,
+                border: Border.all(color: AppColors.stockOk, width: 2),
+              ),
+              child: const Icon(
+                Icons.check_circle_rounded,
+                color: AppColors.stockOk,
+                size: 52,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -1318,9 +1350,9 @@ class _TicketExito extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color:  AppColors.warning.withOpacity(0.08),
+                color:  AppColors.warningSurface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -1422,11 +1454,11 @@ class _TicketExito extends StatelessWidget {
               icon: const Icon(Icons.chat_rounded, size: 18),
               label: Text('WhatsApp a $comprador'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF25D366),
-                side: const BorderSide(color: Color(0xFF25D366)),
+                foregroundColor: AppColors.whatsapp,
+                side: const BorderSide(color: AppColors.whatsapp),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: () => _abrirWhatsApp(celular, idCompra, total),
+              onPressed: () => _abrirWhatsApp(context, celular, idCompra, total),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -1438,11 +1470,11 @@ class _TicketExito extends StatelessWidget {
               icon: const Icon(Icons.groups_rounded, size: 18),
               label: const Text('Enviar pedido a comunidad'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF128C7E),
-                side: const BorderSide(color: Color(0xFF128C7E)),
+                foregroundColor: AppColors.whatsappDark,
+                side: const BorderSide(color: AppColors.whatsappDark),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: () => _abrirWhatsAppComunidad(idCompra, total),
+              onPressed: () => _abrirWhatsAppComunidad(context, idCompra, total),
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -1467,7 +1499,7 @@ class _TicketExito extends StatelessWidget {
   }
 
   Future<void> _abrirWhatsApp(
-      String cel, String id, double total) async {
+      BuildContext context, String cel, String id, double total) async {
     const sep = '────────────────────';
     const dias = [
       'Lunes', 'Martes', 'Miércoles', 'Jueves',
@@ -1509,10 +1541,20 @@ class _TicketExito extends StatelessWidget {
     final url = Uri.parse('https://wa.me/51$cel?text=$msg');
     try {
       await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo abrir WhatsApp'),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
-  Future<void> _abrirWhatsAppComunidad(String id, double total) async {
+  Future<void> _abrirWhatsAppComunidad(BuildContext context, String id, double total) async {
     const sep = '────────────────────';
     final itemsLineas = cesta.map((i) {
       final marca = i.perfume.marca.trim();
@@ -1543,7 +1585,17 @@ class _TicketExito extends StatelessWidget {
     final url = Uri.parse('https://wa.me/?text=$msg');
     try {
       await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No se pudo abrir WhatsApp'),
+            duration: Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -1850,4 +1902,67 @@ class _ScaleTapState extends State<_ScaleTap>
         onTapCancel: () => _ctrl.reverse(),
         child: ScaleTransition(scale: _scale, child: widget.child),
       );
+}
+
+// ── Skeleton catálogo ─────────────────────────────────────────────────────────
+
+class _CatalogoSkeleton extends StatelessWidget {
+  const _CatalogoSkeleton();
+
+  static Widget _box({double? w, required double h, double r = 8}) => Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppColors.primaryLight,
+      highlightColor: AppColors.surface,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg, AppSpacing.xs, AppSpacing.lg, AppSpacing.md),
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 6,
+        separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
+        itemBuilder: (_, __) => Container(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _box(w: 60, h: 9),
+                        const SizedBox(height: 6),
+                        _box(w: 140, h: 13),
+                      ],
+                    ),
+                  ),
+                  _box(w: 50, h: 16, r: 4),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Row(children: [
+                _box(w: 70, h: 44, r: AppSpacing.radiusSm),
+                const SizedBox(width: AppSpacing.sm),
+                _box(w: 70, h: 44, r: AppSpacing.radiusSm),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

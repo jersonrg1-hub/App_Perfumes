@@ -4,6 +4,7 @@ import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:shimmer/shimmer.dart';
 
 const _meses = [
   '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
@@ -16,7 +17,7 @@ class ResumenTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ref.watch(resumenStatsProvider).when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _ResumenSkeleton(),
       error:   (e, _) => _ErrorView(
         mensaje: e.toString(),
         onRetry: () {
@@ -56,7 +57,7 @@ class _ResumenBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.md),
 
         // ── Hoy ──────────────────────────────────────────────────────────────
-        _SeccionLabel('☀️  Hoy · ${_diaLabel(now)}'),
+        _SeccionLabel('Hoy · ${_diaLabel(now)}', icono: Icons.wb_sunny_rounded),
         const SizedBox(height: AppSpacing.sm),
         _SeccionHoy(
           ventasHoy:  s.ventasHoy,
@@ -165,13 +166,24 @@ class _HeroMesCard extends StatelessWidget {
           ),
 
           if (hayPrevio) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Mes anterior: S/ ${_fmt(s.totalMesPasado)}  ·  ${s.ventasMesPasado} venta${s.ventasMesPasado != 1 ? 's' : ''}',
-              style: const TextStyle(
-                color:    Color(0xFF9B7250),
-                fontSize: 11,
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (s.totalMes / s.totalMesPasado).clamp(0.0, 1.0),
+                minHeight: 4,
+                backgroundColor: Colors.white.withValues(alpha: 0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  s.totalMes >= s.totalMesPasado
+                      ? AppColors.stockOk
+                      : AppColors.gold,
+                ),
               ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'vs mes anterior: S/ ${_fmt(s.totalMesPasado)}  ·  ${s.ventasMesPasado} venta${s.ventasMesPasado != 1 ? 's' : ''}',
+              style: const TextStyle(color: Color(0xFF9B7250), fontSize: 10),
             ),
           ],
         ],
@@ -198,7 +210,7 @@ class _BadgeVariacion extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color:        color.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
         border:       Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
@@ -332,20 +344,20 @@ class _PendientesBanner extends StatelessWidget {
         vertical: AppSpacing.sm + 2,
       ),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.12),
+        color: AppColors.gold.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
           const Icon(Icons.pending_actions_rounded,
-              size: 18, color: Color(0xFFB8860B)),
+              size: 18, color: AppColors.gold),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               '$count pedido${count != 1 ? 's' : ''} pendiente${count != 1 ? 's' : ''} de entregar',
               style: AppTextStyles.bodySmall.copyWith(
-                color: const Color(0xFF7A5C00),
+                color: AppColors.textMuted,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -359,19 +371,26 @@ class _PendientesBanner extends StatelessWidget {
 // ── Etiqueta de sección ───────────────────────────────────────────────────────
 
 class _SeccionLabel extends StatelessWidget {
-  const _SeccionLabel(this.label);
-  final String label;
+  const _SeccionLabel(this.label, {this.icono});
+  final String   label;
+  final IconData? icono;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: AppTextStyles.bodySmall.copyWith(
-        color: AppColors.textMuted,
-        fontWeight: FontWeight.w700,
-        fontSize: 11,
-        letterSpacing: 0.8,
-      ),
+    final style = AppTextStyles.bodySmall.copyWith(
+      color: AppColors.textMuted,
+      fontWeight: FontWeight.w700,
+      fontSize: 11,
+      letterSpacing: 0.8,
+    );
+    if (icono == null) return Text(label, style: style);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icono, size: 13, color: AppColors.textMuted),
+        const SizedBox(width: 5),
+        Text(label, style: style),
+      ],
     );
   }
 }
@@ -424,4 +443,39 @@ String _fmt(double v) {
 String _diaLabel(DateTime d) {
   const dias = ['', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
   return '${dias[d.weekday]} ${d.day} ${_meses[d.month].toLowerCase()}';
+}
+
+// ── Skeleton de carga ─────────────────────────────────────────────────────────
+
+class _ResumenSkeleton extends StatelessWidget {
+  const _ResumenSkeleton();
+
+  static Widget _box({double? w, required double h, double r = 8}) =>
+      Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppColors.primaryLight,
+      highlightColor: AppColors.surface,
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _box(h: 148, r: AppSpacing.radiusLg),
+          const SizedBox(height: AppSpacing.md),
+          _box(w: 90, h: 11),
+          const SizedBox(height: AppSpacing.sm),
+          _box(h: 108, r: AppSpacing.radiusMd),
+        ],
+      ),
+    );
+  }
 }

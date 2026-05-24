@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
@@ -62,14 +63,14 @@ class HistorialScreen extends ConsumerWidget {
     final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
 
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _HistorialSkeleton(),
       error: (e, _) => _ErrorView(
         mensaje: e.toString(),
         onRetry: () => ref.invalidate(historialProvider),
       ),
       data: (ventas) {
         final onRefresh = () => ref.refresh(historialProvider.future);
-        if (ventas.isEmpty) return RefreshIndicator(onRefresh: onRefresh, child: const _EmptyView());
+        if (ventas.isEmpty) return RefreshIndicator(onRefresh: onRefresh, child: _EmptyView(onRefresh: onRefresh));
         final porFecha = _agruparPorFecha(ventas);
         final fechas   = porFecha.keys.toList()..sort((a, b) => b.compareTo(a));
         return _ListaHistorial(
@@ -343,12 +344,12 @@ class _OrdenCardState extends State<_OrdenCard> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Icon(
-                        _expandido
-                            ? Icons.expand_less_rounded
-                            : Icons.expand_more_rounded,
-                        size: 18,
-                        color: AppColors.textMuted,
+                      AnimatedRotation(
+                        turns: _expandido ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 220),
+                        curve: Curves.easeOutCubic,
+                        child: const Icon(Icons.keyboard_arrow_down_rounded,
+                            size: 18, color: AppColors.textMuted),
                       ),
                     ],
                   ),
@@ -357,8 +358,10 @@ class _OrdenCardState extends State<_OrdenCard> {
             ),
 
             // ── Detalle expandible ────────────────────────────────────
-            if (_expandido)
-              Container(
+            AnimatedSize(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeInOut,
+              child: _expandido ? Container(
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(
                     AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
@@ -441,7 +444,8 @@ class _OrdenCardState extends State<_OrdenCard> {
                     }),
                   ],
                 ),
-              ),
+              ) : const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
@@ -452,26 +456,31 @@ class _OrdenCardState extends State<_OrdenCard> {
 // ── Estados vacío / error ─────────────────────────────────────────────────────
 
 class _EmptyView extends StatelessWidget {
-  const _EmptyView();
+  const _EmptyView({required this.onRefresh});
+  final Future<void> Function() onRefresh;
 
   @override
-  Widget build(BuildContext context) => ListView(
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.receipt_long_outlined,
-                    size: 64, color: AppColors.textFaint),
-                const SizedBox(height: 12),
-                Text('Sin ventas registradas',
-                    style: AppTextStyles.body
-                        .copyWith(color: AppColors.textMuted)),
-              ],
+  Widget build(BuildContext context) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.receipt_long_outlined,
+                size: 64, color: AppColors.textFaint),
+            const SizedBox(height: AppSpacing.lg),
+            Text('Sin ventas registradas',
+                style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
+            const SizedBox(height: AppSpacing.xs + 2),
+            Text('Registra ventas desde la pestaña Nueva Venta',
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.textFaint)),
+            const SizedBox(height: AppSpacing.xl),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Actualizar'),
+              onPressed: onRefresh,
             ),
-          ),
-        ],
+          ],
+        ),
       );
 }
 
@@ -507,4 +516,81 @@ class _ErrorView extends StatelessWidget {
           ),
         ),
       );
+}
+
+// ── Skeleton de carga ─────────────────────────────────────────────────────────
+
+class _HistorialSkeleton extends StatelessWidget {
+  const _HistorialSkeleton();
+
+  static Widget _box({double? w, required double h, double r = 6}) => Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppColors.primaryLight,
+      highlightColor: AppColors.surface,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 4,
+        itemBuilder: (_, __) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(
+                  top: AppSpacing.md, bottom: AppSpacing.sm),
+              child: Row(
+                children: [
+                  _box(w: 3, h: 18, r: 2),
+                  const SizedBox(width: AppSpacing.sm),
+                  _box(w: 90, h: 13),
+                  const Spacer(),
+                  _box(w: 110, h: 20, r: AppSpacing.radiusSm),
+                ],
+              ),
+            ),
+            ...List.generate(
+              2,
+              (_) => Container(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                ),
+                child: Row(
+                  children: [
+                    _box(w: 18, h: 18, r: 9),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _box(w: 80, h: 11),
+                          const SizedBox(height: 5),
+                          _box(w: 130, h: 13),
+                          const SizedBox(height: 4),
+                          _box(w: 90, h: 10),
+                        ],
+                      ),
+                    ),
+                    _box(w: 55, h: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -7,6 +7,7 @@ import 'package:perfuteca/features/ventas/screens/historial_screen.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:shimmer/shimmer.dart';
 
 enum _SeccionVentas { historial, tamanios, semanal, cotizaciones }
 
@@ -36,10 +37,10 @@ class _VentasTabState extends ConsumerState<VentasTab> {
             children: _SeccionVentas.values.map((s) {
               final seleccionado = s == _seccion;
               final label = switch (s) {
-                _SeccionVentas.historial    => '📋 Historial',
-                _SeccionVentas.tamanios     => '📏 Tamaños',
-                _SeccionVentas.semanal      => '📅 Semanal',
-                _SeccionVentas.cotizaciones => '💰 Cotizaciones',
+                _SeccionVentas.historial    => 'Historial',
+                _SeccionVentas.tamanios     => 'Tamaños',
+                _SeccionVentas.semanal      => 'Semanal',
+                _SeccionVentas.cotizaciones => 'Cotizaciones',
               };
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
@@ -83,17 +84,48 @@ class _TamanosView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ref.watch(tamaniosStatsProvider).when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _TamanosSkeleton(),
       error:   (e, _) => Center(
-        child: Text(e.toString(), style: AppTextStyles.bodySmall),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(e.toString(), style: AppTextStyles.bodySmall),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => ref.invalidate(tamaniosStatsProvider),
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Reintentar'),
+            ),
+          ],
+        ),
       ),
       data: (tamanios) {
         if (tamanios.isEmpty) {
           return Center(
-            child: Text(
-              'Sin ventas registradas aún',
-              style: AppTextStyles.bodySmall
-                  .copyWith(color: AppColors.textMuted),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.bar_chart_rounded,
+                      size: 64, color: AppColors.primaryLight),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Sin ventas registradas aún',
+                    style: AppTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Registra tu primera venta para ver\nestadísticas de tamaños aquí',
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
           );
         }
@@ -103,7 +135,7 @@ class _TamanosView extends ConsumerWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           children: [
             Text(
-              '📏 Tamaños más vendidos',
+              'Tamaños más vendidos',
               style: AppTextStyles.heading2.copyWith(fontSize: 15),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -182,6 +214,68 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
 
   String _fmt(DateTime d) => DateFormat('dd/MM/yyyy').format(d);
 
+  void _mostrarDetalleDia(BuildContext ctx, DiaStat dia, String nombreDia) {
+    showDialog<void>(
+      context: ctx,
+      barrierDismissible: true,
+      builder: (dialogCtx) => Dialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                const Icon(Icons.calendar_today_rounded,
+                    size: 16, color: AppColors.primary),
+                const SizedBox(width: 8),
+                Text(nombreDia,
+                    style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary)),
+                const Spacer(),
+                Text(_fmt(dia.fecha),
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.textMuted)),
+              ]),
+              const Divider(height: AppSpacing.lg),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Ventas', style: AppTextStyles.bodySmall),
+                  Text('${dia.numOrdenes} orden${dia.numOrdenes != 1 ? 'es' : ''}',
+                      style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Total', style: AppTextStyles.bodySmall),
+                  Text('S/ ${dia.total.toStringAsFixed(2)}',
+                      style: AppTextStyles.price.copyWith(
+                          fontSize: 14, color: AppColors.primaryDark)),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('Cerrar'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final semana = ref.watch(semanaStatsProvider);
@@ -189,7 +283,21 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
     return semana.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error:   (e, _) => Center(
-        child: Text(e.toString(), style: AppTextStyles.bodySmall),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(e.toString(), style: AppTextStyles.bodySmall),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () {
+                ref.invalidate(ventasParaStatsProvider);
+                ref.invalidate(semanaStatsProvider);
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 16),
+              label: const Text('Reintentar'),
+            ),
+          ],
+        ),
       ),
       data: (s) => RefreshIndicator(
         color: AppColors.primary,
@@ -203,7 +311,7 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
           children: [
           // ── Encabezado ────────────────────────────────────────
           Text(
-            '📅 Resumen de esta semana',
+            'Resumen de esta semana',
             style: AppTextStyles.heading2.copyWith(fontSize: 15),
           ),
           const SizedBox(height: 2),
@@ -353,7 +461,11 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
                         : 0.0;
 
                     return Expanded(
-                      child: Container(
+                      child: GestureDetector(
+                        onTap: dia.total > 0
+                            ? () => _mostrarDetalleDia(context, dia, _dias[idx])
+                            : null,
+                        child: Container(
                         margin: EdgeInsets.only(right: idx < 6 ? 4 : 0),
                         decoration: BoxDecoration(
                           color: esHoy
@@ -444,6 +556,7 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
                           ],
                         ),
                       ),
+                      ),
                     );
                   }).toList(),
                 ),
@@ -469,7 +582,7 @@ class _HeroPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
         ),
         child: Text(
           label,
@@ -499,7 +612,7 @@ class _StatPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: highlight ? AppColors.primaryPale : AppColors.background,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
           border: Border.all(
             color: highlight ? AppColors.primary : AppColors.primaryLight,
           ),
@@ -519,6 +632,43 @@ class _StatPill extends StatelessWidget {
                 color: highlight ? AppColors.primaryDark : AppColors.textMuted,
               ),
             ),
+          ],
+        ),
+      );
+}
+
+// ── Skeleton tamaños ──────────────────────────────────────────────────────────
+
+class _TamanosSkeleton extends StatelessWidget {
+  const _TamanosSkeleton();
+
+  static Widget _box({double? w, required double h, double r = 8}) =>
+      Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) => Shimmer.fromColors(
+        baseColor: AppColors.primaryLight,
+        highlightColor: AppColors.surface,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _box(w: 160, h: 14),
+            const SizedBox(height: AppSpacing.md),
+            _box(h: 88, r: AppSpacing.radiusMd),
+            const SizedBox(height: AppSpacing.sm),
+            _box(h: 88, r: AppSpacing.radiusMd),
+            const SizedBox(height: AppSpacing.sm),
+            _box(h: 88, r: AppSpacing.radiusMd),
+            const SizedBox(height: AppSpacing.sm),
+            _box(h: 88, r: AppSpacing.radiusMd),
           ],
         ),
       );

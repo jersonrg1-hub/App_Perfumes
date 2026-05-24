@@ -20,7 +20,7 @@ final cotizacionesHoyProvider =
     FutureProvider<List<CotizacionResponse>>((ref) async {
   final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
   final page  = await ref.read(cotizacionesRepositoryProvider)
-      .getCotizaciones(limit: 100);
+      .getCotizaciones(limit: 100, bypassCache: true);
   // La API serializa fecha como ISO "2026-05-16T00:00:00", no como "2026-05-16"
   return page.items.where((c) => c.fecha?.startsWith(today) == true).toList();
 });
@@ -262,9 +262,10 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
   }
 
   void _checkForm() {
+    final needsDireccion = _tipoEnvio != 'Contraentrega';
     _formValidoNotifier.value =
         _compradorCtrl.text.trim().isNotEmpty &&
-        _direccionCtrl.text.trim().isNotEmpty &&
+        (!needsDireccion || _direccionCtrl.text.trim().isNotEmpty) &&
         _tipoEnvio.isNotEmpty;
   }
 
@@ -315,7 +316,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
 
   Future<void> _registrar() async {
     final catalogo = ref.read(catalogoProvider).perfumes;
-    final cesta    = _parsearCesta(widget.cotizacion.items ?? '', catalogo);
+    final cesta    = _parsearCesta(widget.cotizacion.items ?? '', catalogo, _metodoPago);
 
     if (cesta.isEmpty) {
       setState(() =>
@@ -343,6 +344,8 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
       );
       ref.invalidate(historialProvider);
       ref.invalidate(pendientesProvider);
+      ref.invalidate(cotizacionesHoyProvider);
+      ref.read(catalogoProvider.notifier).load();
       setState(() {
         _registrando = false;
         _exito       = true;
@@ -578,7 +581,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                   decoration: BoxDecoration(
-                    color: AppColors.stockOk.withValues(alpha: 0.08),
+                    color: AppColors.successSurface,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                     border: Border.all(
                         color: AppColors.stockOk.withValues(alpha: 0.4)),
@@ -764,7 +767,7 @@ class _ConfirmacionInline extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.07),
+                  color: AppColors.errorSurface,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                   border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
                 ),
@@ -850,7 +853,7 @@ class _CartaExito extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: AppSpacing.md),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: AppColors.stockOk.withValues(alpha: 0.08),
+          color: AppColors.successSurface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           border: Border.all(color: AppColors.stockOk.withValues(alpha: 0.4)),
         ),
@@ -882,7 +885,7 @@ class _CartaExito extends StatelessWidget {
               child: FilledButton.icon(
                 onPressed: _enviarComunidad,
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF25D366),
+                  backgroundColor: AppColors.whatsapp,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                 ),
                 icon: const Icon(Icons.send_rounded, size: 16),
@@ -1108,7 +1111,7 @@ class _ResumenFila extends StatelessWidget {
 // ── Parser: items string → List<ItemCesta> ────────────────────────────────────
 // Formato en Sheets: "Perfume A 2ml S/10.00 | Perfume B 5ml S/25.00"
 
-List<ItemCesta> _parsearCesta(String itemsStr, List<Perfume> catalogo) {
+List<ItemCesta> _parsearCesta(String itemsStr, List<Perfume> catalogo, String metodoPago) {
   if (itemsStr.isEmpty) return [];
   final result  = <ItemCesta>[];
   final rx      = RegExp(r'^(.+?)\s+(\d+)ml\s+S/(\d+\.?\d*)$');
@@ -1134,7 +1137,7 @@ List<ItemCesta> _parsearCesta(String itemsStr, List<Perfume> catalogo) {
     if (perfume == null) continue;
 
     result.add(ItemCesta(
-        perfume: perfume, ml: ml, precio: precio, metodo: 'Yape'));
+        perfume: perfume, ml: ml, precio: precio, metodo: metodoPago));
   }
   return result;
 }

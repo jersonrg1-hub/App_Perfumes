@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/cotizaciones/providers/nueva_cotizacion_provider.dart';
+import 'package:perfuteca/features/ventas/screens/cotizaciones_hoy_screen.dart';
 import 'package:perfuteca/features/ventas/widgets/item_cesta_card.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
@@ -11,6 +12,13 @@ import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
+// Timings unificados (H)
+const _kFast   = Duration(milliseconds: 160);
+const _kNormal = Duration(milliseconds: 220);
+const _kPage   = Duration(milliseconds: 300);
+
+String _fmtPrecio(double p) =>
+    p == p.truncateToDouble() ? p.toInt().toString() : p.toStringAsFixed(2);
 
 class NuevaCotizacionScreen extends ConsumerStatefulWidget {
   const NuevaCotizacionScreen({super.key});
@@ -35,7 +43,7 @@ class _NuevaCotizacionScreenState
     ref.read(nuevaCotizacionProvider.notifier).irPaso(paso);
     _pageCtrl.animateToPage(
       paso - 1,
-      duration: const Duration(milliseconds: 300),
+      duration: _kPage,
       curve: Curves.easeInOut,
     );
   }
@@ -47,17 +55,20 @@ class _NuevaCotizacionScreenState
     // Cuando se registra exitosamente, salta a paso 3
     ref.listen(nuevaCotizacionProvider, (prev, next) {
       if (prev?.paso != 3 && next.paso == 3) {
-        _pageCtrl.animateToPage(
-          2,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeInOut,
-        );
+        _pageCtrl.animateToPage(2, duration: _kPage, curve: Curves.easeInOut);
+        ref.invalidate(cotizacionesHoyProvider);
       }
     });
 
     return Column(
       children: [
-        _StepIndicator(paso: state.paso, onTapPaso: _irA),
+        // G: step indicator con info contextual de pasos completados
+        _StepIndicator(
+          paso:       state.paso,
+          onTapPaso:  _irA,
+          celular:    state.celular,
+          cestaCount: state.cesta.length,
+        ),
         Expanded(
           child: PageView(
             controller: _pageCtrl,
@@ -89,28 +100,45 @@ class _NuevaCotizacionScreenState
   }
 }
 
-// ── Indicador de pasos ────────────────────────────────────────────────────────
+// ── Indicador de pasos (G: info contextual + H: timings) ─────────────────────
 
 class _StepIndicator extends StatelessWidget {
-  const _StepIndicator({required this.paso, required this.onTapPaso});
-  final int               paso;
+  const _StepIndicator({
+    required this.paso,
+    required this.onTapPaso,
+    required this.celular,
+    required this.cestaCount,
+  });
+  final int                paso;
   final void Function(int) onTapPaso;
+  final String             celular;
+  final int                cestaCount;
 
   @override
   Widget build(BuildContext context) {
+    final step1Sub = paso > 1 && celular.length >= 4
+        ? '···${celular.substring(celular.length - 4)}'
+        : null;
+    final step2Sub = paso > 2 && cestaCount > 0
+        ? '$cestaCount ítem${cestaCount != 1 ? 's' : ''}'
+        : null;
+
     return Container(
       padding: const EdgeInsets.symmetric(
           vertical: AppSpacing.sm, horizontal: AppSpacing.lg),
       color: AppColors.surface,
       child: Row(
         children: [
-          _Dot(n: 1, label: 'Celular',   activo: paso >= 1, actual: paso == 1,
+          _Dot(n: 1, label: 'Celular',   sublabel: step1Sub,
+              activo: paso >= 1, actual: paso == 1,
               onTap: paso > 1 ? () => onTapPaso(1) : null),
           _Linea(activa: paso >= 2),
-          _Dot(n: 2, label: 'Perfumes',  activo: paso >= 2, actual: paso == 2,
+          _Dot(n: 2, label: 'Perfumes',  sublabel: step2Sub,
+              activo: paso >= 2, actual: paso == 2,
               onTap: paso > 2 ? () => onTapPaso(2) : null),
           _Linea(activa: paso >= 3),
-          _Dot(n: 3, label: 'Confirmar', activo: paso >= 3, actual: paso == 3,
+          _Dot(n: 3, label: 'Confirmar', sublabel: null,
+              activo: paso >= 3, actual: paso == 3,
               onTap: null),
         ],
       ),
@@ -122,12 +150,14 @@ class _Dot extends StatelessWidget {
   const _Dot({
     required this.n,
     required this.label,
+    this.sublabel,
     required this.activo,
     required this.actual,
     this.onTap,
   });
   final int           n;
   final String        label;
+  final String?       sublabel;
   final bool          activo;
   final bool          actual;
   final VoidCallback? onTap;
@@ -140,9 +170,9 @@ class _Dot extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                width: actual ? 28 : 22,
-                height: actual ? 28 : 22,
+                duration: _kNormal, // H: 250→220ms
+                width:  actual ? 30 : 24,
+                height: actual ? 30 : 24,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: activo ? AppColors.primary : AppColors.primaryLight,
@@ -156,25 +186,37 @@ class _Dot extends StatelessWidget {
                 ),
                 child: Center(
                   child: actual
-                      ? const Icon(Icons.edit_rounded,
-                          size: 13, color: Colors.white)
-                      : Text(
-                          '$n',
-                          style: TextStyle(
-                            fontSize: actual ? 12 : 10,
-                            fontWeight: FontWeight.w700,
-                            color: activo ? Colors.white : AppColors.textMuted,
-                          ),
-                        ),
+                      ? const Icon(Icons.edit_rounded, size: 14, color: Colors.white)
+                      : activo
+                          ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
+                          : Text('$n', style: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w700,
+                              color: AppColors.textMuted)),
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 3),
               Text(
                 label,
                 style: AppTextStyles.priceLabel.copyWith(
                   color: activo ? AppColors.primaryDark : AppColors.textFaint,
                   fontWeight: actual ? FontWeight.w700 : FontWeight.w500,
                 ),
+              ),
+              // G: sublabel con info de paso completado
+              AnimatedSwitcher(
+                duration: _kNormal,
+                child: sublabel != null
+                    ? Text(
+                        sublabel!,
+                        key: ValueKey(sublabel),
+                        style: AppTextStyles.priceLabel.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 9,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : const SizedBox.shrink(key: ValueKey('empty')),
               ),
             ],
           ),
@@ -189,7 +231,8 @@ class _Linea extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Expanded(
         flex: 2,
-        child: Container(
+        child: AnimatedContainer(
+          duration: _kNormal,
           height: 2,
           color: activa ? AppColors.primary : AppColors.primaryLight,
         ),
@@ -206,7 +249,6 @@ class _Paso1 extends ConsumerStatefulWidget {
   ConsumerState<_Paso1> createState() => _Paso1State();
 }
 
-// Normaliza celular: acepta "+51 987654321", "51987654321", "987654321", etc.
 String _normalizarCelular(String input) {
   final digits = input.replaceAll(RegExp(r'\D'), '');
   String numero;
@@ -217,7 +259,6 @@ String _normalizarCelular(String input) {
   } else {
     numero = digits;
   }
-  // Limitar a 9 dígitos
   return numero.length > 9 ? numero.substring(0, 9) : numero;
 }
 
@@ -265,14 +306,11 @@ class _Paso1State extends ConsumerState<_Paso1> {
               const Icon(Icons.request_quote_rounded,
                   color: AppColors.primary, size: 22),
               const SizedBox(width: AppSpacing.sm),
-              Text(
-                'Nueva cotización',
-                style: AppTextStyles.heading2.copyWith(fontSize: 18),
-              ),
+              Text('Nueva cotización',
+                  style: AppTextStyles.heading2.copyWith(fontSize: 18)),
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-
           Text(
             'Celular del cliente',
             style: AppTextStyles.body.copyWith(
@@ -287,7 +325,7 @@ class _Paso1State extends ConsumerState<_Paso1> {
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.phone_outlined, size: 18),
               hintText: '+51 987654321 o 987654321',
-              helperText: 'Puedes pegar el número directo de WhatsApp',
+              helperText: 'Acepta formato WhatsApp, con o sin código de país',
               counterText: '',
               filled: true,
               fillColor: AppColors.primaryPale,
@@ -302,9 +340,7 @@ class _Paso1State extends ConsumerState<_Paso1> {
             ),
             onChanged: (v) => _onCelularChanged(v, notifier),
           ),
-
           const SizedBox(height: AppSpacing.xl),
-
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
@@ -312,12 +348,10 @@ class _Paso1State extends ConsumerState<_Paso1> {
               icon: const Icon(Icons.arrow_forward_rounded, size: 18),
               label: const Text('Continuar — agregar perfumes'),
               style: FilledButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
               ),
             ),
           ),
-
         ],
       ),
     );
@@ -360,11 +394,11 @@ class _Paso2State extends ConsumerState<_Paso2> {
 
     return Column(
       children: [
-        // Resumen cesta expandible
+        // A: _CestaPanel con estado controlado desde aquí
         if (state.cesta.isNotEmpty)
           _CestaPanel(
-            cesta: state.cesta,
-            total: state.total,
+            cesta:    state.cesta,
+            total:    state.total,
             onQuitar: (i) => notifier.quitarItem(i),
           ),
 
@@ -377,6 +411,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
             decoration: InputDecoration(
               hintText: 'Buscar perfume o marca...',
               prefixIcon: const Icon(Icons.search_rounded, size: 18),
+              // C: solo la X del campo, sin "Limpiar" redundante
               suffixIcon: _filtro.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear_rounded, size: 18),
@@ -399,38 +434,20 @@ class _Paso2State extends ConsumerState<_Paso2> {
           ),
         ),
 
-        // Contador de resultados
+        // C: contador sin "Limpiar" duplicado
         if (!catalogoState.isLoading)
           Padding(
             padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md + AppSpacing.sm),
-            child: Row(
-              children: [
-                Text(
-                  _filtro.isEmpty
-                      ? '${perfumes.length} perfumes'
-                      : '${perfumes.length} resultado${perfumes.length != 1 ? 's' : ''} para "$_filtro"',
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.textMuted),
-                ),
-                if (_filtro.isNotEmpty) ...[
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () {
-                      _searchCtrl.clear();
-                      setState(() => _filtro = '');
-                      FocusScope.of(context).unfocus();
-                    },
-                    child: Text(
-                      'Limpiar',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _filtro.isEmpty
+                    ? '${perfumes.length} perfumes'
+                    : '${perfumes.length} resultado${perfumes.length != 1 ? 's' : ''} para "$_filtro"',
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.textMuted),
+              ),
             ),
           ),
 
@@ -527,7 +544,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
   }
 }
 
-// ── Fila de perfume con botones ml ────────────────────────────────────────────
+// ── Fila de perfume con botones ml (B + H) ────────────────────────────────────
 
 class _PerfumeRow extends StatelessWidget {
   const _PerfumeRow({
@@ -544,7 +561,7 @@ class _PerfumeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: _kNormal, // H: 200→220ms
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm),
@@ -584,13 +601,15 @@ class _PerfumeRow extends StatelessWidget {
             ),
           ),
 
-          // Chip con ml+precio o botones ml
+          const SizedBox(width: AppSpacing.sm),
+
+          // Chip en cesta o botones ml (B: Wrap para responsividad)
           if (itemEnCesta != null)
             GestureDetector(
               onTap: onQuitar,
               child: Container(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm, vertical: 6),
+                    horizontal: AppSpacing.sm, vertical: 7),
                 decoration: BoxDecoration(
                   color: AppColors.primary,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -601,7 +620,7 @@ class _PerfumeRow extends StatelessWidget {
                     const Icon(Icons.check_rounded, size: 14, color: Colors.white),
                     const SizedBox(width: 4),
                     Text(
-                      '${itemEnCesta!.ml}ml  ·  S/ ${itemEnCesta!.precio.toStringAsFixed(2)}',
+                      '${itemEnCesta!.ml}ml · S/${_fmtPrecio(itemEnCesta!.precio)}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 11,
@@ -615,7 +634,7 @@ class _PerfumeRow extends StatelessWidget {
               ),
             )
           else
-            Row(
+              Row(
               children: [
                 if (perfume.precio2ml != null)
                   _MlBtn(ml: 2, precio: perfume.precio2ml!, onTap: () => onAgregar(2)),
@@ -631,6 +650,7 @@ class _PerfumeRow extends StatelessWidget {
   }
 }
 
+// H: botón ml, animación 160ms (era 120ms)
 class _MlBtn extends StatefulWidget {
   const _MlBtn({
     required this.ml,
@@ -652,8 +672,7 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    _ctrl  = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 120));
+    _ctrl  = AnimationController(vsync: this, duration: _kFast);
     _scale = Tween(begin: 1.0, end: 0.88).animate(
         CurvedAnimation(parent: _ctrl, curve: Curves.easeIn));
   }
@@ -703,7 +722,7 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
                     ),
                   ),
                   Text(
-                    'S/${widget.precio.toStringAsFixed(2)}',
+                    'S/${_fmtPrecio(widget.precio)}',
                     style: const TextStyle(
                       color: Colors.white70,
                       fontSize: 10,
@@ -779,7 +798,7 @@ class _Paso3 extends ConsumerWidget {
                 padding: const EdgeInsets.only(right: AppSpacing.lg),
                 margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                 decoration: BoxDecoration(
-                  color: AppColors.error.withValues(alpha: 0.12),
+                  color: AppColors.errorSurface,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
                 child: const Row(
@@ -798,9 +817,11 @@ class _Paso3 extends ConsumerWidget {
                 ),
               ),
               child: ItemCestaCard(
-                item:     e.value,
-                index:    e.key,
-                onQuitar: () => notifier.quitarItem(e.key),
+                item:           e.value,
+                index:          e.key,
+                onQuitar:       () => notifier.quitarItem(e.key),
+                nombreFontSize: 15,
+                marcaFontSize:  12,
               ),
             );
           }),
@@ -811,7 +832,7 @@ class _Paso3 extends ConsumerWidget {
           GestureDetector(
             onTap: notifier.toggleDelivery,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: _kNormal,
               padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md, vertical: AppSpacing.sm),
               decoration: BoxDecoration(
@@ -961,13 +982,12 @@ class _Paso3 extends ConsumerWidget {
             Container(
               padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
+                color: AppColors.errorSurface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ),
               child: Text(
                 state.error!,
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.error),
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
               ),
             ),
           ],
@@ -977,30 +997,25 @@ class _Paso3 extends ConsumerWidget {
           Row(
             children: [
               OutlinedButton(
-                onPressed:
-                    state.registrando ? null : onAnterior,
+                onPressed: state.registrando ? null : onAnterior,
                 child: const Text('Editar'),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed:
-                      state.registrando ? null : onGuardar,
+                  onPressed: state.registrando ? null : onGuardar,
                   icon: state.registrando
                       ? const SizedBox(
-                          width: 16,
-                          height: 16,
+                          width: 16, height: 16,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white),
+                              strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.send_rounded, size: 18),
-                  label: Text(state.registrando
-                      ? 'Guardando...'
-                      : 'Enviar cotización'),
+                  label: Text(
+                      state.registrando ? 'Guardando...' : 'Enviar cotización'),
                   style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: AppSpacing.md),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: AppSpacing.md),
                   ),
                 ),
               ),
@@ -1043,8 +1058,7 @@ class _TicketExitoState extends State<_TicketExito>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600));
+    _ctrl  = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
     _scale = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
     _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
     _ctrl.forward();
@@ -1134,7 +1148,8 @@ class _TicketExitoState extends State<_TicketExito>
                 style: OutlinedButton.styleFrom(
                   foregroundColor: const Color(0xFF25D366),
                   side: const BorderSide(color: Color(0xFF25D366)),
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 ),
               ),
             ),
@@ -1158,7 +1173,7 @@ class _TicketExitoState extends State<_TicketExito>
   }
 }
 
-// ── Panel expandible de cesta (Paso 2) ───────────────────────────────────────
+// ── Panel expandible de cesta ─────────────────────────────────────────────────
 
 class _CestaPanel extends StatefulWidget {
   const _CestaPanel({
@@ -1166,9 +1181,9 @@ class _CestaPanel extends StatefulWidget {
     required this.total,
     required this.onQuitar,
   });
-  final List<ItemCesta>      cesta;
-  final double               total;
-  final void Function(int)   onQuitar;
+  final List<ItemCesta>    cesta;
+  final double             total;
+  final void Function(int) onQuitar;
 
   @override
   State<_CestaPanel> createState() => _CestaPanelState();
@@ -1180,7 +1195,7 @@ class _CestaPanelState extends State<_CestaPanel> {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
+      duration: _kNormal,
       margin: const EdgeInsets.fromLTRB(
           AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
       decoration: BoxDecoration(
@@ -1193,7 +1208,6 @@ class _CestaPanelState extends State<_CestaPanel> {
       ),
       child: Column(
         children: [
-          // Cabecera tappeable
           InkWell(
             onTap: () => setState(() => _expandido = !_expandido),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -1217,19 +1231,16 @@ class _CestaPanelState extends State<_CestaPanel> {
                         .copyWith(fontSize: 14, color: AppColors.primaryDark),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  Icon(
-                    _expandido
-                        ? Icons.expand_less_rounded
-                        : Icons.expand_more_rounded,
-                    size: 18,
-                    color: AppColors.textMuted,
+                  AnimatedRotation(
+                    turns: _expandido ? 0.5 : 0,
+                    duration: _kNormal,
+                    child: const Icon(Icons.expand_more_rounded,
+                        size: 18, color: AppColors.textMuted),
                   ),
                 ],
               ),
             ),
           ),
-
-          // Lista de ítems expandible
           if (_expandido) ...[
             const Divider(height: 1),
             ...widget.cesta.asMap().entries.map((e) => Padding(
@@ -1238,7 +1249,7 @@ class _CestaPanelState extends State<_CestaPanel> {
                   child: Row(
                     children: [
                       Container(
-                        width: 20, height: 20,
+                        width: 28, height: 20,
                         decoration: BoxDecoration(
                           color: AppColors.primaryLight,
                           borderRadius: BorderRadius.circular(4),
@@ -1258,9 +1269,10 @@ class _CestaPanelState extends State<_CestaPanel> {
                       Expanded(
                         child: Text(
                           e.value.perfume.nombre,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textPrimary,
+                          style: AppTextStyles.body.copyWith(
                             fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                            color: AppColors.textPrimary,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -1292,7 +1304,7 @@ class _CestaPanelState extends State<_CestaPanel> {
   }
 }
 
-// ── Ticket de recibo ──────────────────────────────────────────────────────────
+// ── Ticket de recibo (F: más compacto, ID prominente) ────────────────────────
 
 class _ReceiptCard extends StatelessWidget {
   const _ReceiptCard({
@@ -1314,7 +1326,7 @@ class _ReceiptCard extends StatelessWidget {
       decoration: const BoxDecoration(
         color: Color(0xFFFFFDF9),
         boxShadow: [
-          BoxShadow(color: Color(0x28000000), blurRadius: 24, offset: Offset(0, 8)),
+          BoxShadow(color: Color(0x28000000), blurRadius: 20, offset: Offset(0, 6)),
           BoxShadow(color: Color(0x0F000000), blurRadius: 4,  offset: Offset(0, 2)),
         ],
       ),
@@ -1322,70 +1334,78 @@ class _ReceiptCard extends StatelessWidget {
         children: [
           const _PerforatedEdge(),
           Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
             child: Column(
               children: [
-                // Cabecera: tienda + ID
+                // F: cabecera con icono + ID badge prominente con fondo primary
                 Row(
                   children: [
-                    const Text(
-                      'PERFUTECA',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: AppColors.primaryDark,
-                        letterSpacing: 2,
-                      ),
+                    const Row(
+                      children: [
+                        Icon(Icons.local_florist_rounded,
+                            size: 13, color: AppColors.primary),
+                        SizedBox(width: 5),
+                        Text(
+                          'PERFUTECA',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            color: AppColors.primaryDark,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
                     ),
                     const Spacer(),
+                    // F: ID badge fondo primary, texto blanco — más visible
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                          horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: AppColors.primaryPale,
-                        borderRadius: BorderRadius.circular(4),
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         idCotizacion,
                         style: const TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.primaryDark,
+                          color: Colors.white,
                           letterSpacing: 0.5,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.sm),
+                const SizedBox(height: AppSpacing.xs),
                 // Celular
                 Row(
                   children: [
                     const Icon(Icons.phone_outlined,
-                        size: 13, color: AppColors.textMuted),
-                    const SizedBox(width: 6),
+                        size: 12, color: AppColors.textMuted),
+                    const SizedBox(width: 5),
                     Text(
                       celular,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textSecondary,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: AppSpacing.md),
+                const SizedBox(height: AppSpacing.sm),
                 const _DashedDivider(),
-                const SizedBox(height: AppSpacing.md),
-                // Items
+                const SizedBox(height: AppSpacing.sm),
+                // F: items más compactos (bottom: 5 en vez de 8)
                 ...cesta.map((i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 5),
                   child: Row(
                     children: [
                       const Icon(Icons.local_florist_outlined,
-                          size: 11, color: AppColors.primary),
-                      const SizedBox(width: 6),
+                          size: 10, color: AppColors.primary),
+                      const SizedBox(width: 5),
                       Expanded(
                         child: Text(
                           '${i.perfume.nombre}  ${i.ml}ml',
@@ -1409,12 +1429,12 @@ class _ReceiptCard extends StatelessWidget {
                 )),
                 if (conDelivery)
                   const Padding(
-                    padding: EdgeInsets.only(bottom: 8),
+                    padding: EdgeInsets.only(bottom: 5),
                     child: Row(
                       children: [
                         Icon(Icons.delivery_dining_rounded,
-                            size: 11, color: AppColors.textMuted),
-                        SizedBox(width: 6),
+                            size: 10, color: AppColors.textMuted),
+                        SizedBox(width: 5),
                         Expanded(
                           child: Text(
                             'Delivery',
@@ -1437,26 +1457,28 @@ class _ReceiptCard extends StatelessWidget {
                     ),
                   ),
                 const _DashedDivider(),
-                const SizedBox(height: AppSpacing.md),
-                // Total
+                const SizedBox(height: AppSpacing.sm),
+                // F: total más impactante con alineación clara
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     const Text(
                       'TOTAL',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textMuted,
-                        letterSpacing: 1.5,
+                        letterSpacing: 2,
                       ),
                     ),
                     Text(
                       'S/ ${total.toStringAsFixed(2)}',
                       style: const TextStyle(
-                        fontSize: 26,
+                        fontSize: 28,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primaryDark,
+                        height: 1,
                       ),
                     ),
                   ],
@@ -1486,8 +1508,7 @@ class _PerforatedEdge extends StatelessWidget {
               children: List.generate(
                 count,
                 (_) => Container(
-                  width: 10,
-                  height: 10,
+                  width: 10, height: 10,
                   decoration: BoxDecoration(
                     color: Theme.of(context).scaffoldBackgroundColor,
                     shape: BoxShape.circle,

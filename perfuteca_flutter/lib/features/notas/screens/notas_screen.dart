@@ -371,7 +371,7 @@ class _ModoBar extends StatelessWidget {
                       horizontal: AppSpacing.md, vertical: 6),
                   decoration: BoxDecoration(
                     color: bgColor,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
                     border: Border.all(
                       color: tieneFiltro
                           ? AppColors.primary
@@ -607,7 +607,7 @@ class _FiltrosActivosBar extends StatelessWidget {
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: _bg(e.value),
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
                           border: Border.all(color: _border(e.value)),
                         ),
                         child: Row(
@@ -688,7 +688,7 @@ class _ValorCard extends StatelessWidget {
                         horizontal: 7, vertical: 3),
                     decoration: BoxDecoration(
                       color: borderColor.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
                     ),
                     child: Text('$conteo',
                         style: const TextStyle(
@@ -776,7 +776,7 @@ class _ChipBar extends StatelessWidget {
                           horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: activo ? _border(valor) : _bg(valor),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
                         border: Border.all(
                             color: _border(valor),
                             width: activo ? 2 : 1),

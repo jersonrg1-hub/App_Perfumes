@@ -358,7 +358,7 @@ class _SortChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: AppColors.primaryPale,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
           border: Border.all(color: AppColors.primaryLight),
         ),
         child: Row(
@@ -441,7 +441,7 @@ class _MarcaChip extends StatelessWidget {
               horizontal: AppSpacing.md, vertical: 7),
           decoration: BoxDecoration(
             color: activo ? AppColors.primary : AppColors.primaryPale,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
             border: Border.all(
               color: activo ? AppColors.primary : AppColors.primaryLight,
               width: activo ? 1.5 : 1,

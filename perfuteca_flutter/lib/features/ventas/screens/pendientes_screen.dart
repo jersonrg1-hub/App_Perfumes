@@ -8,6 +8,7 @@ import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:shimmer/shimmer.dart';
 
 // IDs de órdenes removidas optimísticamente antes de que el API confirme
 final _pendientesRemovidosProvider =
@@ -61,7 +62,7 @@ class PendientesScreen extends ConsumerWidget {
     final removidos = ref.watch(_pendientesRemovidosProvider);
 
     return async.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _PendientesShimmer(),
       error: (e, _) => _ErrorView(
         mensaje: e.toString(),
         onRetry: () {
@@ -114,7 +115,10 @@ class _ListaOrdenes extends StatelessWidget {
                 vertical: AppSpacing.sm,
               ),
               itemCount: ordenes.length,
-              itemBuilder: (_, i) => _OrdenCard(orden: ordenes[i], perfumesMap: perfumesMap),
+              itemBuilder: (_, i) => _AnimatedListItem(
+                index: i,
+                child: _OrdenCard(orden: ordenes[i], perfumesMap: perfumesMap),
+              ),
             ),
           ),
         ),
@@ -139,7 +143,7 @@ class _ResumenBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.12),
+        color: AppColors.warningSurface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         border:
             Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
@@ -322,7 +326,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
           Container(
             padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.primaryPale,
               borderRadius: BorderRadius.vertical(
                   top: Radius.circular(AppSpacing.radiusMd)),
@@ -358,7 +362,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: AppSpacing.xs),
                       Text(
                         orden.comprador ?? '—',
                         style: AppTextStyles.body.copyWith(
@@ -465,7 +469,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpacing.xs + 2),
                 Row(
                   children: [
                     const Icon(Icons.location_on_outlined,
@@ -497,8 +501,8 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                     icon: const Icon(Icons.groups_rounded, size: 16),
                     label: const Text('Enviar pedido a comunidad'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF128C7E),
-                      side: const BorderSide(color: Color(0xFF128C7E)),
+                      foregroundColor: AppColors.whatsappDark,
+                      side: const BorderSide(color: AppColors.whatsappDark),
                       padding: const EdgeInsets.symmetric(
                           vertical: AppSpacing.sm),
                     ),
@@ -561,10 +565,10 @@ class _InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -606,21 +610,17 @@ class _FechaAgeBadge extends StatelessWidget {
         label = 'Hace $days días';
       } else {
         color = AppColors.stockCritical;
-        label = 'Hace $days días ⚠️';
+        label = 'Hace $days días';
       }
 
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.schedule_rounded, size: 10, color: color),
-          const SizedBox(width: 3),
+          const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: TextStyle(
-              fontSize:   10,
-              color:      color,
-              fontWeight: FontWeight.w700,
-            ),
+            style: AppTextStyles.notasLabel.copyWith(color: color),
           ),
         ],
       );
@@ -636,26 +636,28 @@ class _EmptyView extends StatelessWidget {
   const _EmptyView();
 
   @override
-  Widget build(BuildContext context) => ListView(
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.5,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.check_circle_outline_rounded,
-                    size: 64, color: AppColors.success),
-                const SizedBox(height: 12),
-                Text(
-                  '¡Todo entregado!',
-                  style: AppTextStyles.body.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: 4),
-                Text('No hay órdenes pendientes',
-                    style: AppTextStyles.bodySmall),
-              ],
+  Widget build(BuildContext context) => CustomScrollView(
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.check_circle_outline_rounded,
+                      size: 64, color: AppColors.success),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    '¡Todo entregado!',
+                    style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  const Text('No hay órdenes pendientes',
+                      style: AppTextStyles.bodySmall),
+                ],
+              ),
             ),
           ),
         ],
@@ -676,21 +678,92 @@ class _ErrorView extends StatelessWidget {
             children: [
               const Icon(Icons.wifi_off_rounded,
                   size: 48, color: AppColors.textFaint),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Text('Error al cargar pendientes',
                   style: AppTextStyles.body
                       .copyWith(color: AppColors.textPrimary)),
-              const SizedBox(height: 4),
-              Text(mensaje,
+              const SizedBox(height: AppSpacing.xs),
+              const Text(
+                  'No se pudo conectar. Verifica tu conexión e intenta de nuevo.',
                   style: AppTextStyles.bodySmall,
                   textAlign: TextAlign.center),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               FilledButton.icon(
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 18),
                 label: const Text('Reintentar'),
               ),
             ],
+          ),
+        ),
+      );
+}
+
+// ── Animación de entrada staggered ────────────────────────────────────────────
+
+class _AnimatedListItem extends StatefulWidget {
+  const _AnimatedListItem({required this.index, required this.child});
+  final int    index;
+  final Widget child;
+
+  @override
+  State<_AnimatedListItem> createState() => _AnimatedListItemState();
+}
+
+class _AnimatedListItemState extends State<_AnimatedListItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 280),
+    );
+    _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _slide   = Tween(begin: const Offset(0, 0.07), end: Offset.zero)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    Future.delayed(Duration(milliseconds: widget.index * 40), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+        opacity: _opacity,
+        child: SlideTransition(position: _slide, child: widget.child),
+      );
+}
+
+// ── Shimmer de carga ──────────────────────────────────────────────────────────
+
+class _PendientesShimmer extends StatelessWidget {
+  const _PendientesShimmer();
+
+  @override
+  Widget build(BuildContext context) => Shimmer.fromColors(
+        baseColor:      AppColors.primaryLight,
+        highlightColor: AppColors.primaryPale,
+        child: ListView.builder(
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          itemCount: 4,
+          itemBuilder: (_, __) => Container(
+            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            height: 160,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            ),
           ),
         ),
       );

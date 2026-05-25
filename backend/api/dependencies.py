@@ -75,7 +75,7 @@ def get_repo() -> SheetsRepository:
 # ── Cache TTL ─────────────────────────────────────────────────────────────────
 
 _cache_catalogo: TTLCache = TTLCache(maxsize=1, ttl=1800)  # 30 min
-_cache_ventas:   TTLCache = TTLCache(maxsize=1, ttl=120)   # 2 min
+_cache_ventas:   TTLCache = TTLCache(maxsize=1, ttl=300)   # 5 min
 _lock = threading.Lock()
 _K = "df"
 

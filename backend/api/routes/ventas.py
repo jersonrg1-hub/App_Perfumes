@@ -26,6 +26,7 @@ from backend.api.dependencies import (
     verify_api_key,
     df_to_json_list,
 )
+from backend.api.routes import estadisticas as _estadisticas_mod
 from backend.api.models import (
     VentaRequest,
     VentaRegistrada,
@@ -174,9 +175,13 @@ def registrar_venta(body: VentaRequest, repo: SheetsRepository = Depends(get_rep
         id_compra = repo.register_complete_sale(cesta, cliente, MERMA_PCT)
         invalidar_cache_ventas()
         invalidar_cache_catalogo()
+        _estadisticas_mod._invalidar_cache_stats()
+        _estadisticas_mod._invalidar_cache_clientes()
         return VentaRegistrada(id_compra=id_compra)
     except StockUpdateError as e:
         invalidar_cache_ventas()
+        _estadisticas_mod._invalidar_cache_stats()
+        _estadisticas_mod._invalidar_cache_clientes()
         return VentaRegistrada(
             id_compra=e.id_compra,
             warning="Venta guardada pero el stock no pudo actualizarse",
@@ -209,6 +214,8 @@ def actualizar_estado_venta(
             [(body.fila_sheet, {COL_ESTADO_NUM: body.nuevo_estado})]
         )
         invalidar_cache_ventas()
+        _estadisticas_mod._invalidar_cache_stats()
+        _estadisticas_mod._invalidar_cache_clientes()
         return {"id_venta": id_venta, "estado": body.nuevo_estado}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al actualizar estado: {e}")

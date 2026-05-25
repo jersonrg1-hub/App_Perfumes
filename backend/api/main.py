@@ -27,10 +27,11 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from backend.api.routes import catalogo, ventas, cotizaciones
+from backend.api.routes import catalogo, ventas, cotizaciones, estadisticas
 from backend.core.config import ML_OPCIONES, METODOS_PAGO, TIPOS_ENVIO, STOCK_CRITICO, STOCK_BAJO
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -135,12 +136,14 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 # ── Routers ───────────────────────────────────────────────────────────────────
-app.include_router(catalogo.router,     prefix="/api/v1/catalogo",     tags=["Catalogo"])
-app.include_router(ventas.router,       prefix="/api/v1/ventas",       tags=["Ventas"])
-app.include_router(cotizaciones.router, prefix="/api/v1/cotizaciones", tags=["Cotizaciones"])
+app.include_router(catalogo.router,      prefix="/api/v1/catalogo",      tags=["Catalogo"])
+app.include_router(ventas.router,        prefix="/api/v1/ventas",        tags=["Ventas"])
+app.include_router(cotizaciones.router,  prefix="/api/v1/cotizaciones",  tags=["Cotizaciones"])
+app.include_router(estadisticas.router,  prefix="/api/v1/estadisticas",  tags=["Estadísticas"])
 
 
 # ── Endpoints del sistema ─────────────────────────────────────────────────────

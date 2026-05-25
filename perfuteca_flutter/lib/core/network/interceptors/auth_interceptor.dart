@@ -7,7 +7,7 @@ class AuthInterceptor extends Interceptor {
 
   final String _apiKey;
 
-  static const _protectedPaths = ['/api/v1/ventas', '/api/v1/cotizaciones'];
+  static const _protectedPaths = ['/api/v1/ventas', '/api/v1/cotizaciones', '/api/v1/estadisticas'];
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {

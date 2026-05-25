@@ -23,12 +23,15 @@ class CatalogoRepository {
   Future<Paginated<Perfume>> getCatalogo({
     int limit = 100,
     int offset = 0,
+    bool bypassCache = false,
   }) async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
         ApiConstants.catalogo,
         queryParameters: {'limit': limit, 'offset': offset},
-        options: _cache.cacheFor(const Duration(hours: 6)),
+        options: bypassCache
+            ? _cache.noCache
+            : _cache.cacheFor(const Duration(hours: 6)),
       );
       return Paginated.fromJson(res.data!, (e) => Perfume.fromJson(e as Map<String, dynamic>));
     } on DioException catch (e) {

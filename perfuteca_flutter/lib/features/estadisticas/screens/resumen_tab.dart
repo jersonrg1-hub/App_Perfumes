@@ -11,24 +11,34 @@ const _meses = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
-class ResumenTab extends ConsumerWidget {
+class ResumenTab extends ConsumerStatefulWidget {
   const ResumenTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ResumenTab> createState() => _ResumenTabState();
+}
+
+class _ResumenTabState extends ConsumerState<ResumenTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     return ref.watch(resumenStatsProvider).when(
       loading: () => const _ResumenSkeleton(),
       error:   (e, _) => _ErrorView(
         mensaje: e.toString(),
         onRetry: () {
-          ref.invalidate(ventasParaStatsProvider);
+          ref.invalidate(resumenBackendProvider);
           ref.invalidate(resumenStatsProvider);
         },
       ),
       data: (stats) => RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
-          ref.invalidate(ventasParaStatsProvider);
+          ref.invalidate(resumenBackendProvider);
           ref.invalidate(resumenStatsProvider);
           await ref.read(resumenStatsProvider.future);
         },

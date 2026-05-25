@@ -18,11 +18,16 @@ class VentasTab extends ConsumerStatefulWidget {
   ConsumerState<VentasTab> createState() => _VentasTabState();
 }
 
-class _VentasTabState extends ConsumerState<VentasTab> {
+class _VentasTabState extends ConsumerState<VentasTab>
+    with AutomaticKeepAliveClientMixin {
   _SeccionVentas _seccion = _SeccionVentas.historial;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Column(
       children: [
         // ── Chips de navegación ───────────────────────────────────────

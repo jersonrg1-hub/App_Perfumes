@@ -56,7 +56,7 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
   Future<void> load() async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
-      final page = await _repo.getCatalogo(limit: _pageSize, offset: 0);
+      final page = await _repo.getCatalogo(limit: _pageSize, offset: 0, bypassCache: true);
       state = CatalogoState(
         perfumes: page.items,
         total:    page.total,

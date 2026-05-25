@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/repositories/ventas_repository.dart';
@@ -210,6 +211,9 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
         ventaRegistrada: registrada,
         paso:            3,
       );
+      // Invalida stats para que el tab Estadísticas muestre datos frescos
+      ref.invalidate(resumenBackendProvider);
+      ref.invalidate(ventasParaStatsProvider);
     } catch (e) {
       state = state.copyWith(registrando: false, error: e.toString());
     }

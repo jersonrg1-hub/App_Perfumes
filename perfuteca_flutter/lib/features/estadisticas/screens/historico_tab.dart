@@ -5,11 +5,21 @@ import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
-class HistoricoTab extends ConsumerWidget {
+class HistoricoTab extends ConsumerStatefulWidget {
   const HistoricoTab({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistoricoTab> createState() => _HistoricoTabState();
+}
+
+class _HistoricoTabState extends ConsumerState<HistoricoTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
     final masVendidos =
         ref.watch(resumenStatsProvider).valueOrNull?.masVendidos ?? [];
     return ref.watch(historialGlobalProvider).when(

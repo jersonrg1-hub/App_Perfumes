@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/repositories/ventas_repository.dart';
 
@@ -42,6 +43,8 @@ class EstadoVentaNotifier extends AsyncNotifier<void> {
       // Invalida cache para refrescar listas
       ref.invalidate(pendientesProvider);
       ref.invalidate(historialProvider);
+      ref.invalidate(resumenBackendProvider);
+      ref.invalidate(ventasParaStatsProvider);
       state = const AsyncData(null);
       return true;
     } catch (e) {

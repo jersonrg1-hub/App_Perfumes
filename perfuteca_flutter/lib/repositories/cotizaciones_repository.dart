@@ -23,6 +23,7 @@ class CotizacionesRepository {
     int limit = 100,
     int offset = 0,
     String? estado,
+    bool bypassCache = false,
   }) async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
@@ -32,7 +33,9 @@ class CotizacionesRepository {
           'offset': offset,
           if (estado != null) 'estado': estado,
         },
-        options: _cache.cacheFor(const Duration(minutes: 3)),
+        options: bypassCache
+            ? _cache.noCache
+            : _cache.cacheFor(const Duration(minutes: 3)),
       );
       return Paginated.fromJson(
         res.data!,

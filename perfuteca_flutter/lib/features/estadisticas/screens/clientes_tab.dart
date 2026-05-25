@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -15,11 +17,23 @@ import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
-class ClientesTab extends StatelessWidget {
+class ClientesTab extends StatefulWidget {
   const ClientesTab({super.key});
 
   @override
-  Widget build(BuildContext context) => const _ClientesView();
+  State<ClientesTab> createState() => _ClientesTabState();
+}
+
+class _ClientesTabState extends State<ClientesTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return const _ClientesView();
+  }
 }
 
 // ── Lista de clientes ─────────────────────────────────────────────────────────
@@ -33,6 +47,13 @@ class _ClientesView extends ConsumerStatefulWidget {
 
 class _ClientesViewState extends ConsumerState<_ClientesView> {
   String _buscar = '';
+  Timer? _debounce;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,12 +63,13 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
         child: Text(e.toString(), style: AppTextStyles.bodySmall),
       ),
       data: (clientes) {
-        final filtrados = _buscar.isEmpty
+        final q = _buscar.toLowerCase();
+        final filtrados = q.isEmpty
             ? clientes
             : clientes.where((c) =>
-                c.nombre.toLowerCase().contains(_buscar.toLowerCase()) ||
+                c.nombre.toLowerCase().contains(q) ||
                 c.celular.contains(_buscar) ||
-                c.direccion.toLowerCase().contains(_buscar.toLowerCase()),
+                c.direccion.toLowerCase().contains(q),
               ).toList();
 
         final top  = clientes.isNotEmpty ? clientes.first : null;
@@ -101,7 +123,12 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
                     borderSide: const BorderSide(color: AppColors.primaryLight),
                   ),
                 ),
-                onChanged: (v) => setState(() => _buscar = v),
+                onChanged: (v) {
+                  _debounce?.cancel();
+                  _debounce = Timer(const Duration(milliseconds: 300), () {
+                    if (mounted) setState(() => _buscar = v);
+                  });
+                },
               ),
             ),
 
@@ -559,6 +586,7 @@ class CotizacionesTodasViewState
   final List<CotizacionResponse> _items     = [];
   final _searchCtrl                          = TextEditingController();
   String  _buscar   = '';
+  Timer?  _debounce;
   int     _offset   = 0;
   bool    _cargando = false;
   bool    _hayMas   = true;
@@ -571,6 +599,7 @@ class CotizacionesTodasViewState
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -642,7 +671,12 @@ class CotizacionesTodasViewState
                     )
                   : null,
             ),
-            onChanged: (v) => setState(() => _buscar = v.trim()),
+            onChanged: (v) {
+              _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 300), () {
+                if (mounted) setState(() => _buscar = v.trim());
+              });
+            },
           ),
         ),
         const SizedBox(height: AppSpacing.xs),

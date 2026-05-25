@@ -19,11 +19,15 @@ class AnalisisTab extends ConsumerStatefulWidget {
   ConsumerState<AnalisisTab> createState() => _AnalisisTabState();
 }
 
-class _AnalisisTabState extends ConsumerState<AnalisisTab> {
+class _AnalisisTabState extends ConsumerState<AnalisisTab>
+    with AutomaticKeepAliveClientMixin {
   _FiltroStock _filtro = _FiltroStock.todos;
   _OrdenStock  _orden  = _OrdenStock.menorPrimero;
   String       _buscar = '';
   final _buscarCtrl    = TextEditingController();
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void dispose() {
@@ -33,6 +37,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final estado = ref.watch(catalogoProvider);
 
     if (estado.isLoading) {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,9 +42,11 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(nuevaVentaProvider);
+    // select() — rebuild solo cuando cambia paso o ventaRegistrada,
+    // no en cada cambio de cesta/campos del wizard.
+    final paso            = ref.watch(nuevaVentaProvider.select((s) => s.paso));
+    final ventaRegistrada = ref.watch(nuevaVentaProvider.select((s) => s.ventaRegistrada));
 
-    // Cuando se recarga desde cotización (paso vuelve a 1), resetea la página
     ref.listen(
       nuevaVentaProvider.select((s) => s.paso),
       (prev, next) {
@@ -53,7 +57,6 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
       },
     );
 
-    // Refrescar stock al registrar venta exitosamente
     ref.listen(
       nuevaVentaProvider.select((s) => s.ventaRegistrada),
       (prev, next) {
@@ -63,7 +66,9 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
       },
     );
 
-    if (state.ventaRegistrada != null) {
+    if (ventaRegistrada != null) {
+      // ref.read — snapshot estático, ventaRegistrada ya no cambia aquí
+      final state = ref.read(nuevaVentaProvider);
       return TweenAnimationBuilder<double>(
         key: const ValueKey('ticket_exito'),
         tween: Tween(begin: 0.0, end: 1.0),
@@ -74,8 +79,8 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
           child: Transform.scale(scale: 0.94 + 0.06 * v, child: child),
         ),
         child: _TicketExito(
-          idCompra:   state.ventaRegistrada!.idCompra,
-          warning:    state.ventaRegistrada!.warning,
+          idCompra:   ventaRegistrada.idCompra,
+          warning:    ventaRegistrada.warning,
           celular:    state.celular,
           comprador:  state.comprador,
           tipoEnvio:  state.tipoEnvio,
@@ -96,7 +101,7 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
 
     return Column(
       children: [
-        _StepIndicator(pasoActual: state.paso),
+        _StepIndicator(pasoActual: paso),
         Expanded(
           child: PageView(
             controller: _pageController,
@@ -578,9 +583,11 @@ class _Paso2State extends ConsumerState<_Paso2> {
   String  _query = '';
   bool    _cestaExpandida = false;
   String? _marcaFiltro;
+  Timer?  _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _busquedaCtrl.dispose();
     super.dispose();
   }
@@ -597,11 +604,12 @@ class _Paso2State extends ConsumerState<_Paso2> {
         .toList()
       ..sort();
 
+    final q = _query.toLowerCase();
     final perfumes = catalogoState.perfumes.where((p) {
       final matchMarca = _marcaFiltro == null || p.marca == _marcaFiltro;
-      final matchQuery = _query.isEmpty ||
-          p.nombre.toLowerCase().contains(_query.toLowerCase()) ||
-          p.marca.toLowerCase().contains(_query.toLowerCase());
+      final matchQuery = q.isEmpty ||
+          p.nombre.toLowerCase().contains(q) ||
+          p.marca.toLowerCase().contains(q);
       return matchMarca && matchQuery;
     }).toList();
 
@@ -655,7 +663,12 @@ class _Paso2State extends ConsumerState<_Paso2> {
                           size: 18, color: AppColors.textMuted))
                   : null,
             ),
-            onChanged: (v) => setState(() => _query = v),
+            onChanged: (v) {
+              _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 250), () {
+                if (mounted) setState(() => _query = v);
+              });
+            },
           ),
         ),
 

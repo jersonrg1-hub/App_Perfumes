@@ -1,20 +1,23 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
-import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/venta.dart';
+import 'package:perfuteca/repositories/estadisticas_repository.dart';
 import 'package:perfuteca/repositories/ventas_repository.dart';
 
-// Carga todas las ventas sin caché para que las estadísticas reflejen el estado real.
-final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async {
-  final page = await ref.watch(ventasRepositoryProvider)
-      .getVentas(limit: 500, bypassCache: true);
-  return page.items;
+// Proveedor principal: datos pre-agregados del backend (reemplaza ventasParaStatsProvider)
+final resumenBackendProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  ref.keepAlive();
+  return ref.watch(estadisticasRepositoryProvider).getResumen();
 });
 
-String _normId(String id) {
-  final n = double.tryParse(id);
-  return n != null ? n.toInt().toString() : id;
-}
+// Ventas crudas: usadas por historial, clientes y comparación de meses.
+// Con caché normal (5 min) — ya no se bypasea.
+final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async {
+  ref.keepAlive();
+  final page = await ref.watch(ventasRepositoryProvider)
+      .getVentas(limit: 500);
+  return page.items;
+});
 
 // ── Resumen (hoy + mes + top perfumes) ───────────────────────────────────────
 
@@ -65,108 +68,47 @@ class ResumenStats {
 }
 
 final resumenStatsProvider = FutureProvider<ResumenStats>((ref) async {
-  // Inicia las 3 llamadas en paralelo
-  final ventasFuture      = ref.watch(ventasParaStatsProvider.future);
-  final pendientesFuture  = ref.watch(pendientesProvider.future);
-  final perfumesMapFuture = ref.watch(perfumesMapProvider.future);
+  ref.keepAlive();
+  final data        = await ref.watch(resumenBackendProvider.future);
+  final perfumesMap = await ref.watch(perfumesMapProvider.future);
 
-  final ventas      = await ventasFuture;
-  final pendientes  = await pendientesFuture;
-  final perfumesMap = await perfumesMapFuture;
+  final hoy       = data['hoy']       as Map<String, dynamic>? ?? {};
+  final mes       = data['mes']       as Map<String, dynamic>? ?? {};
+  final mesPasado = data['mes_pasado'] as Map<String, dynamic>? ?? {};
+  final pendientesData = data['pendientes'] as int? ?? 0;
 
-  final entregadas = ventas
-      .where((v) => v.estado?.toLowerCase() == 'entregado')
-      .toList();
-
-  final now     = DateTime.now();
-  final hoy     = DateTime(now.year, now.month, now.day);
-  final prevMes = DateTime(now.year, now.month - 1);
-
-  // Compara el prefijo YYYY-MM-DD para ser robusto ante variantes de formato
-  final todayPrefix =
-      '${hoy.year}-${hoy.month.toString().padLeft(2, '0')}-${hoy.day.toString().padLeft(2, '0')}';
-
-  bool esHoy(String? fecha) {
-    if (fecha == null || fecha.isEmpty) return false;
-    if (fecha.startsWith(todayPrefix)) return true;
-    try {
-      final d = DateTime.parse(fecha);
-      return d.year == hoy.year && d.month == hoy.month && d.day == hoy.day;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  bool esMes(String? fecha) {
-    if (fecha == null) return false;
-    try {
-      final d = DateTime.parse(fecha);
-      return d.year == hoy.year && d.month == hoy.month;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  bool esMesPasado(String? fecha) {
-    if (fecha == null) return false;
-    try {
-      final d = DateTime.parse(fecha);
-      return d.year == prevMes.year && d.month == prevMes.month;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  // "Hoy" muestra todas las ventas del día (incluye pendientes, excluye anuladas)
-  final hoyList      = ventas
-      .where((v) => v.estado?.toLowerCase() != 'anulado' && esHoy(v.fecha))
-      .toList();
-  final mesList      = entregadas.where((v) => esMes(v.fecha)).toList();
-  final mesPasadoList = entregadas.where((v) => esMesPasado(v.fecha)).toList();
-
-  final ventasHoyCount = hoyList.map((v) => v.idCompra).toSet().length;
-  final ventasMesCount = mesList.map((v) => v.idCompra).toSet().length;
-  final totalHoy       = hoyList.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
-  final totalMes       = mesList.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
-  final mlHoy          = hoyList.fold(0, (s, v) => s + (v.mlVendido ?? 0));
-  final mlMes          = mesList.fold(0, (s, v) => s + (v.mlVendido ?? 0));
-
-  final mlPorId    = <String, int>{};
-  final solesPorId = <String, double>{};
-  for (final v in entregadas) {
-    if (v.idPerfume == null) continue;
-    mlPorId[v.idPerfume!] =
-        (mlPorId[v.idPerfume!] ?? 0) + (v.mlVendido ?? 0);
-    solesPorId[v.idPerfume!] =
-        (solesPorId[v.idPerfume!] ?? 0.0) + (v.precioCobrado ?? 0);
-  }
-
-  final sorted = mlPorId.entries.toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
-
-  final masVendidos = sorted.map((e) {
-    final p = perfumesMap[_normId(e.key)];
+  final topRaw = data['top_perfumes'] as List<dynamic>? ?? [];
+  final masVendidos = topRaw.take(5).map((e) {
+    final map   = e as Map<String, dynamic>;
+    final id    = map['id_perfume']?.toString() ?? '';
+    final normId = double.tryParse(id)?.toInt().toString() ?? id;
+    final p     = perfumesMap[normId];
     return TopPerfume(
-      nombre:     p?.nombre ?? 'Perfume #${e.key}',
+      nombre:     p?.nombre ?? 'Perfume #$id',
       marca:      p?.marca  ?? '',
-      totalMl:    e.value,
-      totalSoles: solesPorId[e.key] ?? 0.0,
+      totalMl:    (map['total_ml'] as num?)?.toInt() ?? 0,
+      totalSoles: (map['total_soles'] as num?)?.toDouble() ?? 0,
     );
   }).toList();
 
+  final ventasHoy = (hoy['ventas'] as num?)?.toInt() ?? 0;
+  final totalHoy  = (hoy['total']  as num?)?.toDouble() ?? 0;
+  final ventasMes = (mes['ventas'] as num?)?.toInt() ?? 0;
+  final totalMes  = (mes['total']  as num?)?.toDouble() ?? 0;
+
   return ResumenStats(
-    ventasHoy:          ventasHoyCount,
-    totalHoy:           totalHoy,
-    ticketPromedioHoy:  ventasHoyCount > 0 ? totalHoy / ventasHoyCount : 0,
-    mlHoy:              mlHoy,
-    ventasMes:          ventasMesCount,
-    totalMes:           totalMes,
-    ticketPromedioMes:  ventasMesCount > 0 ? totalMes / ventasMesCount : 0,
-    mlMes:              mlMes,
-    ventasMesPasado:    mesPasadoList.map((v) => v.idCompra).toSet().length,
-    totalMesPasado:     mesPasadoList.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
-    pendientesCount:    pendientes.map((v) => v.idCompra).toSet().length,
-    masVendidos:        masVendidos,
+    ventasHoy:         ventasHoy,
+    totalHoy:          totalHoy,
+    ticketPromedioHoy: ventasHoy > 0 ? totalHoy / ventasHoy : 0,
+    mlHoy:             (hoy['ml'] as num?)?.toInt() ?? 0,
+    ventasMes:         ventasMes,
+    totalMes:          totalMes,
+    ticketPromedioMes: ventasMes > 0 ? totalMes / ventasMes : 0,
+    mlMes:             (mes['ml'] as num?)?.toInt() ?? 0,
+    ventasMesPasado:   (mesPasado['ventas'] as num?)?.toInt() ?? 0,
+    totalMesPasado:    (mesPasado['total']  as num?)?.toDouble() ?? 0,
+    pendientesCount:   pendientesData,
+    masVendidos:       masVendidos,
   );
 });
 
@@ -186,49 +128,17 @@ class TamanioStat {
 }
 
 final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
-  final ventas      = await ref.watch(ventasParaStatsProvider.future);
-  final perfumesMap = await ref.watch(perfumesMapProvider.future);
+  ref.keepAlive();
+  final data = await ref.watch(resumenBackendProvider.future);
+  final raw  = data['tamanios'] as List<dynamic>? ?? [];
 
-  final count   = <int, int>{};
-  final total   = <int, double>{};
-  final cntPerf = <int, Map<String, int>>{};
-  final solPerf = <int, Map<String, double>>{};
-
-  for (final v in ventas) {
-    final ml = v.mlVendido;
-    if (ml == null) continue;
-    count[ml] = (count[ml] ?? 0) + 1;
-    total[ml] = (total[ml] ?? 0.0) + (v.precioCobrado ?? 0);
-    if (v.idPerfume != null) {
-      final id = v.idPerfume!;
-      final cp = cntPerf[ml] ??= {};
-      final sp = solPerf[ml] ??= {};
-      cp[id] = (cp[id] ?? 0)   + 1;
-      sp[id] = (sp[id] ?? 0.0) + (v.precioCobrado ?? 0);
-    }
-  }
-
-  return count.entries.map((e) {
-    final mlVal = e.key;
-    final cp    = cntPerf[mlVal] ?? {};
-    final sp    = solPerf[mlVal] ?? {};
-    final top   = (cp.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value)))
-        .take(5)
-        .map((pe) {
-          final p = perfumesMap[_normId(pe.key)];
-          return PerfumeDiaStat(
-            nombre:     p?.nombre ?? 'Perfume #${pe.key}',
-            totalMl:    pe.value * mlVal,
-            totalSoles: sp[pe.key] ?? 0,
-          );
-        })
-        .toList();
+  return raw.map((e) {
+    final map = e as Map<String, dynamic>;
     return TamanioStat(
-      ml:          mlVal,
-      cantidad:    e.value,
-      total:       total[mlVal] ?? 0,
-      topPerfumes: top,
+      ml:          (map['ml']       as num).toInt(),
+      cantidad:    (map['cantidad'] as num).toInt(),
+      total:       (map['total']    as num).toDouble(),
+      topPerfumes: const [],  // backend no devuelve top por tamaño
     );
   }).toList()
     ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
@@ -292,122 +202,51 @@ class SemanaStat {
 }
 
 final semanaStatsProvider = FutureProvider<SemanaStat>((ref) async {
-  final ventas      = await ref.watch(ventasParaStatsProvider.future);
-  final perfumesMap = await ref.watch(perfumesMapProvider.future);
+  ref.keepAlive();
+  final data       = await ref.watch(resumenBackendProvider.future);
+  final semanalRaw = data['semanal'] as List<dynamic>? ?? [];
+  final semAntTotal  = (data['semana_anterior_total'] as num?)?.toDouble() ?? 0;
 
-  final entregadas = ventas
-      .where((v) => v.estado?.toLowerCase() == 'entregado')
-      .toList();
-
+  // Derivar inicio/fin a partir de la primera fecha del backend o de hoy
   final now    = DateTime.now();
   final hoy    = DateTime(now.year, now.month, now.day);
   final inicio = hoy.subtract(Duration(days: hoy.weekday - 1));
   final fin    = inicio.add(const Duration(days: 6));
 
-  final semana = entregadas.where((v) {
-    if (v.fecha == null) return false;
-    try {
-      final d  = DateTime.parse(v.fecha!);
-      final dn = DateTime(d.year, d.month, d.day);
-      return !dn.isBefore(inicio) && !dn.isAfter(fin);
-    } catch (_) {
-      return false;
-    }
-  }).toList();
-
-  final porDia = List.generate(7, (i) {
-    final dia  = inicio.add(Duration(days: i));
-    final diaV = semana.where((v) {
-      try {
-        final d  = DateTime.parse(v.fecha!);
-        return DateTime(d.year, d.month, d.day) == dia;
-      } catch (_) {
-        return false;
-      }
-    }).toList();
-
-    // Perfumes del día: agrupar ml y soles por id
-    final mlDia  = <String, int>{};
-    final solDia = <String, double>{};
-    for (final v in diaV) {
-      if (v.idPerfume == null) continue;
-      final id = v.idPerfume!;
-      mlDia[id]  = (mlDia[id]  ?? 0) + (v.mlVendido ?? 0);
-      solDia[id] = (solDia[id] ?? 0.0) + (v.precioCobrado ?? 0);
-    }
-    final topDia = (mlDia.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value)))
-        .take(5)
-        .map((e) {
-          final p = perfumesMap[_normId(e.key)];
-          return PerfumeDiaStat(
-            nombre:     p?.nombre ?? 'Perfume #${e.key}',
-            totalMl:    e.value,
-            totalSoles: solDia[e.key] ?? 0,
-          );
-        })
-        .toList();
-
+  final porDia = semanalRaw.map((e) {
+    final map = e as Map<String, dynamic>;
     return DiaStat(
-      fecha:        dia,
-      numOrdenes:   diaV.map((v) => v.idCompra).toSet().length,
-      total:        diaV.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
-      topPerfumes:  topDia,
+      fecha:       DateTime.parse(map['fecha'] as String),
+      numOrdenes:  (map['ordenes'] as num?)?.toInt() ?? 0,
+      total:       (map['total']   as num?)?.toDouble() ?? 0,
+      topPerfumes: const [],  // backend no devuelve top por día
     );
-  });
-
-  final cntPorId   = <String, int>{};
-  final mlTopPorId = <String, int>{};
-  final solTopPorId = <String, double>{};
-  for (final v in semana) {
-    if (v.idPerfume == null) continue;
-    cntPorId[v.idPerfume!]    = (cntPorId[v.idPerfume!] ?? 0) + 1;
-    mlTopPorId[v.idPerfume!]  = (mlTopPorId[v.idPerfume!] ?? 0) + (v.mlVendido ?? 0);
-    solTopPorId[v.idPerfume!] = (solTopPorId[v.idPerfume!] ?? 0.0) + (v.precioCobrado ?? 0);
-  }
-
-  String topNombre = '';
-  int    topCant   = 0;
-  int    topMl     = 0;
-  double topTotal  = 0;
-  if (cntPorId.isNotEmpty) {
-    final top = cntPorId.entries.reduce((a, b) => a.value > b.value ? a : b);
-    topCant   = top.value;
-    topMl     = mlTopPorId[top.key] ?? 0;
-    topTotal  = solTopPorId[top.key] ?? 0.0;
-    final p   = perfumesMap[_normId(top.key)];
-    topNombre = p?.nombre ?? 'Perfume #${top.key}';
-  }
-
-  final inicioAnterior = inicio.subtract(const Duration(days: 7));
-  final finAnterior    = inicio.subtract(const Duration(days: 1));
-  final semanaAnterior = entregadas.where((v) {
-    if (v.fecha == null) return false;
-    try {
-      final d  = DateTime.parse(v.fecha!);
-      final dn = DateTime(d.year, d.month, d.day);
-      return !dn.isBefore(inicioAnterior) && !dn.isAfter(finAnterior);
-    } catch (_) { return false; }
   }).toList();
+
+  final totalSemana  = porDia.fold(0.0, (s, d) => s + d.total);
+  final totalMlSem   = semanalRaw.fold<int>(
+      0, (s, e) => s + ((e as Map)['ml'] as num? ?? 0).toInt());
+  final numOrdenes   = porDia.fold(0, (s, d) => s + d.numOrdenes);
 
   return SemanaStat(
-    total:                semana.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
-    totalMl:              semana.fold(0, (s, v) => s + (v.mlVendido ?? 0)),
-    numOrdenes:           semana.map((v) => v.idCompra).toSet().length,
-    porDia:               porDia,
-    topNombre:            topNombre,
-    topCantidad:          topCant,
-    topMl:                topMl,
-    topTotal:             topTotal,
-    inicio:               inicio,
-    fin:                  fin,
-    totalSemanaAnterior:  semanaAnterior.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
+    total:               totalSemana,
+    totalMl:             totalMlSem,
+    numOrdenes:          numOrdenes,
+    porDia:              porDia,
+    topNombre:           '',   // sin datos per-perfume del backend esta semana
+    topCantidad:         0,
+    topMl:               0,
+    topTotal:            0,
+    inicio:              inicio,
+    fin:                 fin,
+    totalSemanaAnterior: semAntTotal,
   );
 });
 
 // ── Meses disponibles (para comparación) ─────────────────────────────────────
 
 final mesesDisponiblesProvider = FutureProvider<List<String>>((ref) async {
+  ref.keepAlive();
   final ventas = await ref.watch(ventasParaStatsProvider.future);
   final set    = <String>{};
 
@@ -430,6 +269,7 @@ class MesStat {
 }
 
 final mesStatsMapProvider = FutureProvider<Map<String, MesStat>>((ref) async {
+  ref.keepAlive();
   final ventas     = await ref.watch(ventasParaStatsProvider.future);
   final entregadas = ventas.where((v) => v.estado?.toLowerCase() == 'entregado');
 
@@ -478,6 +318,7 @@ class ClienteStat {
 }
 
 final clientesStatsProvider = FutureProvider<List<ClienteStat>>((ref) async {
+  ref.keepAlive();
   final ventas = await ref.watch(ventasParaStatsProvider.future);
 
   final byCelular = <String, List<VentaResponse>>{};
@@ -561,6 +402,7 @@ class HistorialGlobalStats {
 }
 
 final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async {
+  ref.keepAlive();
   final ventas     = await ref.watch(ventasParaStatsProvider.future);
   final entregadas = ventas
       .where((v) => v.estado?.toLowerCase() == 'entregado')

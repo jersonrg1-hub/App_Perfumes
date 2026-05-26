@@ -1,4 +1,0 @@
-from estadisticas.resumen import mostrar_estadisticas
-from estadisticas.pendientes import mostrar_ventas_pendientes
-from estadisticas.semanal import mostrar_resumen_semanal
-from estadisticas.tamanios import mostrar_tamanios_populares

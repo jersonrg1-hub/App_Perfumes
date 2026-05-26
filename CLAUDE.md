@@ -1,280 +1,105 @@
-# CLAUDE.md — Perfumería App
+# CLAUDE.md — Perfuteca Backend
 
 ## Qué es este proyecto
 
-App web de gestión para una **perfumería**, construida con **Streamlit** y desplegada como webapp.
-Permite buscar perfumes por marca/nombre/notas olfativas, registrar ventas, gestionar pedidos pendientes,
-ver estadísticas, generar cotizaciones y exportar reportes PDF.
+Backend FastAPI para **Perfuteca**, app de gestión de una perfumería.
+Consume datos de Google Sheets via `gspread`. Frontend: Flutter (en `perfuteca_flutter/`).
 
-## Arquitectura actual (post-refactoring)
+## Arquitectura
 
 ```
 pythonProject/
-├── app.py                          # Punto de entrada Streamlit (sin cambios)
-├── auth.py                         # UI de login Streamlit → usa backend/services/auth_service.py
-├── state.py                        # Estado centralizado (Streamlit session_state)
-├── styles.py                       # Re-exporta estilos CSS
-├── components.py                   # UI Streamlit + re-exporta utilidades de backend/
-├── errores.py                      # Mensajes de error Streamlit + re-exporta validadores
-│
-├── config.py     ← SHIM            # Re-exporta desde backend/core/config.py
-├── costos.py     ← SHIM            # Re-exporta desde backend/services/costos_service.py
-├── data.py       ← SHIM            # Re-exporta desde frontend/streamlit/cache_adapters.py
-├── pdf_generator.py ← SHIM         # Re-exporta desde backend/services/pdf_service.py
-├── logic/venta.py   ← SHIM         # Re-exporta desde backend/services/venta_service.py
-│
-├── backend/                        # ✅ SIN dependencias de Streamlit — reutilizable en FastAPI
-│   ├── core/
-│   │   └── config.py              # Constantes, TZ, formatters de texto
-│   ├── models/
-│   │   └── schemas.py             # TypedDicts: ItemCesta, DatosCliente
+├── backend/
+│   ├── core/config.py              # Constantes, TZ Peru, helpers de formato
+│   ├── models/schemas.py           # TypedDicts: ItemCesta, DatosCliente
 │   ├── repositories/
-│   │   └── sheets_repository.py   # SheetsRepository: toda la lógica gspread
+│   │   └── sheets_repository.py   # SheetsRepository — toda la lógica gspread
 │   ├── services/
-│   │   ├── venta_service.py       # filtrar_catalogo, construir_item, validar_paso_cliente...
-│   │   ├── costos_service.py      # costo_total_item, MERMA_PCT, calcular_costo_ventas_df...
-│   │   ├── auth_service.py        # verificar_contrasena, segundos_restantes...
-│   │   ├── whatsapp_service.py    # generar_url_whatsapp()
-│   │   └── pdf_service.py         # exportar_pdf_ventas_*()
+│   │   ├── venta_service.py        # filtrar_catalogo, construir_item, validar_paso_cliente
+│   │   ├── costos_service.py       # costo_total_item, MERMA_PCT, calcular_costo_ventas_df
+│   │   ├── auth_service.py         # verificar_contrasena, segundos_restantes
+│   │   ├── whatsapp_service.py     # generar_url_whatsapp()
+│   │   └── pdf_service.py          # exportar_pdf_ventas_*()
 │   ├── utils/
-│   │   ├── validators.py          # validar_dataframe(), validar_celular()
-│   │   └── formatters.py          # stock_badge_html, notas_pills_html, construir_catalogo_dict
-│   └── api/                       # 🚀 Scaffold FastAPI (comentado — activar en el futuro)
-│       ├── main.py                # FastAPI app + routers
+│   │   ├── validators.py           # validar_dataframe(), validar_celular()
+│   │   └── formatters.py           # stock_badge_html, notas_pills_html, construir_catalogo_dict
+│   └── api/
+│       ├── main.py                 # FastAPI app, CORS, logging middleware, lifespan
+│       ├── dependencies.py         # Singleton repo, TTLCache, auth X-API-Key, df_to_json
+│       ├── models.py               # Pydantic: VentaRequest, CotizacionRequest, etc.
 │       └── routes/
-│           ├── catalogo.py        # GET /api/v1/catalogo/
-│           ├── ventas.py          # POST /api/v1/ventas/
-│           └── cotizaciones.py    # GET/POST /api/v1/cotizaciones/
-│
-├── frontend/
-│   └── streamlit/
-│       └── cache_adapters.py      # @st.cache_resource + @st.cache_data wrappers
-│
-├── tabs/                           # UI Streamlit (sin cambios)
-├── estadisticas/                   # UI Streamlit (sin cambios)
-└── styles/                         # CSS (sin cambios)
+│           ├── catalogo.py         # GET /api/v1/catalogo/ — PÚBLICO
+│           ├── ventas.py           # GET/POST/PUT /api/v1/ventas/ — X-API-Key
+│           ├── cotizaciones.py     # GET/POST/PUT /api/v1/cotizaciones/ — X-API-Key
+│           └── estadisticas.py     # GET /api/v1/estadisticas/ — X-API-Key
+├── imagenes/                        # Fotos de perfumes por marca
+├── render.yaml                      # Config deploy Render
+├── DEPLOY_RENDER.md                 # Pasos de deploy con troubleshooting
+└── requirements.txt
 ```
 
-### Regla fundamental de la arquitectura
+## Regla fundamental
 
-**Solo `frontend/streamlit/` puede importar `streamlit`.**
-`backend/` es Python puro — sin `st.*`, sin `@st.cache_*`.
-
-### Cadena de dependencias
-
-```
-tabs/*.py  →  data.py (shim)
-                  ↓
-    frontend/streamlit/cache_adapters.py  ←  @st.cache_resource/@st.cache_data
-                  ↓
-    backend/repositories/sheets_repository.py  ←  gspread puro
-                  ↓
-    backend/core/config.py + backend/models/schemas.py
-```
-
-### Cómo usar FastAPI en el futuro
-
-```python
-# En FastAPI (sin Streamlit):
-import os, json
-from backend.repositories.sheets_repository import SheetsRepository
-from backend.services.venta_service import filtrar_catalogo, calcular_total
-
-creds = json.loads(os.environ["GCP_SERVICE_ACCOUNT"])
-repo = SheetsRepository(creds)
-df = repo.fetch_catalog()
-resultado = filtrar_catalogo(df, texto="chanel", marca=None)
-```
-
-### Deploy en Render (futuro FastAPI)
-
-```
-Start Command: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT
-Variables de entorno: GCP_SERVICE_ACCOUNT (JSON), APP_PASSWORD
-```
-
-## Stack tecnológico
-
-- **Frontend/Backend**: Streamlit (Python)
-- **Base de datos**: Google Sheets (via `gspread` + `google-auth`)
-- **Credenciales**: `st.secrets` — archivo `.streamlit/secrets.toml` (no commitear)
-- **PDF**: `fpdf2`
-- **Gráficos**: `plotly`
-- **Fechas/TZ**: `pytz`, zona horaria `America/Lima`
-- **IDE**: PyCharm
-
-## Estructura del proyecto
-
-```
-app.py                  # Punto de entrada — configura página, auth, carga df, renderiza tabs
-auth.py                 # Login por contraseña (hmac), sesión en st.session_state
-config.py               # Constantes globales, helpers de fecha/precio/stock, badges HTML
-data.py                 # Capa de datos — gspread, cache @st.cache_data/@st.cache_resource
-components.py           # Componentes reutilizables (encabezado, WhatsApp URL, separador)
-styles.py               # Módulo de compatibilidad (re-exporta desde styles/)
-errores.py              # Helpers para mostrar errores de conexión/datos/columnas
-pdf_generator.py        # Exportación PDF de ventas del día con fpdf2
-convertir.py            # Utilidades de conversión de datos
-
-tabs/
-  tab_marca.py          # Buscar por marca
-  tab_nombre.py         # Buscar por nombre
-  tab_notas.py          # Buscar por notas olfativas
-  tab_venta.py          # Wizard 3 pasos: cliente → perfumes → confirmar
-  tab_cotizacion.py     # Generar cotizaciones (dentro de tab_venta)
-  tab_estadisticas.py   # Dashboard de estadísticas
-
-estadisticas/
-  resumen.py            # Resumen general del día/semana
-  semanal.py            # Vista semanal
-  historial.py          # Historial de ventas
-  historial_cotizaciones.py
-  pendientes.py         # Pedidos pendientes (marcar como entregado)
-  clientes.py           # Análisis por cliente
-  graficos.py           # Gráficos plotly
-  stock.py              # Alertas de stock
-  tamanios.py           # Ventas por tamaño (ml)
-
-styles/
-  base.py, components.py, forms.py, tabs.py, animations.py, mobile.py
-
-imagenes/               # Fotos de perfumes (por marca)
-```
+`backend/` es Python puro — sin `streamlit`, sin `st.*`. Todo importable desde FastAPI directamente.
 
 ## Google Sheets
 
 Spreadsheet: **"PERFUMES PYTHON"**
 
-| Hoja               | Propósito                                      |
-|--------------------|------------------------------------------------|
-| `Catalogo`         | Inventario — columnas: `Marca`, `Nombre`, `ID_Perfume`, `Precio_2ml`, `Precio_5ml`, `Precio_10ml`, `Stock_ml` |
-| `Ventas_Pendientes`| Registro de ventas — columnas: `ID_Compra`, `Fecha`, `Comprador`, `Celular`, `ID_Perfume`, `Ml_Vendido`, `Precio_Cobrado`, `Metodo_Pago`, `Tipo_Envio`, `Direccion`, `Estado` |
-| `Cotizaciones`     | Cotizaciones — columnas: `ID_Cotizacion`, `Fecha`, `Celular`, `Items`, `Total`, `Estado` |
+| Hoja | Propósito |
+|---|---|
+| `Catalogo` | `Marca`, `Nombre`, `ID_Perfume`, `Precio_2ml`, `Precio_5ml`, `Precio_10ml`, `Stock_ml` |
+| `Ventas_Pendientes` | `ID_Compra`, `Fecha`, `Comprador`, `Celular`, `ID_Perfume`, `Ml_Vendido`, `Precio_Cobrado`, `Metodo_Pago`, `Tipo_Envio`, `Direccion`, `Estado` |
+| `Cotizaciones` | `ID_Cotizacion`, `Fecha`, `Celular`, `Items`, `Total`, `Estado` |
 
-## Cache y rendimiento
+## Auth API
 
-- `get_cliente()` / `get_spreadsheet()` → `@st.cache_resource` (singleton de conexión)
-- `cargar_catalogo()` → `@st.cache_data(ttl=300)` — limpiar con `limpiar_cache_catalogo()`
-- `cargar_ventas()` → `@st.cache_data(ttl=120)` — limpiar con `limpiar_cache_ventas()`
-- `cargar_cotizaciones()` → `@st.cache_data(ttl=120)` — limpiar con `limpiar_cache_cotizaciones()`
-- Las escrituras siempre usan `batch_update` y limpian el cache correspondiente
+Endpoints protegidos requieren header `X-API-Key: <valor>`.
+Catálogo es público (sin key).
 
-## Autenticación
+## Variables de entorno
 
-- Login simple por contraseña en `st.secrets["APP_PASSWORD"]`
-- Máximo 3 intentos, luego bloqueo
-- Protege tabs "Venta" y "Estadísticas"
-- Estado en `st.session_state.autenticado`
+- `GCP_SERVICE_ACCOUNT` — JSON completo de credenciales Google
+- `API_KEY` — clave para endpoints protegidos
+- `CORS_ORIGINS` — default `*`
 
-## Flujo de venta (wizard 3 pasos)
+## Cache (TTLCache en `dependencies.py`)
 
-1. **Paso 1** — Datos del cliente (nombre, celular, dirección, envío, fecha)
-   - Autocomplete si el celular ya tiene historial
-2. **Paso 2** — Agregar perfumes a la cesta
-   - Muestra precio y alerta de stock (crítico ≤5ml, bajo ≤15ml)
-3. **Paso 3** — Confirmar y guardar
-   - Guarda en Sheets, descuenta stock, genera URL de WhatsApp con comprobante
+- Catálogo: TTL 30 min
+- Ventas: TTL 2 min
 
-## Constantes importantes (config.py)
+## Deploy Render
+
+```
+Start Command: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT --workers 1
+```
+
+## Constantes clave (`backend/core/config.py`)
 
 ```python
-PRECIOS_COLUMNAS = {"2 ml": "Precio_2ml", "5 ml": "Precio_5ml", "10 ml": "Precio_10ml"}
-METODOS_PAGO = ["Yape", "Plin", "Transferencia", "Tarjeta"]   # Efectivo eliminado
-TIPOS_ENVIO = ["Shalom", "Motorizado", "Contraentrega"]
-STOCK_CRITICO = 5   # ml
-STOCK_BAJO = 15     # ml
+METODOS_PAGO = ["Yape", "Plin", "Transferencia", "Tarjeta"]
+TIPOS_ENVIO  = ["Shalom", "Motorizado", "Contraentrega"]
+STOCK_CRITICO = 5    # ml
+STOCK_BAJO    = 15   # ml
 TZ_PERU = pytz.timezone("America/Lima")
 ```
 
-## Sistema de diseño CSS
+## Estado de campos
 
-Los estilos se inyectan via `st.markdown(..., unsafe_allow_html=True)` desde `styles/` y se concatenan en `styles.py`.
-
-### Archivos de estilos
-| Archivo | Contenido |
-|---|---|
-| `styles/base.py` | Variables CSS (`:root`), tipografía, botones, alertas, animaciones |
-| `styles/components.py` | `.perfume-card`, `.precio-chip`, `.precio-box`, `.perfume-item`, inputs, expanders |
-| `styles/tabs.py` | Barra de tabs, pestaña activa/inactiva, panel de contenido |
-| `styles/forms.py` | Estilos específicos de formularios |
-| `styles/mobile.py` | Media queries responsive |
-
-### Variables CSS clave (`:root` en `base.py`)
-```css
---c-primary: #b8724a          /* terracota oscuro */
---c-primary-light: #c8956c    /* terracota principal */
---c-primary-pale: #f0ddd0     /* terracota suave (hover) */
---c-gold: #c9a96e             /* dorado (perfil olfativo) */
---c-bg: #faf4ed               /* fondo app */
---c-bg-card: #ffffff          /* fondo tarjetas */
---c-text: #1e1209             /* texto principal */
---c-text-mid: #4a2e18         /* texto secundario */
---c-text-muted: #8b6640       /* texto atenuado / labels */
---c-text-faint: #b89878       /* texto muy claro / sin precio */
---shadow-xs/sm/md/lg          /* escala de sombras */
---radius-sm/md/lg/xl          /* escala de radios (8/12/16/20px) */
-```
-
-### Componentes visuales clave
-- **`.perfume-card`** — tarjeta con `border-left: 3px solid var(--c-primary-light)`, hover con elevación
-- **`.precio-chip`** — chip de precio con `flex:1` para ocupar ancho completo; `.chip-label` (ml) + `.chip-valor` (precio)
-- **`.precio-box`** — caja grande de precio en tab_nombre; usa `.separador-box` (línea dorada) y `.moneda` (S/)
-- **`.titulo-app`** — degradado via `background-clip: text` (-webkit)
-
-### Convenciones de notas/perfil olfativo
-- Label **"Notas"**: `color: var(--c-primary-light)` (terracota), `font-size: 0.7rem`, `font-weight: 700`, uppercase
-- Label **"Perfil olfativo"**: `color: var(--c-gold)` (dorado), misma tipografía que Notas
-- Texto de ambos: `color: var(--c-text-mid)`, `font-size: 0.92rem` (tab_marca) / `0.88rem` (tab_nombre), sin cursiva
-
-### Fuentes Google (cargadas en `app.py` o `base.py`)
-- `Playfair Display` — títulos, nombres de perfumes, precios grandes
-- `Lato` — cuerpo, labels, botones
-- `Inter` — valores numéricos (`font-variant-numeric: tabular-nums`)
-
-## Tema visual
-
-Paleta terrosa/cálida (`.streamlit/config.toml`):
-- `primaryColor`: `#c8956c` (terracota)
-- `backgroundColor`: `#faf5f0`
-- `textColor`: `#2c1a0e` (marrón oscuro)
+- `Estado` ventas: `"Pendiente"` | `"Entregado"` | `"Anulado"` (anulados se filtran al cargar)
+- IDs compra: `V001`, `V002`...  — IDs cotización: `C001`, `C002`...
 
 ## Repositorio git
 
-- El código vive en `pythonProject/` que tiene su **propio `.git`** (repo anidado, no submodule)
 - Remote: `https://github.com/jersonrg1-hub/App_Perfumes.git`
 - Branch principal: `main`
-- Para hacer commit/push, operar desde dentro de `pythonProject/`, no desde el directorio padre
+- Operar siempre desde `pythonProject/`
 
-## Trampas conocidas / lecciones aprendidas
+## Stack
 
-### Streamlit
-- `st.success("### Título")` y `st.info("### Título")` **no renderizan Markdown**; el `###` aparece literal.
-  Solución: separar en `st.markdown("### Título")` + `st.success("Mensaje")`.
-- El bloque `except Exception` genérico nunca debe llamar a `mostrar_error_conexion()` directamente;
-  cualquier bug de código mostraría "Sin conexión" al usuario. Usar `st.error(f"Error: {type(e).__name__}")`.
-- Los imports siempre al top del módulo, nunca dentro de bloques `except`.
-
-### JavaScript inyectado en `app.py`
-- **Guard global obligatorio**: cualquier `document.addEventListener` que se registre dentro de un loop
-  de elementos (p.ej. filas de la cesta) debe estar protegido con `window.__miGuard` para no acumular
-  listeners duplicados en cada re-render de Streamlit.
-- **Estado en el DOM**: para que listeners globales accedan al estado de un elemento, exponerlo en el
-  propio nodo (`row._snap`, `row._revealed`) en lugar de cerrar sobre variables locales que se pierden.
-- Los MutationObservers del swipe ya usan `requestAnimationFrame` como debounce (`_swipeRAF`).
-
-## Comandos útiles
-
-```bash
-# Ejecutar la app
-streamlit run app.py
-
-# Instalar dependencias
-pip install -r requirements.txt
-```
-
-## Notas importantes
-
-- `credenciales.json` y `.streamlit/secrets.toml` contienen claves privadas — NO commitear
-- `fila_sheet` en el DataFrame de ventas guarda la fila real en Sheets (para batch_update)
-- El campo `Estado` puede ser: `"Pendiente"`, `"Entregado"`, `"Anulado"` (los anulados se filtran al cargar)
-- IDs de compra: formato `V001`, `V002`... — IDs de cotización: `C001`, `C002`...
+- **Backend**: FastAPI + uvicorn
+- **Datos**: Google Sheets via gspread + google-auth
+- **PDF**: fpdf2
+- **Fechas/TZ**: pytz (`America/Lima`)
+- **Retry**: tenacity
+- **Frontend**: Flutter (`perfuteca_flutter/`)

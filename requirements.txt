@@ -1,12 +1,8 @@
-streamlit
-streamlit-autorefresh
 pandas
 gspread
 google-auth
 fpdf2
 pytz
-plotly
-openpyxl
 tenacity
 fastapi
 uvicorn[standard]

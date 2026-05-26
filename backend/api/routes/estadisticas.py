@@ -34,7 +34,7 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
     df = df.copy()
     df["_fecha"] = pd.to_datetime(df["Fecha"], errors="coerce").dt.date
 
-    entregadas = df[df["Estado"] == "Entregado"]
+    entregadas = df[df["Estado"].isin(["Entregado", "Pendiente"])]
 
     hoy: date = hoy_peru()  # retorna date, sin .date()
 
@@ -193,10 +193,14 @@ def get_resumen(repo: SheetsRepository = Depends(get_repo)):
         from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
 
-    # Pendientes count
+    # Pendientes count — unique orders, not items
     pendientes_count = 0
     if not df.empty and "Estado" in df.columns:
-        pendientes_count = int((df["Estado"] == "Pendiente").sum())
+        pend_df = df[df["Estado"] == "Pendiente"]
+        if "ID_Compra" in pend_df.columns:
+            pendientes_count = int(pend_df["ID_Compra"].nunique())
+        else:
+            pendientes_count = len(pend_df)
 
     result = _compute_resumen(df, pendientes_count)
     _cache_stats = result

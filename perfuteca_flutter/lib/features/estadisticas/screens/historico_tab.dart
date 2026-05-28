@@ -20,8 +20,6 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final masVendidos =
-        ref.watch(resumenStatsProvider).valueOrNull?.masVendidos ?? [];
     return ref.watch(historialGlobalProvider).when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error:   (e, _) => Center(
@@ -56,7 +54,7 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
           ref.invalidate(historialGlobalProvider);
           await ref.read(historialGlobalProvider.future);
         },
-        child: _HistoricoBody(stats: stats, masVendidos: masVendidos),
+        child: _HistoricoBody(stats: stats),
       ),
     );
   }
@@ -65,9 +63,8 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
 // ── Body ──────────────────────────────────────────────────────────────────────
 
 class _HistoricoBody extends StatelessWidget {
-  const _HistoricoBody({required this.stats, required this.masVendidos});
+  const _HistoricoBody({required this.stats});
   final HistorialGlobalStats stats;
-  final List<TopPerfume>     masVendidos;
 
   @override
   Widget build(BuildContext context) {
@@ -161,9 +158,16 @@ class _HistoricoBody extends StatelessWidget {
         const SizedBox(height: AppSpacing.lg),
 
         // ── Timeline de meses ─────────────────────────────────────────────
-        Text(
-          '📅  Evolución mensual',
-          style: AppTextStyles.heading2.copyWith(fontSize: 15),
+        Row(
+          children: [
+            const Icon(Icons.calendar_month_rounded,
+                size: 16, color: AppColors.textPrimary),
+            const SizedBox(width: 6),
+            Text(
+              'Evolución mensual',
+              style: AppTextStyles.heading2.copyWith(fontSize: 15),
+            ),
+          ],
         ),
         if (s.primeraVenta != null) ...[
           const SizedBox(height: 2),
@@ -189,8 +193,9 @@ class _HistoricoBody extends StatelessWidget {
             mejorMes: s.mejorMesClave,
           ),
 
-        _TopPerfumesSection(masVendidos: masVendidos),
+        _TopPerfumesSection(masVendidos: s.masVendidosHistorico),
         const _ComparaMesesSection(),
+        _RankingDistritosSection(distritos: s.distritoRanking),
         const SizedBox(height: AppSpacing.xl),
       ],
     );
@@ -199,7 +204,7 @@ class _HistoricoBody extends StatelessWidget {
 
 // ── Timeline de meses ─────────────────────────────────────────────────────────
 
-class _TimelineMeses extends StatelessWidget {
+class _TimelineMeses extends StatefulWidget {
   const _TimelineMeses({
     required this.meses,
     required this.mejorMes,
@@ -208,109 +213,188 @@ class _TimelineMeses extends StatelessWidget {
   final String?                mejorMes;
 
   @override
+  State<_TimelineMeses> createState() => _TimelineMesesState();
+}
+
+class _TimelineMesesState extends State<_TimelineMeses> {
+  final _expanded = <String>{};
+
+  @override
   Widget build(BuildContext context) {
-    final maxTotal =
-        meses.fold(0.0, (m, e) => e.total > m ? e.total : m);
+    final maxTotal = widget.meses.fold(0.0, (m, e) => e.total > m ? e.total : m);
 
     return Column(
-      children: meses.reversed.map((m) {
-        final esMejor = m.clave == mejorMes;
-        final barPct  = maxTotal > 0 ? (m.total / maxTotal).clamp(0.0, 1.0) : 0.0;
+      children: widget.meses.reversed.map((m) {
+        final esMejor  = m.clave == widget.mejorMes;
+        final barPct   = maxTotal > 0 ? (m.total / maxTotal).clamp(0.0, 1.0) : 0.0;
+        final isOpen   = _expanded.contains(m.clave);
+        final hasTop   = m.topPerfumes.isNotEmpty;
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
-          decoration: BoxDecoration(
-            color: esMejor
-                ? const Color(0xFFFFF9E6)
-                : AppColors.surface,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(
-              color: esMejor
-                  ? const Color(0xFFD4A017)
-                  : AppColors.primaryLight,
-              width: esMejor ? 1.5 : 1,
+        return GestureDetector(
+          onTap: hasTop
+              ? () => setState(() {
+                    if (isOpen) { _expanded.remove(m.clave); }
+                    else { _expanded.add(m.clave); }
+                  })
+              : null,
+          child: Container(
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
+            decoration: BoxDecoration(
+              color: esMejor ? const Color(0xFFFFF9E6) : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: esMejor ? const Color(0xFFD4A017) : AppColors.primaryLight,
+                width: esMejor ? 1.5 : 1,
+              ),
             ),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  SizedBox(
-                    width: 60,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          m.label,
-                          style: TextStyle(
-                            fontSize:   11,
-                            fontWeight: FontWeight.w700,
-                            color: esMejor
-                                ? const Color(0xFF7A5C00)
-                                : AppColors.textPrimary,
-                          ),
-                        ),
-                        if (esMejor)
-                          const Text(
-                            '🏆 mejor',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 60,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            m.label,
                             style: TextStyle(
-                              fontSize:   9,
-                              color:      Color(0xFF7A5C00),
+                              fontSize:   11,
                               fontWeight: FontWeight.w700,
+                              color: esMejor ? const Color(0xFF7A5C00) : AppColors.textPrimary,
                             ),
                           ),
-                      ],
+                          if (esMejor)
+                            const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.emoji_events_rounded, size: 9, color: Color(0xFF7A5C00)),
+                                SizedBox(width: 2),
+                                Text('mejor', style: TextStyle(fontSize: 9, color: Color(0xFF7A5C00), fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value:           barPct,
-                        minHeight:       8,
-                        backgroundColor: esMejor
-                            ? const Color(0xFFF5DFA0)
-                            : AppColors.primaryPale,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          esMejor
-                              ? const Color(0xFFD4A017)
-                              : AppColors.primary,
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: SizedBox(
+                          height: 8,
+                          child: Stack(
+                            children: [
+                              Container(color: esMejor ? const Color(0xFFF5DFA0) : AppColors.primaryPale),
+                              FractionallySizedBox(
+                                widthFactor: barPct,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: esMejor
+                                          ? [const Color(0xFFD4A017), const Color(0xFFF0C040)]
+                                          : [AppColors.primary, AppColors.primaryDark],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    'S/ ${_fmt(m.total)}',
-                    style: TextStyle(
-                      fontSize:   12,
-                      fontWeight: FontWeight.w700,
-                      color: esMejor
-                          ? const Color(0xFF7A5C00)
-                          : AppColors.primaryDark,
+                    const SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'S/ ${_fmt(m.total)}',
+                      style: TextStyle(
+                        fontSize:   12,
+                        fontWeight: FontWeight.w700,
+                        color: esMejor ? const Color(0xFF7A5C00) : AppColors.primaryDark,
+                      ),
                     ),
-                  ),
+                    if (hasTop) ...[
+                      const SizedBox(width: 4),
+                      Icon(
+                        isOpen ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                        size: 16,
+                        color: AppColors.textMuted,
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${m.numOrdenes} venta${m.numOrdenes != 1 ? 's' : ''}  ·  ${m.totalMl} ml',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted, fontSize: 10),
+                    ),
+                  ],
+                ),
+                if (isOpen && hasTop) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  const Divider(color: AppColors.primaryLight, height: 1),
+                  const SizedBox(height: AppSpacing.sm),
+                  ...m.topPerfumes.asMap().entries.map((e) => _TopPerfumeMesRow(
+                        pos:  e.key + 1,
+                        item: e.value,
+                      )),
                 ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    '${m.numOrdenes} venta${m.numOrdenes != 1 ? 's' : ''}  ·  ${m.totalMl} ml',
-                    style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textMuted, fontSize: 10),
-                  ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         );
       }).toList(),
     );
   }
+}
+
+class _TopPerfumeMesRow extends StatelessWidget {
+  const _TopPerfumeMesRow({required this.pos, required this.item});
+  final int        pos;
+  final TopPerfume item;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+        child: Row(
+          children: [
+            Container(
+              width: 18, height: 18,
+              decoration: BoxDecoration(
+                color:  pos == 1 ? AppColors.primary : AppColors.primaryPale,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                '$pos',
+                style: TextStyle(
+                  fontSize:   9,
+                  fontWeight: FontWeight.w700,
+                  color: pos == 1 ? Colors.white : AppColors.textMuted,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                item.nombre,
+                style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '${item.totalMl}ml',
+              style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.textMuted, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
 }
 
 // ── Widgets auxiliares ────────────────────────────────────────────────────────
@@ -386,6 +470,185 @@ class _MiniCard extends StatelessWidget {
       );
 }
 
+// ── Ranking de distritos ──────────────────────────────────────────────────────
+
+class _RankingDistritosSection extends StatefulWidget {
+  const _RankingDistritosSection({required this.distritos});
+  final List<DistritoStat> distritos;
+
+  @override
+  State<_RankingDistritosSection> createState() =>
+      _RankingDistritosSectionState();
+}
+
+class _RankingDistritosSectionState extends State<_RankingDistritosSection> {
+  static const _paso = 8;
+  int _visible = _paso;
+
+  @override
+  Widget build(BuildContext context) {
+    final list = widget.distritos;
+    if (list.isEmpty) return const SizedBox.shrink();
+
+    final maxPedidos = list.first.pedidos;
+    final mostrados  = list.take(_visible).toList();
+    final quedan     = list.length - _visible;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppSpacing.lg),
+        const Divider(color: AppColors.primaryLight),
+        const SizedBox(height: AppSpacing.sm),
+        Row(children: [
+          const Icon(Icons.location_on_rounded,
+              size: 16, color: AppColors.textPrimary),
+          const SizedBox(width: 6),
+          Text('Ranking por distrito',
+              style: AppTextStyles.heading2.copyWith(fontSize: 15)),
+          const SizedBox(width: AppSpacing.sm),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.primaryPale,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Text('${list.length}',
+                style: AppTextStyles.bodySmall.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryDark)),
+          ),
+        ]),
+        const SizedBox(height: AppSpacing.sm),
+        ...mostrados.asMap().entries.map((e) =>
+            _DistritoRow(pos: e.key + 1, stat: e.value, maxPedidos: maxPedidos)),
+        if (quedan > 0)
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => _visible += _paso),
+              child: Text(
+                '▼ Ver ${quedan > _paso ? _paso : quedan} más'
+                '${quedan > _paso ? ' ($quedan restantes)' : ''}',
+                style: const TextStyle(color: AppColors.primary),
+              ),
+            ),
+          ),
+        if (_visible > _paso)
+          Center(
+            child: TextButton(
+              onPressed: () => setState(() => _visible = _paso),
+              child: const Text('▲ Ver menos',
+                  style: TextStyle(color: AppColors.textMuted)),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _DistritoRow extends StatelessWidget {
+  const _DistritoRow({
+    required this.pos,
+    required this.stat,
+    required this.maxPedidos,
+  });
+  final int          pos;
+  final DistritoStat stat;
+  final int          maxPedidos;
+
+  @override
+  Widget build(BuildContext context) {
+    final barPct = maxPedidos > 0 ? (stat.pedidos / maxPedidos).clamp(0.0, 1.0) : 0.0;
+    final Color rankBg;
+    final Color rankFg;
+    if (pos == 1)      { rankBg = AppColors.primary;   rankFg = Colors.white; }
+    else if (pos == 2) { rankBg = AppColors.textMuted;  rankFg = Colors.white; }
+    else               { rankBg = AppColors.primaryPale; rankFg = AppColors.textMuted; }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.primaryLight),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 26, height: 26,
+            decoration: BoxDecoration(color: rankBg, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: Text('$pos',
+                style: TextStyle(
+                    color: rankFg, fontSize: 11, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(stat.nombre,
+                    style: AppTextStyles.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: SizedBox(
+                    height: 5,
+                    child: Stack(children: [
+                      Container(color: AppColors.primaryPale),
+                      FractionallySizedBox(
+                        widthFactor: barPct,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppColors.primary, AppColors.primaryDark],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPale,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primaryLight),
+                ),
+                child: Text(
+                    '${stat.pedidos} pedido${stat.pedidos != 1 ? 's' : ''}',
+                    style: AppTextStyles.bodySmall.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary)),
+              ),
+              const SizedBox(height: 3),
+              Text('S/ ${stat.totalSoles.toStringAsFixed(0)}',
+                  style: AppTextStyles.bodySmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryDark,
+                      fontSize: 11)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 String _fmt(double v) {
@@ -433,8 +696,15 @@ class _TopPerfumesSectionState extends State<_TopPerfumesSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: AppSpacing.lg),
-        Text('🏆  Perfumes más vendidos',
-            style: AppTextStyles.heading2.copyWith(fontSize: 15)),
+        Row(
+          children: [
+            const Icon(Icons.emoji_events_rounded,
+                size: 16, color: AppColors.textPrimary),
+            const SizedBox(width: 6),
+            Text('Perfumes más vendidos',
+                style: AppTextStyles.heading2.copyWith(fontSize: 15)),
+          ],
+        ),
         const SizedBox(height: AppSpacing.sm),
         ...mostrados
             .asMap()
@@ -510,7 +780,7 @@ class _TopPerfumeRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('🌸 ${item.nombre}',
+                Text(item.nombre,
                     style: AppTextStyles.body.copyWith(
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary),
@@ -580,8 +850,15 @@ class _ComparaMesesSectionState extends ConsumerState<_ComparaMesesSection> {
         const SizedBox(height: AppSpacing.lg),
         const Divider(color: AppColors.primaryLight),
         const SizedBox(height: AppSpacing.sm),
-        Text('📆 Comparar meses',
-            style: AppTextStyles.heading2.copyWith(fontSize: 15)),
+        Row(
+          children: [
+            const Icon(Icons.date_range_rounded,
+                size: 16, color: AppColors.textPrimary),
+            const SizedBox(width: 6),
+            Text('Comparar meses',
+                style: AppTextStyles.heading2.copyWith(fontSize: 15)),
+          ],
+        ),
         const SizedBox(height: AppSpacing.md),
 
         if (meses.length < 2)
@@ -721,14 +998,12 @@ class _DiferenciaBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final diff     = stat2.total - stat1.total;
+    final diff     = stat1.total - stat2.total;
     final pct      = diff / stat1.total * 100;
     final positivo = diff >= 0;
     final color    = positivo ? const Color(0xFF16a34a) : const Color(0xFFdc2626);
     final bgColor  = positivo ? const Color(0xFFf0faf4) : const Color(0xFFfff5f5);
     final borde    = positivo ? const Color(0xFFb7e4c7) : const Color(0xFFfed7d7);
-    final simbolo  = positivo ? '📈' : '📉';
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -745,13 +1020,25 @@ class _DiferenciaBanner extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.8)),
           const SizedBox(height: 4),
-          Text(
-            '$simbolo S/ ${diff.abs().toStringAsFixed(2)}'
-            ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)',
-            style: AppTextStyles.price.copyWith(color: color, fontSize: 18),
-            textAlign: TextAlign.center,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                positivo
+                    ? Icons.trending_up_rounded
+                    : Icons.trending_down_rounded,
+                size: 18,
+                color: color,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'S/ ${diff.abs().toStringAsFixed(2)}'
+                ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)',
+                style: AppTextStyles.price.copyWith(color: color, fontSize: 18),
+              ),
+            ],
           ),
-          Text('$mes2 vs $mes1',
+          Text('$mes1 vs $mes2',
               style:
                   AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
         ],

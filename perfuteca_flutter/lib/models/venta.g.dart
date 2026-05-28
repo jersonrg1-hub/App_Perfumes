@@ -19,6 +19,7 @@ _$VentaResponseImpl _$$VentaResponseImplFromJson(Map<String, dynamic> json) =>
       metodoPago: _toStrNullable(json['metodo_pago']),
       tipoEnvio: _toStrNullable(json['tipo_envio']),
       direccion: _toStrNullable(json['direccion']),
+      distrito: _toStrNullable(json['distrito']),
       estado: _toStrNullable(json['estado']),
     );
 
@@ -35,6 +36,7 @@ Map<String, dynamic> _$$VentaResponseImplToJson(_$VentaResponseImpl instance) =>
       'metodo_pago': instance.metodoPago,
       'tipo_envio': instance.tipoEnvio,
       'direccion': instance.direccion,
+      'distrito': instance.distrito,
       'estado': instance.estado,
     };
 

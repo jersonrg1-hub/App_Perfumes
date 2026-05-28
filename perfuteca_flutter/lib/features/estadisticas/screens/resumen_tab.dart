@@ -126,14 +126,22 @@ class _HeroMesCard extends StatelessWidget {
           // Encabezado: mes + variación
           Row(
             children: [
-              Text(
-                '📅  ${_meses[now.month]} ${now.year}',
-                style: const TextStyle(
-                  color:      Color(0xFFD4A882),
-                  fontSize:   12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.calendar_month_rounded,
+                      size: 13, color: Color(0xFFD4A882)),
+                  const SizedBox(width: 5),
+                  Text(
+                    '${_meses[now.month]} ${now.year}',
+                    style: const TextStyle(
+                      color:      Color(0xFFD4A882),
+                      fontSize:   12,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ],
               ),
               const Spacer(),
               if (hayPrevio)
@@ -177,11 +185,31 @@ class _HeroMesCard extends StatelessWidget {
 
           if (hayPrevio) ...[
             const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'vs mes anterior',
+                  style: TextStyle(color: Color(0xFF9B7250), fontSize: 10),
+                ),
+                Text(
+                  '${((s.totalMes / s.totalMesPasado) * 100).clamp(0, 200).toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    color: s.totalMes >= s.totalMesPasado
+                        ? AppColors.stockOk
+                        : AppColors.gold,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: (s.totalMes / s.totalMesPasado).clamp(0.0, 1.0),
-                minHeight: 4,
+                minHeight: 8,
                 backgroundColor: Colors.white.withValues(alpha: 0.15),
                 valueColor: AlwaysStoppedAnimation<Color>(
                   s.totalMes >= s.totalMesPasado
@@ -192,7 +220,7 @@ class _HeroMesCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              'vs mes anterior: S/ ${_fmt(s.totalMesPasado)}  ·  ${s.ventasMesPasado} venta${s.ventasMesPasado != 1 ? 's' : ''}',
+              'S/ ${_fmt(s.totalMesPasado)}  ·  ${s.ventasMesPasado} venta${s.ventasMesPasado != 1 ? 's' : ''}',
               style: const TextStyle(color: Color(0xFF9B7250), fontSize: 10),
             ),
           ],
@@ -325,15 +353,16 @@ class _FilaStat extends StatelessWidget {
       children: [
         Text(label,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               color: AppColors.textMuted,
               fontWeight: FontWeight.w500,
+              letterSpacing: 0.3,
             )),
         Text(valor,
             style: const TextStyle(
-              fontSize: 14,
+              fontSize: 18,
               color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             )),
       ],
     );

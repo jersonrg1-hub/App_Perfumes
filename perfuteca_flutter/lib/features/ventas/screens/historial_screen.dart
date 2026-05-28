@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
@@ -54,32 +55,142 @@ Map<String, List<_Orden>> _agruparPorFecha(List<VentaResponse> ventas) {
 
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 
-class HistorialScreen extends ConsumerWidget {
+enum _FiltroFecha { todo, hoy, semana, mes }
+
+class HistorialScreen extends ConsumerStatefulWidget {
   const HistorialScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HistorialScreen> createState() => _HistorialScreenState();
+}
+
+class _HistorialScreenState extends ConsumerState<HistorialScreen> {
+  _FiltroFecha _filtro = _FiltroFecha.todo;
+
+  List<VentaResponse> _aplicarFiltro(List<VentaResponse> ventas) {
+    if (_filtro == _FiltroFecha.todo) return ventas;
+    final now = DateTime.now();
+    final hoy = DateTime(now.year, now.month, now.day);
+    return ventas.where((v) {
+      if (v.fecha == null) return false;
+      try {
+        final d     = DateTime.parse(v.fecha!);
+        final fecha = DateTime(d.year, d.month, d.day);
+        return switch (_filtro) {
+          _FiltroFecha.hoy    => fecha == hoy,
+          _FiltroFecha.semana => !fecha.isBefore(
+              hoy.subtract(Duration(days: hoy.weekday - 1))),
+          _FiltroFecha.mes    => d.year == now.year && d.month == now.month,
+          _FiltroFecha.todo   => true,
+        };
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async       = ref.watch(historialProvider);
     final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
 
-    return async.when(
-      loading: () => const _HistorialSkeleton(),
-      error: (e, _) => _ErrorView(
-        mensaje: e.toString(),
-        onRetry: () => ref.invalidate(historialProvider),
-      ),
-      data: (ventas) {
-        final onRefresh = () => ref.refresh(historialProvider.future);
-        if (ventas.isEmpty) return RefreshIndicator(onRefresh: onRefresh, child: _EmptyView(onRefresh: onRefresh));
-        final porFecha = _agruparPorFecha(ventas);
-        final fechas   = porFecha.keys.toList()..sort((a, b) => b.compareTo(a));
-        return _ListaHistorial(
-          porFecha: porFecha,
-          fechas: fechas,
-          perfumesMap: perfumesMap,
-          onRefresh: onRefresh,
-        );
-      },
+    const opciones = [
+      (_FiltroFecha.todo,   'Todo'),
+      (_FiltroFecha.hoy,    'Hoy'),
+      (_FiltroFecha.semana, 'Esta semana'),
+      (_FiltroFecha.mes,    'Este mes'),
+    ];
+
+    return Column(
+      children: [
+        SizedBox(
+          height: 40,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            children: opciones.map((entry) {
+              final (filtro, label) = entry;
+              final sel = filtro == _filtro;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: GestureDetector(
+                  onTap: () => setState(() => _filtro = filtro),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: sel ? AppColors.primaryDark : AppColors.surface,
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusFull),
+                      border: Border.all(
+                        color: sel
+                            ? AppColors.primaryDark
+                            : AppColors.primaryLight,
+                      ),
+                    ),
+                    child: Center(
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: TextStyle(
+                          color:      sel ? Colors.white : AppColors.textMuted,
+                          fontSize:   12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        child: Text(label),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        Expanded(
+          child: async.when(
+            loading: () => const _HistorialSkeleton(),
+            error: (e, _) => _ErrorView(
+              mensaje: e.toString(),
+              onRetry: () => ref.invalidate(historialProvider),
+            ),
+            data: (ventas) {
+              final filtradas = _aplicarFiltro(ventas);
+              final onRefresh = () => ref.refresh(historialProvider.future);
+              if (filtradas.isEmpty) {
+                return ventas.isEmpty
+                    ? RefreshIndicator(
+                        onRefresh: onRefresh,
+                        child: _EmptyView(onRefresh: onRefresh),
+                      )
+                    : Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.search_off_rounded,
+                                size: 48, color: AppColors.textFaint),
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              'Sin ventas en este período',
+                              style: AppTextStyles.body
+                                  .copyWith(color: AppColors.textMuted),
+                            ),
+                          ],
+                        ),
+                      );
+              }
+              final porFecha = _agruparPorFecha(filtradas);
+              final fechas   = porFecha.keys.toList()
+                ..sort((a, b) => b.compareTo(a));
+              return _ListaHistorial(
+                porFecha:    porFecha,
+                fechas:      fechas,
+                perfumesMap: perfumesMap,
+                onRefresh:   onRefresh,
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -226,24 +337,30 @@ class _OrdenCardState extends State<_OrdenCard> {
     final color  = _estadoColor(orden.estado);
     final icon   = _estadoIcon(orden.estado);
 
-    return GestureDetector(
-      onTap: () => setState(() => _expandido = !_expandido),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(
-            color: _expandido ? AppColors.primary : AppColors.primaryLight,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: AppColors.shadowColor,
-              blurRadius: 4,
-              offset: Offset(0, 1),
-            ),
-          ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: _expandido ? AppColors.primary : AppColors.primaryLight,
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.shadowColor,
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _expandido = !_expandido);
+        },
+        splashColor: AppColors.primaryPale,
+        highlightColor: AppColors.primaryPale.withValues(alpha: 0.4),
         child: Column(
           children: [
             // ── Fila principal ────────────────────────────────────────

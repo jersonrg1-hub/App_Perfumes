@@ -43,6 +43,8 @@ mixin _$VentaResponse {
   @JsonKey(fromJson: _toStrNullable)
   String? get direccion => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _toStrNullable)
+  String? get distrito => throw _privateConstructorUsedError;
+  @JsonKey(fromJson: _toStrNullable)
   String? get estado => throw _privateConstructorUsedError;
 
   /// Serializes this VentaResponse to a JSON map.
@@ -75,6 +77,7 @@ abstract class $VentaResponseCopyWith<$Res> {
       String? metodoPago,
       @JsonKey(name: 'tipo_envio', fromJson: _toStrNullable) String? tipoEnvio,
       @JsonKey(fromJson: _toStrNullable) String? direccion,
+      @JsonKey(fromJson: _toStrNullable) String? distrito,
       @JsonKey(fromJson: _toStrNullable) String? estado});
 }
 
@@ -104,6 +107,7 @@ class _$VentaResponseCopyWithImpl<$Res, $Val extends VentaResponse>
     Object? metodoPago = freezed,
     Object? tipoEnvio = freezed,
     Object? direccion = freezed,
+    Object? distrito = freezed,
     Object? estado = freezed,
   }) {
     return _then(_value.copyWith(
@@ -151,6 +155,10 @@ class _$VentaResponseCopyWithImpl<$Res, $Val extends VentaResponse>
           ? _value.direccion
           : direccion // ignore: cast_nullable_to_non_nullable
               as String?,
+      distrito: freezed == distrito
+          ? _value.distrito
+          : distrito // ignore: cast_nullable_to_non_nullable
+              as String?,
       estado: freezed == estado
           ? _value.estado
           : estado // ignore: cast_nullable_to_non_nullable
@@ -181,6 +189,7 @@ abstract class _$$VentaResponseImplCopyWith<$Res>
       String? metodoPago,
       @JsonKey(name: 'tipo_envio', fromJson: _toStrNullable) String? tipoEnvio,
       @JsonKey(fromJson: _toStrNullable) String? direccion,
+      @JsonKey(fromJson: _toStrNullable) String? distrito,
       @JsonKey(fromJson: _toStrNullable) String? estado});
 }
 
@@ -208,6 +217,7 @@ class __$$VentaResponseImplCopyWithImpl<$Res>
     Object? metodoPago = freezed,
     Object? tipoEnvio = freezed,
     Object? direccion = freezed,
+    Object? distrito = freezed,
     Object? estado = freezed,
   }) {
     return _then(_$VentaResponseImpl(
@@ -255,6 +265,10 @@ class __$$VentaResponseImplCopyWithImpl<$Res>
           ? _value.direccion
           : direccion // ignore: cast_nullable_to_non_nullable
               as String?,
+      distrito: freezed == distrito
+          ? _value.distrito
+          : distrito // ignore: cast_nullable_to_non_nullable
+              as String?,
       estado: freezed == estado
           ? _value.estado
           : estado // ignore: cast_nullable_to_non_nullable
@@ -279,6 +293,7 @@ class _$VentaResponseImpl implements _VentaResponse {
       @JsonKey(name: 'metodo_pago', fromJson: _toStrNullable) this.metodoPago,
       @JsonKey(name: 'tipo_envio', fromJson: _toStrNullable) this.tipoEnvio,
       @JsonKey(fromJson: _toStrNullable) this.direccion,
+      @JsonKey(fromJson: _toStrNullable) this.distrito,
       @JsonKey(fromJson: _toStrNullable) this.estado});
 
   factory _$VentaResponseImpl.fromJson(Map<String, dynamic> json) =>
@@ -319,11 +334,14 @@ class _$VentaResponseImpl implements _VentaResponse {
   final String? direccion;
   @override
   @JsonKey(fromJson: _toStrNullable)
+  final String? distrito;
+  @override
+  @JsonKey(fromJson: _toStrNullable)
   final String? estado;
 
   @override
   String toString() {
-    return 'VentaResponse(idCompra: $idCompra, filaSheet: $filaSheet, fecha: $fecha, comprador: $comprador, celular: $celular, idPerfume: $idPerfume, mlVendido: $mlVendido, precioCobrado: $precioCobrado, metodoPago: $metodoPago, tipoEnvio: $tipoEnvio, direccion: $direccion, estado: $estado)';
+    return 'VentaResponse(idCompra: $idCompra, filaSheet: $filaSheet, fecha: $fecha, comprador: $comprador, celular: $celular, idPerfume: $idPerfume, mlVendido: $mlVendido, precioCobrado: $precioCobrado, metodoPago: $metodoPago, tipoEnvio: $tipoEnvio, direccion: $direccion, distrito: $distrito, estado: $estado)';
   }
 
   @override
@@ -351,6 +369,8 @@ class _$VentaResponseImpl implements _VentaResponse {
                 other.tipoEnvio == tipoEnvio) &&
             (identical(other.direccion, direccion) ||
                 other.direccion == direccion) &&
+            (identical(other.distrito, distrito) ||
+                other.distrito == distrito) &&
             (identical(other.estado, estado) || other.estado == estado));
   }
 
@@ -369,6 +389,7 @@ class _$VentaResponseImpl implements _VentaResponse {
       metodoPago,
       tipoEnvio,
       direccion,
+      distrito,
       estado);
 
   /// Create a copy of VentaResponse
@@ -405,6 +426,7 @@ abstract class _VentaResponse implements VentaResponse {
       @JsonKey(name: 'tipo_envio', fromJson: _toStrNullable)
       final String? tipoEnvio,
       @JsonKey(fromJson: _toStrNullable) final String? direccion,
+      @JsonKey(fromJson: _toStrNullable) final String? distrito,
       @JsonKey(fromJson: _toStrNullable)
       final String? estado}) = _$VentaResponseImpl;
 
@@ -444,6 +466,9 @@ abstract class _VentaResponse implements VentaResponse {
   @override
   @JsonKey(fromJson: _toStrNullable)
   String? get direccion;
+  @override
+  @JsonKey(fromJson: _toStrNullable)
+  String? get distrito;
   @override
   @JsonKey(fromJson: _toStrNullable)
   String? get estado;

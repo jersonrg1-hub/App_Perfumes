@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/screens/clientes_tab.dart';
 import 'package:perfuteca/features/ventas/screens/historial_screen.dart';
+import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
@@ -30,17 +31,14 @@ class _VentasTabState extends ConsumerState<VentasTab>
     super.build(context);
     return Column(
       children: [
-        // ── Chips de navegación ───────────────────────────────────────
+        // ── Navegación por pills animadas ──────────────────────────
         SizedBox(
-          height: 44,
+          height: 40,
           child: ListView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: 4,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             children: _SeccionVentas.values.map((s) {
-              final seleccionado = s == _seccion;
+              final sel = s == _seccion;
               final label = switch (s) {
                 _SeccionVentas.historial    => 'Historial',
                 _SeccionVentas.tamanios     => 'Tamaños',
@@ -48,19 +46,35 @@ class _VentasTabState extends ConsumerState<VentasTab>
                 _SeccionVentas.cotizaciones => 'Cotizaciones',
               };
               return Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: ChoiceChip(
-                  label: Text(
-                    label,
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color:      seleccionado ? Colors.white : AppColors.textMuted,
-                      fontWeight: FontWeight.w600,
+                padding: const EdgeInsets.only(right: 6),
+                child: GestureDetector(
+                  onTap: () => setState(() => _seccion = s),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeOutCubic,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: sel ? AppColors.primaryDark : AppColors.surface,
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.radiusFull),
+                      border: Border.all(
+                        color: sel
+                            ? AppColors.primaryDark
+                            : AppColors.primaryLight,
+                      ),
+                    ),
+                    child: Center(
+                      child: AnimatedDefaultTextStyle(
+                        duration: const Duration(milliseconds: 200),
+                        style: TextStyle(
+                          color:      sel ? Colors.white : AppColors.textMuted,
+                          fontSize:   12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        child: Text(label),
+                      ),
                     ),
                   ),
-                  selected:      seleccionado,
-                  selectedColor: AppColors.primaryDark,
-                  onSelected:    (_) => setState(() => _seccion = s),
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
                 ),
               );
             }).toList(),
@@ -79,6 +93,23 @@ class _VentasTabState extends ConsumerState<VentasTab>
       ],
     );
   }
+}
+
+String? _mejorDiaHistorico(List<VentaResponse> ventas) {
+  const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  final totales = <int, double>{};
+  for (final v in ventas) {
+    if (v.estado?.toLowerCase() != 'entregado') continue;
+    if (v.fecha == null) continue;
+    try {
+      final d = DateTime.parse(v.fecha!);
+      totales[d.weekday] = (totales[d.weekday] ?? 0) + (v.precioCobrado ?? 0);
+    } catch (_) {}
+  }
+  if (totales.isEmpty) return null;
+  return dias[totales.entries
+          .reduce((a, b) => a.value > b.value ? a : b)
+          .key - 1];
 }
 
 void _mostrarDetalleTamanio(BuildContext ctx, TamanioStat t) {
@@ -244,64 +275,94 @@ class _TamanosView extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             ...tamanios.map((t) {
               final pct = totalCount > 0 ? t.cantidad / totalCount : 0.0;
-              return GestureDetector(
-                onTap: t.topPerfumes.isEmpty ? null : () => _mostrarDetalleTamanio(context, t),
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    border: Border.all(color: AppColors.primaryLight),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            '📦 ${t.ml}ml',
-                            style: AppTextStyles.body.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                              fontSize: 16,
+              return Container(
+                margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  border: Border.all(color: AppColors.primaryLight),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: t.topPerfumes.isEmpty
+                      ? null
+                      : () => _mostrarDetalleTamanio(context, t),
+                  splashColor: AppColors.primaryPale,
+                  highlightColor:
+                      AppColors.primaryPale.withValues(alpha: 0.5),
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.water_drop_outlined,
+                                    size: 16, color: AppColors.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '${t.ml} ml',
+                                  style: AppTextStyles.body.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.textPrimary,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                Text(
+                                  '${t.cantidad} venta${t.cantidad != 1 ? 's' : ''}'
+                                  ' — S/ ${t.total.toStringAsFixed(2)}',
+                                  style: AppTextStyles.bodySmall,
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(Icons.chevron_right_rounded,
+                                    size: 16, color: AppColors.textMuted),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: SizedBox(
+                            height: 10,
+                            child: Stack(
+                              children: [
+                                Container(color: AppColors.primaryPale),
+                                FractionallySizedBox(
+                                  widthFactor: pct,
+                                  child: Container(
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          AppColors.primary,
+                                          AppColors.primaryDark,
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Row(
-                            children: [
-                              Text(
-                                '${t.cantidad} venta${t.cantidad != 1 ? 's' : ''}'
-                                ' — S/ ${t.total.toStringAsFixed(2)}',
-                                style: AppTextStyles.bodySmall,
-                              ),
-                              const SizedBox(width: 6),
-                              const Icon(Icons.chevron_right_rounded,
-                                  size: 16, color: AppColors.textMuted),
-                            ],
+                        ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '${(pct * 100).toStringAsFixed(1)}% del total',
+                            style: AppTextStyles.bodySmall
+                                .copyWith(color: AppColors.primary),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value:      pct,
-                          minHeight:  10,
-                          backgroundColor: AppColors.primaryPale,
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                              AppColors.primary),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          '${(pct * 100).toStringAsFixed(1)}% del total',
-                          style: AppTextStyles.bodySmall
-                              .copyWith(color: AppColors.primary),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -376,12 +437,20 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
               ),
               if (dia.topPerfumes.isNotEmpty) ...[
                 const Divider(height: AppSpacing.lg),
-                Text(
-                  '🌸 Top perfumes del día',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.star_rounded,
+                        size: 13, color: AppColors.gold),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Top perfumes del día',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 ...dia.topPerfumes.asMap().entries.map((e) {
@@ -480,6 +549,7 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
       data: (s) => RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
+          ref.invalidate(resumenBackendProvider);
           ref.invalidate(ventasParaStatsProvider);
           ref.invalidate(semanaStatsProvider);
           await ref.read(semanaStatsProvider.future);
@@ -592,14 +662,22 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
               ),
               child: Column(
                 children: [
-                  Text(
-                    '🏆 Más vendido esta semana',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.textMuted,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.8,
-                    ),
-                    textAlign: TextAlign.center,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.emoji_events_rounded,
+                          size: 13, color: AppColors.gold),
+                      const SizedBox(width: 5),
+                      Text(
+                        'Más vendido esta semana',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -649,7 +727,7 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
               final maxTotal = s.porDia.fold(0.0,
                   (m, d) => d.total > m ? d.total : m);
               return SizedBox(
-                height: 112,
+                height: 170,
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: s.porDia.asMap().entries.map((e) {
@@ -710,7 +788,7 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
                             const SizedBox(height: 2),
                             // Barra proporcional
                             Container(
-                              height: 40 * barPct + 4,
+                              height: 70 * barPct + 4,
                               margin: const EdgeInsets.symmetric(
                                   horizontal: 4),
                               decoration: BoxDecoration(
@@ -765,6 +843,41 @@ class _SemanalViewState extends ConsumerState<_SemanalView> {
                 ),
               );
             },
+          ),
+          // ── Mejor día históricamente ──────────────────────────
+          ...ref.watch(ventasParaStatsProvider).maybeWhen(
+            data: (ventas) {
+              final dia = _mejorDiaHistorico(ventas);
+              if (dia == null) return <Widget>[];
+              return <Widget>[
+                const SizedBox(height: AppSpacing.md),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusMd),
+                    border: Border.all(color: AppColors.primaryLight),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.emoji_events_rounded,
+                          size: 14, color: AppColors.gold),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Históricamente tu mejor día: $dia',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ];
+            },
+            orElse: () => <Widget>[],
           ),
           const SizedBox(height: AppSpacing.xl),
         ],

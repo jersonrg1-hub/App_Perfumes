@@ -242,6 +242,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
 
   final _compradorCtrl      = TextEditingController();
   final _direccionCtrl      = TextEditingController();
+  final _distritoCtrl       = TextEditingController();
   final _botonKey           = GlobalKey();
   late final ValueNotifier<bool> _formValidoNotifier;
   late final List<String> _lineas;
@@ -259,6 +260,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
     _formValidoNotifier = ValueNotifier<bool>(false);
     _compradorCtrl.addListener(_checkForm);
     _direccionCtrl.addListener(_checkForm);
+    _distritoCtrl.addListener(_checkForm);
   }
 
   void _checkForm() {
@@ -273,6 +275,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
   void dispose() {
     _compradorCtrl.dispose();
     _direccionCtrl.dispose();
+    _distritoCtrl.dispose();
     _formValidoNotifier.dispose();
     super.dispose();
   }
@@ -331,6 +334,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
         comprador: _compradorCtrl.text.trim(),
         celular:   widget.cotizacion.celular,
         direccion: _direccionCtrl.text.trim(),
+        distrito:  _distritoCtrl.text.trim(),
         tipoEnvio: _tipoEnvio,
         fecha:     DateFormat('yyyy-MM-dd').format(DateTime.now()),
         items: cesta
@@ -387,6 +391,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           celular:      widget.cotizacion.celular,
           tipoEnvio:    _tipoEnvio,
           direccion:    _direccionCtrl.text.trim(),
+          distrito:     _distritoCtrl.text.trim(),
           metodoPago:   _metodoPago,
           itemsStr:     widget.cotizacion.items ?? '',
           total:        widget.cotizacion.total ?? 0,
@@ -606,6 +611,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                       celular:    widget.cotizacion.celular,
                       tipoEnvio:  _tipoEnvio,
                       direccion:  _direccionCtrl.text.trim(),
+                      distrito:   _distritoCtrl.text.trim(),
                       metodoPago: _metodoPago,
                       total:      widget.cotizacion.total,
                       botonKey:   _botonKey,
@@ -641,6 +647,13 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                           _Field(
                             controller: _direccionCtrl,
                             hint: 'Jr. Los Jardines 123',
+                            capitalization: TextCapitalization.words,
+                          ),
+                          const _FieldLabel('Distrito/Provincia',
+                              Icons.map_outlined),
+                          _Field(
+                            controller: _distritoCtrl,
+                            hint: 'Ej: Lima, Arequipa',
                             capitalization: TextCapitalization.words,
                           ),
                           const _FieldLabel('Tipo de envío',
@@ -708,6 +721,7 @@ class _ConfirmacionInline extends StatelessWidget {
     required this.celular,
     required this.tipoEnvio,
     required this.direccion,
+    required this.distrito,
     required this.metodoPago,
     required this.total,
     required this.botonKey,
@@ -720,6 +734,7 @@ class _ConfirmacionInline extends StatelessWidget {
   final String      celular;
   final String      tipoEnvio;
   final String      direccion;
+  final String      distrito;
   final String      metodoPago;
   final double?     total;
   final GlobalKey   botonKey;
@@ -747,6 +762,7 @@ class _ConfirmacionInline extends StatelessWidget {
             _ResumenFila('Celular',   celular),
             _ResumenFila('Envío',     tipoEnvio),
             _ResumenFila('Dirección', direccion),
+            if (distrito.isNotEmpty) _ResumenFila('Distrito', distrito),
             _ResumenFila('Pago',      metodoPago),
             if (total != null) ...[
               const Divider(height: 20, color: AppColors.primaryLight),
@@ -814,6 +830,7 @@ class _CartaExito extends StatelessWidget {
     required this.celular,
     required this.tipoEnvio,
     required this.direccion,
+    required this.distrito,
     required this.metodoPago,
     required this.itemsStr,
     required this.total,
@@ -824,6 +841,7 @@ class _CartaExito extends StatelessWidget {
   final String celular;
   final String tipoEnvio;
   final String direccion;
+  final String distrito;
   final String metodoPago;
   final String itemsStr;
   final double total;
@@ -837,10 +855,11 @@ class _CartaExito extends StatelessWidget {
         .map((s) => '  🌸 $s')
         .join('\n');
     final dirLinea = direccion.isNotEmpty ? '\n📍 *Dirección:* $direccion' : '';
+    final distLinea = distrito.isNotEmpty ? '\n🗺️ *Distrito:* $distrito' : '';
     final texto =
         '📦 *Perfuteca — Pedido $idVenta*\n$sep\n'
         '👤 *Cliente:* $comprador\n📱 *Celular:* $celular\n'
-        '🚚 *Envío:* $tipoEnvio$dirLinea\n$sep\n'
+        '🚚 *Envío:* $tipoEnvio$dirLinea$distLinea\n$sep\n'
         '🌸 *Perfumes:*\n$lineas\n$sep\n'
         '💰 *Total: S/ ${total.toStringAsFixed(2)}*\n'
         '💳 *Pago:* $metodoPago';

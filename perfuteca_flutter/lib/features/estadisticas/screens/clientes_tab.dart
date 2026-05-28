@@ -309,9 +309,17 @@ class _ClienteCardState extends State<_ClienteCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        Text(
-                          '📱 ${c.celular}  ·  ${c.totalCompras} compra${c.totalCompras != 1 ? 's' : ''}',
-                          style: AppTextStyles.bodySmall,
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.phone_rounded,
+                                size: 12, color: AppColors.textMuted),
+                            const SizedBox(width: 3),
+                            Text(
+                              '${c.celular}  ·  ${c.totalCompras} compra${c.totalCompras != 1 ? 's' : ''}',
+                              style: AppTextStyles.bodySmall,
+                            ),
+                          ],
                         ),
                         Text(
                           _badge(c.totalCompras),
@@ -365,26 +373,35 @@ class _ClienteCardState extends State<_ClienteCard> {
                   children: [
                     const Divider(height: AppSpacing.md),
                     // Info general
-                    _InfoRow('💰 Total gastado',
+                    _InfoRow('Total gastado',
                         'S/ ${c.totalGastado.toStringAsFixed(2)}'),
                     _InfoRow(
-                        '🛍️ Pedidos / Ítems',
+                        'Pedidos / Ítems',
                         '${c.totalCompras} pedidos '
                             '/ ${c.totalItems} ítems'),
                     _InfoRow(
-                        '📅 Primera compra', _fmtFecha(c.primeraCompra)),
+                        'Primera compra', _fmtFecha(c.primeraCompra)),
                     _InfoRow(
-                        '📅 Última compra', _fmtFecha(c.ultimaCompra)),
+                        'Última compra', _fmtFecha(c.ultimaCompra)),
                     if (c.direccion.isNotEmpty)
-                      _InfoRowMultiline('📍 Dirección', c.direccion),
+                      _InfoRowMultiline('Dirección', c.direccion),
+                    if (c.distrito.isNotEmpty)
+                      _InfoRow('Distrito', c.distrito),
 
                     const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      '🧾 Historial de pedidos:',
-                      style: AppTextStyles.bodySmall.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
+                    Row(
+                      children: [
+                        const Icon(Icons.receipt_long_rounded,
+                            size: 14, color: AppColors.textPrimary),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Historial de pedidos:',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     ..._pedidosAgrupados(c.historial)
@@ -509,7 +526,6 @@ class _PedidoRow extends ConsumerWidget {
     final primera     = items.first;
     final total       = items.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
     final estado      = primera.estado ?? '—';
-    final icon        = estado == 'Entregado' ? '✅' : '📦';
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -524,12 +540,27 @@ class _PedidoRow extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Text(
-                '$icon #$idCompra',
-                style: AppTextStyles.bodySmall.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryDark,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    estado == 'Entregado'
+                        ? Icons.check_circle_rounded
+                        : Icons.local_shipping_rounded,
+                    size: 13,
+                    color: estado == 'Entregado'
+                        ? AppColors.stockOk
+                        : AppColors.textMuted,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '#$idCompra',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryDark,
+                    ),
+                  ),
+                ],
               ),
               const Spacer(),
               Text(
@@ -556,11 +587,24 @@ class _PedidoRow extends ConsumerWidget {
                   .copyWith(color: AppColors.textMuted),
             ),
           ...items.map(
-            (v) => Text(
-              '  🌸 ${_nombrePerfume(v, perfumesMap)}'
-              '${v.mlVendido != null ? '  ${v.mlVendido}ml' : ''}'
-              ' — S/ ${(v.precioCobrado ?? 0).toStringAsFixed(2)}',
-              style: AppTextStyles.bodySmall,
+            (v) => Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(Icons.local_florist_outlined,
+                      size: 11, color: AppColors.primary),
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    '${_nombrePerfume(v, perfumesMap)}'
+                    '${v.mlVendido != null ? '  ${v.mlVendido}ml' : ''}'
+                    ' — S/ ${(v.precioCobrado ?? 0).toStringAsFixed(2)}',
+                    style: AppTextStyles.bodySmall,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -604,6 +648,16 @@ class CotizacionesTodasViewState
     super.dispose();
   }
 
+  bool _esExpirada(CotizacionResponse c) {
+    if (c.estado?.toLowerCase() != 'enviado') return false;
+    if (c.fecha == null) return false;
+    try {
+      return DateTime.now().difference(DateTime.parse(c.fecha!)).inDays >= 14;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<void> _cargarMas() async {
     if (_cargando || !_hayMas) return;
     setState(() => _cargando = true);
@@ -611,9 +665,30 @@ class CotizacionesTodasViewState
       final page = await ref
           .read(cotizacionesRepositoryProvider)
           .getCotizaciones(limit: _pageSize, offset: _offset);
+
+      // Auto-rechazar expiradas en background (fire-and-forget)
+      for (final c in page.items) {
+        if (_esExpirada(c)) {
+          ref.read(cotizacionesRepositoryProvider).actualizarEstado(
+            idCotizacion: c.idCotizacion,
+            nuevoEstado:  'Rechazada',
+          ).ignore();
+        }
+      }
+
+      // Mostrar solo Enviado (<14 días) y Aceptada
+      final activas = page.items.where((c) {
+        final estado = c.estado?.toLowerCase() ?? '';
+        if (estado == 'rechazada') return false;
+        if (estado == 'pendiente') return false;
+        if (estado == 'anulado')   return false;
+        if (_esExpirada(c))        return false;
+        return true;
+      }).toList();
+
       setState(() {
-        _items.addAll(page.items);
-        _offset += page.items.length;
+        _items.addAll(activas);
+        _offset += page.items.length; // offset basado en server, no filtrado
         _hayMas  = page.items.length == _pageSize;
       });
     } catch (_) {
@@ -760,6 +835,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
 
   final _compradorCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
+  final _distritoCtrl  = TextEditingController();
   String _tipoEnvio  = '';
   String _metodoPago = 'Yape';
 
@@ -767,6 +843,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
   void dispose() {
     _compradorCtrl.dispose();
     _direccionCtrl.dispose();
+    _distritoCtrl.dispose();
     super.dispose();
   }
 
@@ -792,6 +869,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
         comprador: _compradorCtrl.text.trim(),
         celular:   widget.c.celular,
         direccion: _direccionCtrl.text.trim(),
+        distrito:  _distritoCtrl.text.trim(),
         tipoEnvio: _tipoEnvio,
         fecha:     DateFormat('yyyy-MM-dd').format(DateTime.now()),
         items: cesta
@@ -850,6 +928,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
         celular:      widget.c.celular,
         tipoEnvio:    _tipoEnvio,
         direccion:    _direccionCtrl.text.trim(),
+        distrito:     _distritoCtrl.text.trim(),
         metodoPago:   _metodoPago,
         itemsStr:     widget.c.items ?? '',
         total:        widget.c.total ?? 0,
@@ -863,11 +942,13 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: esAceptada ? AppColors.successSurface : AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           border: Border.all(
-            color: _expandido ? AppColors.primary : AppColors.primaryLight,
-            width: _expandido ? 1.5 : 1,
+            color: esAceptada
+                ? AppColors.stockOk.withValues(alpha: 0.4)
+                : (_expandido ? AppColors.primary : AppColors.primaryLight),
+            width: esAceptada ? 1.5 : (_expandido ? 1.5 : 1),
           ),
           boxShadow: const [
             BoxShadow(
@@ -907,12 +988,19 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            '📱 ${c.celular.isNotEmpty ? c.celular : '—'}',
-                            style: AppTextStyles.body.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
-                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.phone_rounded,
+                                  size: 14, color: AppColors.primary),
+                              const SizedBox(width: 4),
+                              Text(
+                                c.celular.isNotEmpty ? c.celular : '—',
+                                style: AppTextStyles.body.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
                           ),
                           Text(widget.fmtFecha(c.fecha),
                               style: AppTextStyles.bodySmall),
@@ -1073,6 +1161,14 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                     ),
 
                     _CotFieldLabel(
+                        'Distrito/Provincia', Icons.map_outlined),
+                    _CotField(
+                      controller: _distritoCtrl,
+                      hint: 'Ej: Lima, Arequipa',
+                      capitalization: TextCapitalization.words,
+                    ),
+
+                    _CotFieldLabel(
                         'Tipo de envío', Icons.local_shipping_outlined),
                     _CotChips(
                       opciones: const [
@@ -1163,6 +1259,9 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                                               'Envío', _tipoEnvio),
                                           _ResumenFilaCot('Dirección',
                                               _direccionCtrl.text.trim()),
+                                          if (_distritoCtrl.text.trim().isNotEmpty)
+                                            _ResumenFilaCot('Distrito',
+                                                _distritoCtrl.text.trim()),
                                           _ResumenFilaCot(
                                               'Pago', _metodoPago),
                                           if (widget.c.total != null) ...[
@@ -1245,6 +1344,7 @@ class _CartaExitoCliente extends StatelessWidget {
     required this.celular,
     required this.tipoEnvio,
     required this.direccion,
+    required this.distrito,
     required this.metodoPago,
     required this.itemsStr,
     required this.total,
@@ -1255,6 +1355,7 @@ class _CartaExitoCliente extends StatelessWidget {
   final String celular;
   final String tipoEnvio;
   final String direccion;
+  final String distrito;
   final String metodoPago;
   final String itemsStr;
   final double total;
@@ -1268,10 +1369,11 @@ class _CartaExitoCliente extends StatelessWidget {
         .map((s) => '  🌸 $s')
         .join('\n');
     final dirLinea = direccion.isNotEmpty ? '\n📍 *Dirección:* $direccion' : '';
+    final distLinea = distrito.isNotEmpty ? '\n🗺️ *Distrito:* $distrito' : '';
     final texto =
         '📦 *Perfuteca — Pedido $idVenta*\n$sep\n'
         '👤 *Cliente:* $comprador\n📱 *Celular:* $celular\n'
-        '🚚 *Envío:* $tipoEnvio$dirLinea\n$sep\n'
+        '🚚 *Envío:* $tipoEnvio$dirLinea$distLinea\n$sep\n'
         '🌸 *Perfumes:*\n$lineas\n$sep\n'
         '💰 *Total: S/ ${total.toStringAsFixed(2)}*\n'
         '💳 *Pago:* $metodoPago';

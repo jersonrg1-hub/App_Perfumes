@@ -32,6 +32,7 @@ class _Orden {
   String? get metodoPago => items.first.metodoPago;
   String? get fecha      => items.first.fecha;
   String? get estado     => items.first.estado;
+  String? get distrito  => items.first.distrito;
 
   double get total => items.fold(0.0, (s, i) => s + (i.precioCobrado ?? 0));
   List<int> get filas => items.map((i) => i.filaSheet).toList();
@@ -230,12 +231,15 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final dirLinea = (orden.direccion?.trim().isNotEmpty == true)
         ? '\n📍 *Dirección:* ${orden.direccion}'
         : '';
+    final distLinea = (orden.distrito?.trim().isNotEmpty == true)
+        ? '\n🗺️ *Distrito:* ${orden.distrito}'
+        : '';
 
     final msg = Uri.encodeComponent(
       '📦 *Perfuteca — Pedido Nuevo ${orden.idCompra}*\n$sep\n'
       '👤 *Cliente:* ${orden.comprador ?? '—'}\n'
       '📱 *Celular:* ${orden.celular ?? '—'}\n'
-      '🚚 *Envío:* ${orden.tipoEnvio ?? '—'}$dirLinea\n'
+      '🚚 *Envío:* ${orden.tipoEnvio ?? '—'}$dirLinea$distLinea\n'
       '$sep\n'
       '🌸 *Perfumes:*\n$itemsLineas\n'
       '$sep\n'
@@ -485,6 +489,22 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                     ),
                   ],
                 ),
+                if (orden.distrito?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
+                    children: [
+                      const Icon(Icons.map_outlined,
+                          size: 13, color: AppColors.textMuted),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          orden.distrito!,
+                          style: AppTextStyles.bodySmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

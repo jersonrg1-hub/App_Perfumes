@@ -33,6 +33,7 @@ class VentaResponse with _$VentaResponse {
     @JsonKey(name: 'metodo_pago',    fromJson: _toStrNullable)                String? metodoPago,
     @JsonKey(name: 'tipo_envio',     fromJson: _toStrNullable)                String? tipoEnvio,
     @JsonKey(                        fromJson: _toStrNullable)                 String? direccion,
+    @JsonKey(                        fromJson: _toStrNullable)                 String? distrito,
     @JsonKey(                        fromJson: _toStrNullable)                 String? estado,
   }) = _VentaResponse;
 

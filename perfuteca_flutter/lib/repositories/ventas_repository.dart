@@ -89,6 +89,7 @@ class VentasRepository {
     required String tipoEnvio,
     required String fecha,
     required List<Map<String, dynamic>> items,
+    String distrito = '',
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -97,6 +98,7 @@ class VentasRepository {
           'comprador':  comprador,
           'celular':    celular,
           'direccion':  direccion,
+          if (distrito.isNotEmpty) 'distrito': distrito,
           'tipo_envio': tipoEnvio,
           'fecha':      fecha,
           'items':      items,

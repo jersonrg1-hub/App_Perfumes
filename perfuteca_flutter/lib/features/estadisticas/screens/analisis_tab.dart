@@ -114,11 +114,11 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
         Row(children: [
           Expanded(child: _StockChip(label: 'Total',  valor: '${todos.length}',   color: AppColors.primaryPale,         textColor: AppColors.textPrimary)),
           const SizedBox(width: 6),
-          Expanded(child: _StockChip(label: '🔴 Crítico', valor: '$criticos', color: const Color(0xFFfee2e2), textColor: const Color(0xFF7f1d1d))),
+          Expanded(child: _StockChip(label: 'Crítico', valor: '$criticos', color: const Color(0xFFfee2e2), textColor: const Color(0xFF7f1d1d))),
           const SizedBox(width: 6),
-          Expanded(child: _StockChip(label: '🟡 Bajo',    valor: '$bajos',    color: const Color(0xFFfef9c3), textColor: const Color(0xFF713f12))),
+          Expanded(child: _StockChip(label: 'Bajo',    valor: '$bajos',    color: const Color(0xFFfef9c3), textColor: const Color(0xFF713f12))),
           const SizedBox(width: 6),
-          Expanded(child: _StockChip(label: '🟢 OK',      valor: '$ok',       color: const Color(0xFFdcfce7), textColor: const Color(0xFF14532d))),
+          Expanded(child: _StockChip(label: 'OK',      valor: '$ok',       color: const Color(0xFFdcfce7), textColor: const Color(0xFF14532d))),
         ]),
         const SizedBox(height: AppSpacing.md),
 
@@ -170,9 +170,9 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
                   underline:  const SizedBox.shrink(),
                   items: const [
                     DropdownMenuItem(value: _FiltroStock.todos,   child: Text('Todos')),
-                    DropdownMenuItem(value: _FiltroStock.critico,  child: Text('🔴 Críticos')),
-                    DropdownMenuItem(value: _FiltroStock.bajo,     child: Text('🟡 Bajos')),
-                    DropdownMenuItem(value: _FiltroStock.ok,       child: Text('🟢 OK')),
+                    DropdownMenuItem(value: _FiltroStock.critico,  child: Text('Críticos')),
+                    DropdownMenuItem(value: _FiltroStock.bajo,     child: Text('Bajos')),
+                    DropdownMenuItem(value: _FiltroStock.ok,       child: Text('OK')),
                   ],
                   onChanged: (v) => setState(() => _filtro = v!),
                 ),
@@ -331,7 +331,7 @@ class _StockRow extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '🌸 ${perfume.nombre}',
+                      perfume.nombre,
                       style: AppTextStyles.body.copyWith(
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
@@ -348,11 +348,26 @@ class _StockRow extends StatelessWidget {
           const SizedBox(height: AppSpacing.xs),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value:           pct,
-              minHeight:       6,
-              backgroundColor: AppColors.primaryLight,
-              valueColor: AlwaysStoppedAnimation<Color>(_barColor),
+            child: SizedBox(
+              height: 6,
+              child: Stack(
+                children: [
+                  Container(color: AppColors.primaryLight),
+                  FractionallySizedBox(
+                    widthFactor: pct,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            _barColor.withValues(alpha: 0.7),
+                            _barColor,
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -371,20 +386,16 @@ class _StockBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color bg;
     final Color fg;
-    final String emoji;
 
     if (stock <= _kCritico) {
       bg    = const Color(0xFFfee2e2);
       fg    = AppColors.stockCritical;
-      emoji = '🔴';
     } else if (stock <= _kBajo) {
       bg    = const Color(0xFFfef9c3);
       fg    = AppColors.stockLow;
-      emoji = '🟡';
     } else {
       bg    = const Color(0xFFdcfce7);
       fg    = AppColors.stockOk;
-      emoji = '🟢';
     }
 
     return Container(
@@ -393,12 +404,19 @@ class _StockBadge extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
       ),
-      child: Text(
-        '$emoji ${stock.toStringAsFixed(0)}ml',
-        style: AppTextStyles.bodySmall.copyWith(
-          color:      fg,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.circle, size: 7, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            '${stock.toStringAsFixed(0)} ml',
+            style: AppTextStyles.bodySmall.copyWith(
+              color:      fg,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

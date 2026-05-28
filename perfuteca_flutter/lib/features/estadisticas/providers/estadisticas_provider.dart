@@ -21,6 +21,17 @@ final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async 
 
 // ── Resumen (hoy + mes + top perfumes) ───────────────────────────────────────
 
+class DistritoStat {
+  const DistritoStat({
+    required this.nombre,
+    required this.pedidos,
+    required this.totalSoles,
+  });
+  final String nombre;
+  final int    pedidos;
+  final double totalSoles;
+}
+
 class TopPerfume {
   const TopPerfume({
     required this.nombre,
@@ -299,6 +310,7 @@ class ClienteStat {
     required this.celular,
     required this.nombre,
     required this.direccion,
+    required this.distrito,
     required this.totalCompras,
     required this.totalItems,
     required this.totalGastado,
@@ -309,6 +321,7 @@ class ClienteStat {
   final String              celular;
   final String              nombre;
   final String              direccion;
+  final String              distrito;
   final int                 totalCompras;
   final int                 totalItems;
   final double              totalGastado;
@@ -344,10 +357,15 @@ final clientesStatsProvider = FutureProvider<List<ClienteStat>>((ref) async {
         .lastWhere((v) => (v.direccion ?? '').trim().isNotEmpty,
             orElse: () => list.first)
         .direccion ?? '';
+    final distrito = list
+        .lastWhere((v) => (v.distrito ?? '').trim().isNotEmpty,
+            orElse: () => list.first)
+        .distrito ?? '';
     return ClienteStat(
       celular:       e.key,
       nombre:        list.first.comprador ?? e.key,
       direccion:     direccion,
+      distrito:      distrito,
       totalCompras:  entregadas.map((v) => v.idCompra).toSet().length,
       totalItems:    entregadas.length,
       totalGastado:  entregadas.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
@@ -368,12 +386,14 @@ class MesStatHistorico {
     required this.numOrdenes,
     required this.total,
     required this.totalMl,
+    this.topPerfumes = const [],
   });
-  final String clave;
-  final String label;
-  final int    numOrdenes;
-  final double total;
-  final int    totalMl;
+  final String         clave;
+  final String         label;
+  final int            numOrdenes;
+  final double         total;
+  final int            totalMl;
+  final List<TopPerfume> topPerfumes;
 }
 
 class HistorialGlobalStats {
@@ -388,6 +408,8 @@ class HistorialGlobalStats {
     required this.promedioMensual,
     required this.porMes,
     required this.mejorMesClave,
+    required this.masVendidosHistorico,
+    required this.distritoRanking,
   });
   final int                    totalVentas;
   final double                 totalIngresos;
@@ -399,11 +421,14 @@ class HistorialGlobalStats {
   final double                 promedioMensual;
   final List<MesStatHistorico> porMes;
   final String?                mejorMesClave;
+  final List<TopPerfume>       masVendidosHistorico;
+  final List<DistritoStat>     distritoRanking;
 }
 
 final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async {
   ref.keepAlive();
-  final ventas     = await ref.watch(ventasParaStatsProvider.future);
+  final ventas      = await ref.watch(ventasParaStatsProvider.future);
+  final perfumesMap = await ref.watch(perfumesMapProvider.future);
   final entregadas = ventas
       .where((v) => v.estado?.toLowerCase() == 'entregado')
       .toList();
@@ -453,12 +478,26 @@ final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async
     final total   = e.value.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
     final mlMes   = e.value.fold(0, (s, v) => s + (v.mlVendido ?? 0));
     final ordenes = e.value.map((v) => v.idCompra).toSet().length;
+
+    final perfMesMap = <String, ({int ml, double soles})>{};
+    for (final v in e.value) {
+      if (v.idPerfume == null) continue;
+      final normId = double.tryParse(v.idPerfume!)?.toInt().toString() ?? v.idPerfume!;
+      final prev = perfMesMap[normId] ?? (ml: 0, soles: 0.0);
+      perfMesMap[normId] = (ml: prev.ml + (v.mlVendido ?? 0), soles: prev.soles + (v.precioCobrado ?? 0));
+    }
+    final topMes = (perfMesMap.entries.map((pe) {
+      final p = perfumesMap[pe.key];
+      return TopPerfume(nombre: p?.nombre ?? 'Perfume #${pe.key}', marca: p?.marca ?? '', totalMl: pe.value.ml, totalSoles: pe.value.soles);
+    }).toList()..sort((a, b) => b.totalMl.compareTo(a.totalMl))).take(10).toList();
+
     return MesStatHistorico(
-      clave:      e.key,
-      label:      '${mesesCortos[month]} $year',
-      numOrdenes: ordenes,
-      total:      total,
-      totalMl:    mlMes,
+      clave:       e.key,
+      label:       '${mesesCortos[month]} $year',
+      numOrdenes:  ordenes,
+      total:       total,
+      totalMl:     mlMes,
+      topPerfumes: topMes,
     );
   }).toList()
     ..sort((a, b) => a.clave.compareTo(b.clave));
@@ -470,16 +509,61 @@ final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async
   final promedioMensual =
       porMes.isNotEmpty ? totalIngresos / porMes.length : 0.0;
 
+  // Top perfumes histórico: agrupar por idPerfume, sumar ml y soles
+  final perfMap = <String, ({int ml, double soles})>{};
+  for (final v in entregadas) {
+    if (v.idPerfume == null) continue;
+    final normId = double.tryParse(v.idPerfume!)?.toInt().toString()
+        ?? v.idPerfume!;
+    final prev = perfMap[normId] ?? (ml: 0, soles: 0.0);
+    perfMap[normId] = (
+      ml:    prev.ml    + (v.mlVendido     ?? 0),
+      soles: prev.soles + (v.precioCobrado ?? 0),
+    );
+  }
+  final masVendidosHistorico = perfMap.entries
+      .map((e) {
+        final p = perfumesMap[e.key];
+        return TopPerfume(
+          nombre:     p?.nombre ?? 'Perfume #${e.key}',
+          marca:      p?.marca  ?? '',
+          totalMl:    e.value.ml,
+          totalSoles: e.value.soles,
+        );
+      })
+      .toList()
+    ..sort((a, b) => b.totalMl.compareTo(a.totalMl));
+
+  // Ranking de distritos
+  final distSoles  = <String, double>{};
+  final distOrders = <String, Set<String>>{};
+  for (final v in entregadas) {
+    final dist = (v.distrito ?? '').trim();
+    if (dist.isEmpty) continue;
+    (distOrders[dist] ??= {}).add(v.idCompra);
+    distSoles[dist] = (distSoles[dist] ?? 0.0) + (v.precioCobrado ?? 0);
+  }
+  final distritoRanking = distOrders.entries.map((e) => DistritoStat(
+    nombre:     e.key,
+    pedidos:    e.value.length,
+    totalSoles: distSoles[e.key] ?? 0,
+  )).toList()
+    ..sort((a, b) => b.pedidos != a.pedidos
+        ? b.pedidos.compareTo(a.pedidos)
+        : b.totalSoles.compareTo(a.totalSoles));
+
   return HistorialGlobalStats(
-    totalVentas:     totalVentas,
-    totalIngresos:   totalIngresos,
-    totalMl:         totalMl,
-    ticketPromedio:  ticketProm,
-    clientesUnicos:  clientesUnicos,
-    diasActivo:      diasActivo,
-    primeraVenta:    primeraVenta,
-    promedioMensual: promedioMensual,
-    porMes:          porMes,
-    mejorMesClave:   mejorMesClave,
+    totalVentas:          totalVentas,
+    totalIngresos:        totalIngresos,
+    totalMl:              totalMl,
+    ticketPromedio:       ticketProm,
+    clientesUnicos:       clientesUnicos,
+    diasActivo:           diasActivo,
+    primeraVenta:         primeraVenta,
+    promedioMensual:      promedioMensual,
+    porMes:               porMes,
+    mejorMesClave:        mejorMesClave,
+    masVendidosHistorico: masVendidosHistorico,
+    distritoRanking:      distritoRanking,
   );
 });

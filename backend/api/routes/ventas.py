@@ -141,6 +141,7 @@ def ventas_por_cliente(
     resumen = ClientePrevioResponse(
         comprador=str(ultimo.get("Comprador", "") or ""),
         direccion=str(ultimo.get("Direccion", "") or ""),
+        distrito=str(ultimo.get("Distrito", "") or ""),
         tipo_envio=str(ultimo.get("Tipo_Envio", "") or ""),
         metodo_pago=str(ultimo.get("Metodo_Pago", "") or ""),
         total_compras=len(historial),

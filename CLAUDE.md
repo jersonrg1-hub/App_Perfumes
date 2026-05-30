@@ -1,9 +1,6 @@
 # CLAUDE.md — Perfuteca Backend
 
-## Qué es este proyecto
-
-Backend FastAPI para **Perfuteca**, app de gestión de una perfumería.
-Consume datos de Google Sheets via `gspread`. Frontend: Flutter (en `perfuteca_flutter/`).
+FastAPI + Google Sheets (`gspread`). Frontend Flutter en `../perfuteca_flutter/`.
 
 ## Arquitectura
 
@@ -40,7 +37,7 @@ pythonProject/
 
 ## Regla fundamental
 
-`backend/` es Python puro — sin `streamlit`, sin `st.*`. Todo importable desde FastAPI directamente.
+`backend/` Python puro — sin `streamlit`/`st.*`. Todo importable desde FastAPI.
 
 ## Google Sheets
 
@@ -89,17 +86,6 @@ TZ_PERU = pytz.timezone("America/Lima")
 - `Estado` ventas: `"Pendiente"` | `"Entregado"` | `"Anulado"` (anulados se filtran al cargar)
 - IDs compra: `V001`, `V002`...  — IDs cotización: `C001`, `C002`...
 
-## Repositorio git
-
-- Remote: `https://github.com/jersonrg1-hub/App_Perfumes.git`
-- Branch principal: `main`
-- Operar siempre desde `pythonProject/`
-
 ## Stack
 
-- **Backend**: FastAPI + uvicorn
-- **Datos**: Google Sheets via gspread + google-auth
-- **PDF**: fpdf2
-- **Fechas/TZ**: pytz (`America/Lima`)
-- **Retry**: tenacity
-- **Frontend**: Flutter (`perfuteca_flutter/`)
+FastAPI + uvicorn · gspread + google-auth · fpdf2 · pytz(`America/Lima`) · tenacity

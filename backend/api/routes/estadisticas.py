@@ -3,6 +3,7 @@ backend/api/routes/estadisticas.py — Métricas pre-agregadas para el dashboard
 Un solo endpoint reemplaza el fetch de 500 ventas crudas desde el cliente.
 TTL cache 5 min en memoria — stats no necesitan ser real-time.
 """
+import threading
 import time
 from datetime import date, timedelta
 from typing import Optional, List
@@ -19,12 +20,14 @@ router = APIRouter(dependencies=[Depends(verify_api_key)])
 _cache_stats: Optional[dict] = None
 _cache_ts: float = 0.0
 _STATS_TTL = 300.0  # seconds
+_stats_lock = threading.Lock()
 
 
 def _invalidar_cache_stats() -> None:
     global _cache_stats, _cache_ts
-    _cache_stats = None
-    _cache_ts = 0.0
+    with _stats_lock:
+        _cache_stats = None
+        _cache_ts = 0.0
 
 
 def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
@@ -67,11 +70,11 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
         lambda d: bool(d) and inicio_ant <= d <= fin_ant
     )]
 
-    # Tamaños
+    # Tamaños del mes (no de todo el tiempo)
     tamanios = []
-    if "Ml_Vendido" in entregadas.columns and not entregadas.empty:
+    if "Ml_Vendido" in mes_df.columns and not mes_df.empty:
         tam_group = (
-            entregadas.groupby("Ml_Vendido")
+            mes_df.groupby("Ml_Vendido")
             .agg(
                 cantidad=("Precio_Cobrado", "count"),
                 total=("Precio_Cobrado", "sum"),
@@ -184,8 +187,9 @@ def get_resumen(repo: SheetsRepository = Depends(get_repo)):
     """
     global _cache_stats, _cache_ts
     now = time.monotonic()
-    if _cache_stats is not None and (now - _cache_ts) < _STATS_TTL:
-        return _cache_stats
+    with _stats_lock:
+        if _cache_stats is not None and (now - _cache_ts) < _STATS_TTL:
+            return _cache_stats
 
     try:
         df = get_ventas_cached(repo)
@@ -203,8 +207,9 @@ def get_resumen(repo: SheetsRepository = Depends(get_repo)):
             pendientes_count = len(pend_df)
 
     result = _compute_resumen(df, pendientes_count)
-    _cache_stats = result
-    _cache_ts = now
+    with _stats_lock:
+        _cache_stats = result
+        _cache_ts = time.monotonic()
     return result
 
 
@@ -212,12 +217,14 @@ def get_resumen(repo: SheetsRepository = Depends(get_repo)):
 
 _cache_clientes: Optional[List[dict]] = None
 _cache_clientes_ts: float = 0.0
+_clientes_lock = threading.Lock()
 
 
 def _invalidar_cache_clientes() -> None:
     global _cache_clientes, _cache_clientes_ts
-    _cache_clientes = None
-    _cache_clientes_ts = 0.0
+    with _clientes_lock:
+        _cache_clientes = None
+        _cache_clientes_ts = 0.0
 
 
 def _compute_clientes(df: pd.DataFrame) -> List[dict]:
@@ -267,16 +274,22 @@ def get_clientes(
     """
     global _cache_clientes, _cache_clientes_ts
     now = time.monotonic()
-    if _cache_clientes is None or (now - _cache_clientes_ts) >= _STATS_TTL:
+    with _clientes_lock:
+        cached = _cache_clientes
+        cached_ts = _cache_clientes_ts
+    if cached is None or (now - cached_ts) >= _STATS_TTL:
         try:
             df = get_ventas_cached(repo)
         except Exception as e:
             from fastapi import HTTPException
             raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
-        _cache_clientes    = _compute_clientes(df)
-        _cache_clientes_ts = now
+        computed = _compute_clientes(df)
+        with _clientes_lock:
+            _cache_clientes    = computed
+            _cache_clientes_ts = time.monotonic()
+        cached = computed
 
-    resultado = _cache_clientes
+    resultado = cached
     if q:
         q_lower   = q.lower()
         resultado = [

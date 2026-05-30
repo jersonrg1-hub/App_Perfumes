@@ -239,10 +239,12 @@ class SheetsRepository:
     # ── IDs correlativos ──────────────────────────────────────────────────────
 
     def get_next_sale_id(self) -> str:
-        df = self.fetch_sales()
-        if df.empty or "ID_Compra" not in df.columns:
+        def _fetch():
+            return self._get_worksheet(WORKSHEET_VENTAS).col_values(1)[1:]  # skip header
+        ids_col = self._ejecutar_con_reintento(_fetch, "get_next_sale_id")
+        if not ids_col:
             return "V001"
-        ids = self._extraer_ids_numericos(df["ID_Compra"].tolist())
+        ids = self._extraer_ids_numericos(ids_col)
         if not ids:
             return "V001"
         siguiente = max(ids) + 1
@@ -252,10 +254,12 @@ class SheetsRepository:
         return f"V{siguiente:03d}"
 
     def get_next_quote_id(self) -> str:
-        df = self.fetch_quotes()
-        if df.empty or "ID_Cotizacion" not in df.columns:
+        def _fetch():
+            return self._get_worksheet(WORKSHEET_COTIZACIONES).col_values(1)[1:]  # skip header
+        ids_col = self._ejecutar_con_reintento(_fetch, "get_next_quote_id")
+        if not ids_col:
             return "C001"
-        ids = self._extraer_ids_numericos(df["ID_Cotizacion"].tolist())
+        ids = self._extraer_ids_numericos(ids_col)
         if not ids:
             return "C001"
         return f"C{max(ids) + 1:03d}"
@@ -403,6 +407,7 @@ class SheetsRepository:
                 item["metodo"],
                 cliente["tipo_envio"],
                 cliente["direccion"].strip().title(),
+                (cliente.get("distrito") or "").strip().title(),
                 "Pendiente",
             ]
             for item in cesta

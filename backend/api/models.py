@@ -93,6 +93,7 @@ class ClientePrevioResponse(BaseModel):
     """
     comprador: str
     direccion: str
+    distrito: str = ''
     tipo_envio: str
     metodo_pago: str
     total_compras: int
@@ -155,6 +156,7 @@ class VentaRequest(BaseModel):
         description="9 dígitos sin código de país (ej: 987654321)",
     )
     direccion: str = Field(..., min_length=1)
+    distrito: Optional[str] = None
     tipo_envio: str = Field(..., description="Shalom | Motorizado | Contraentrega")
     fecha: str = Field(..., description="Fecha ISO: YYYY-MM-DD")
     items: list[ItemCestaAPI] = Field(..., min_length=1)

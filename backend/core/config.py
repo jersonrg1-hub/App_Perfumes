@@ -46,7 +46,7 @@ COLUMNAS_REQUERIDAS: list[str] = ["Marca", "Nombre"] + list(PRECIOS_COLUMNAS.val
 COLUMNAS_VENTAS: list[str] = [
     "ID_Compra", "Fecha", "Comprador", "Celular",
     "ID_Perfume", "Ml_Vendido", "Precio_Cobrado",
-    "Metodo_Pago", "Tipo_Envio", "Direccion", "Estado",
+    "Metodo_Pago", "Tipo_Envio", "Direccion", "Distrito", "Estado",
 ]
 
 # Posición 1-indexed de la columna "Estado" en COLUMNAS_VENTAS (para batch_update)

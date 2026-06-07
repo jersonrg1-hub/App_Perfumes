@@ -68,7 +68,7 @@ abstract class AppTheme {
       ),
     ),
 
-    // Navigation bar — D: altura mayor, indicador más sutil, sin tint
+    // Navigation bar
     navigationBarTheme: NavigationBarThemeData(
       height:           72,
       backgroundColor:  AppColors.surface,

@@ -62,6 +62,16 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
       (prev, next) {
         if (prev == null && next != null) {
           ref.read(catalogoProvider.notifier).load();
+          // Frescura: invalida listas de ventas para que el nuevo pedido aparezca de inmediato
+          ref.invalidate(pendientesProvider);
+          ref.invalidate(historialProvider);
+          ref.invalidate(ventasParaStatsProvider);
+          // Stats del dashboard
+          ref.invalidate(resumenBackendProvider);
+          ref.invalidate(resumenStatsProvider);
+          ref.invalidate(semanaStatsProvider);
+          ref.invalidate(tamaniosStatsProvider);
+          ref.invalidate(clientesStatsProvider);
         }
       },
     );
@@ -227,12 +237,14 @@ class _Paso1State extends ConsumerState<_Paso1> {
   final _celularCtrl   = TextEditingController();
   final _compradorCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
+  final _distritoCtrl  = TextEditingController();
 
   @override
   void dispose() {
     _celularCtrl.dispose();
     _compradorCtrl.dispose();
     _direccionCtrl.dispose();
+    _distritoCtrl.dispose();
     super.dispose();
   }
 
@@ -241,9 +253,10 @@ class _Paso1State extends ConsumerState<_Paso1> {
     final state    = ref.watch(nuevaVentaProvider);
     final notifier = ref.read(nuevaVentaProvider.notifier);
 
-    if (_celularCtrl.text != state.celular)   _celularCtrl.text   = state.celular;
+    if (_celularCtrl.text != state.celular)     _celularCtrl.text   = state.celular;
     if (_compradorCtrl.text != state.comprador) _compradorCtrl.text = state.comprador;
     if (_direccionCtrl.text != state.direccion) _direccionCtrl.text = state.direccion;
+    if (_distritoCtrl.text != state.distrito)   _distritoCtrl.text  = state.distrito;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.xl),
@@ -310,12 +323,23 @@ class _Paso1State extends ConsumerState<_Paso1> {
             onChanged: notifier.setDireccion,
           ),
 
+          const SizedBox(height: AppSpacing.sm),
+
+          // ── Distrito ────────────────────────────────────────────────────
+          _Label('Distrito', Icons.map_outlined),
+          TextField(
+            controller: _distritoCtrl,
+            textCapitalization: TextCapitalization.words,
+            decoration: _inputDecor(hint: 'Ej: San Isidro, Miraflores...'),
+            onChanged: notifier.setDistrito,
+          ),
+
           // ── Tipo de envío (chips) ────────────────────────────────────────
           _Label('Tipo de envío', Icons.local_shipping_outlined),
           _ChipSelector(
-            opciones: const ['Shalom', 'Motorizado', 'Contraentrega'],
+            opciones: const ['Shalom', 'Motorizado'],
             valor: state.tipoEnvio,
-            iconos: const [Icons.store_outlined, Icons.two_wheeler_rounded, Icons.handshake_outlined],
+            iconos: const [Icons.store_outlined, Icons.two_wheeler_rounded],
             onSelect: notifier.setTipoEnvio,
           ),
 
@@ -1751,7 +1775,7 @@ class _ValidationHint extends StatelessWidget {
       faltantes.add('celular (9 dígitos, empieza con 9)');
     }
     if (state.tipoEnvio.isEmpty) { faltantes.add('tipo de envío'); }
-    if (state.direccion.trim().isEmpty && state.tipoEnvio != 'Contraentrega') {
+    if (state.direccion.trim().isEmpty) {
       faltantes.add('dirección');
     }
     if (faltantes.isEmpty) return const SizedBox.shrink();

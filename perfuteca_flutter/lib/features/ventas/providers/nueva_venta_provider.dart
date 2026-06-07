@@ -13,6 +13,7 @@ class NuevaVentaState {
     this.comprador      = '',
     this.celular        = '',
     this.direccion      = '',
+    this.distrito       = '',
     this.tipoEnvio      = '',
     this.metodoPago     = 'Yape',
     this.fecha          = '',
@@ -30,6 +31,7 @@ class NuevaVentaState {
   final String            comprador;
   final String            celular;
   final String            direccion;
+  final String            distrito;
   final String            tipoEnvio;
   final String            metodoPago;
   final String            fecha;
@@ -45,11 +47,10 @@ class NuevaVentaState {
   double get total => cesta.fold(0, (s, i) => s + i.subtotal);
 
   bool get paso1Valido {
-    final necesitaDireccion = tipoEnvio != 'Contraentrega';
     return comprador.trim().isNotEmpty &&
         celular.length == 9 &&
         celular.startsWith('9') &&
-        (!necesitaDireccion || direccion.trim().isNotEmpty) &&
+        direccion.trim().isNotEmpty &&
         tipoEnvio.isNotEmpty &&
         fecha.isNotEmpty;
   }
@@ -59,6 +60,7 @@ class NuevaVentaState {
     String?           comprador,
     String?           celular,
     String?           direccion,
+    String?           distrito,
     String?           tipoEnvio,
     String?           metodoPago,
     String?           fecha,
@@ -79,6 +81,7 @@ class NuevaVentaState {
     comprador:        comprador       ?? this.comprador,
     celular:          celular         ?? this.celular,
     direccion:        direccion       ?? this.direccion,
+    distrito:         distrito        ?? this.distrito,
     tipoEnvio:        tipoEnvio       ?? this.tipoEnvio,
     metodoPago:       metodoPago      ?? this.metodoPago,
     fecha:            fecha           ?? this.fecha,
@@ -121,6 +124,7 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
           // Solo rellenar si el campo está vacío — no pisar lo que el usuario ya escribió
           comprador:  state.comprador.trim().isEmpty  ? cliente.comprador  : state.comprador,
           direccion:  state.direccion.trim().isEmpty  ? cliente.direccion  : state.direccion,
+          distrito:   state.distrito.trim().isEmpty   ? cliente.distrito   : state.distrito,
           tipoEnvio:  state.tipoEnvio.isEmpty         ? cliente.tipoEnvio  : state.tipoEnvio,
           metodoPago: cliente.metodoPago,
         );
@@ -134,6 +138,7 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
 
   void setComprador(String v)   => state = state.copyWith(comprador: v);
   void setDireccion(String v)   => state = state.copyWith(direccion: v);
+  void setDistrito(String v)    => state = state.copyWith(distrito: v);
   void setTipoEnvio(String v)   => state = state.copyWith(tipoEnvio: v);
   void setMetodoPago(String v)  => state = state.copyWith(metodoPago: v);
   void setFecha(String v)       => state = state.copyWith(fecha: v);
@@ -202,6 +207,7 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
         comprador: state.comprador,
         celular:   state.celular,
         direccion: state.direccion,
+        distrito:  state.distrito,
         tipoEnvio: state.tipoEnvio,
         fecha:     state.fecha,
         items:     state.cesta.map((i) => i.toApiMap()).toList(),

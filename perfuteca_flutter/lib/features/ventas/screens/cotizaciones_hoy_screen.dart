@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/cotizacion.dart';
 import 'package:perfuteca/models/perfume.dart';
@@ -172,12 +173,16 @@ class _MetricaItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize:   label == 'TOTAL HOY' ? 18 : 22,
-                  fontWeight: FontWeight.w800,
-                  color:      valueColor,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize:   label == 'TOTAL HOY' ? 24 : 20,
+                    fontWeight: FontWeight.w800,
+                    color:      valueColor,
+                  ),
+                  maxLines: 1,
                 ),
               ),
             ],
@@ -264,10 +269,9 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
   }
 
   void _checkForm() {
-    final needsDireccion = _tipoEnvio != 'Contraentrega';
     _formValidoNotifier.value =
         _compradorCtrl.text.trim().isNotEmpty &&
-        (!needsDireccion || _direccionCtrl.text.trim().isNotEmpty) &&
+        _direccionCtrl.text.trim().isNotEmpty &&
         _tipoEnvio.isNotEmpty;
   }
 
@@ -294,6 +298,9 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           }
           if (_direccionCtrl.text.trim().isEmpty) {
             _direccionCtrl.text = cliente.direccion;
+          }
+          if (_distritoCtrl.text.trim().isEmpty && cliente.distrito.isNotEmpty) {
+            _distritoCtrl.text = cliente.distrito;
           }
           if (_tipoEnvio.isEmpty) _tipoEnvio = cliente.tipoEnvio;
           _metodoPago = cliente.metodoPago;
@@ -349,6 +356,10 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
       ref.invalidate(historialProvider);
       ref.invalidate(pendientesProvider);
       ref.invalidate(cotizacionesHoyProvider);
+      ref.invalidate(resumenBackendProvider);
+      ref.invalidate(resumenStatsProvider);
+      ref.invalidate(semanaStatsProvider);
+      ref.invalidate(tamaniosStatsProvider);
       ref.read(catalogoProvider.notifier).load();
       setState(() {
         _registrando = false;
@@ -405,10 +416,12 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
       child: Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.md),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: esAceptada && !_expandido ? AppColors.successSurface : AppColors.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           border: Border.all(
-            color: _expandido ? AppColors.primary : AppColors.primaryLight,
+            color: esAceptada && !_expandido
+                ? AppColors.stockOk.withValues(alpha: 0.3)
+                : (_expandido ? AppColors.primary : AppColors.primaryLight),
             width: _expandido ? 1.5 : 1,
           ),
           boxShadow: const [
@@ -632,7 +645,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                             const SizedBox(width: 4),
                             Text('Completa los datos para la venta',
                                 style: AppTextStyles.notasLabel.copyWith(
-                                    color: AppColors.primary, fontSize: 10)),
+                                    color: AppColors.primary, fontSize: 12)),
                           ]),
                           const SizedBox(height: AppSpacing.md),
                           const _FieldLabel('Nombre del comprador',
@@ -659,7 +672,7 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
                           const _FieldLabel('Tipo de envío',
                               Icons.local_shipping_outlined),
                           _Chips(
-                            opciones: const ['Shalom', 'Motorizado', 'Contraentrega'],
+                            opciones: const ['Shalom', 'Motorizado'],
                             valor: _tipoEnvio,
                             onSelect: (v) { setState(() => _tipoEnvio = v); _checkForm(); },
                           ),
@@ -755,7 +768,7 @@ class _ConfirmacionInline extends StatelessWidget {
               const SizedBox(width: 4),
               Text('Confirma antes de registrar',
                   style: AppTextStyles.notasLabel
-                      .copyWith(color: AppColors.primary, fontSize: 10)),
+                      .copyWith(color: AppColors.primary, fontSize: 12)),
             ]),
             const SizedBox(height: AppSpacing.md),
             _ResumenFila('Cliente',   comprador),
@@ -1188,7 +1201,7 @@ class _AnimatedListItemState extends State<_AnimatedListItem>
     _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _slide   = Tween(begin: const Offset(0, 0.07), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future.delayed(Duration(milliseconds: (widget.index * 40).clamp(0, 320)), () {
       if (mounted) _ctrl.forward();
     });
   }

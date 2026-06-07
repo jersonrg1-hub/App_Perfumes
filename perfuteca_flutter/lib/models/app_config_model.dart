@@ -20,7 +20,7 @@ class AppConfigModel with _$AppConfigModel {
   factory AppConfigModel.defaults() => const AppConfigModel(
     mlOpciones:     [2, 5, 10],
     metodosPago:    ['Yape', 'Plin', 'Transferencia', 'Tarjeta'],
-    tiposEnvio:     ['Shalom', 'Motorizado', 'Contraentrega'],
+    tiposEnvio:     ['Shalom', 'Motorizado'],
     stockCriticoMl: 10,
     stockBajoMl:    20,
     version:        '—',

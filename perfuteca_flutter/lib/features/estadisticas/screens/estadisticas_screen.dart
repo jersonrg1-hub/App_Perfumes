@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/screens/analisis_tab.dart';
 import 'package:perfuteca/features/estadisticas/screens/clientes_tab.dart';
+import 'package:perfuteca/features/estadisticas/screens/cotizaciones_tab.dart';
 import 'package:perfuteca/features/estadisticas/screens/historico_tab.dart';
 import 'package:perfuteca/features/estadisticas/screens/resumen_tab.dart';
 import 'package:perfuteca/features/estadisticas/screens/ventas_tab.dart';
@@ -27,7 +28,7 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 5, vsync: this);
+    _tab = TabController(length: 6, vsync: this);
   }
 
   @override
@@ -68,10 +69,13 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
                 ? null
                 : () async {
                     setState(() => _refrescando = true);
+                    ref.invalidate(resumenBackendProvider);
                     ref.invalidate(historialProvider);
                     ref.invalidate(pendientesProvider);
                     ref.invalidate(ventasParaStatsProvider);
                     ref.invalidate(historialGlobalProvider);
+                    ref.invalidate(clientesStatsProvider);
+                    ref.invalidate(cotizaciones14dProvider);
                     try {
                       await ref.read(ventasParaStatsProvider.future);
                     } catch (_) {}
@@ -112,13 +116,18 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
             Tab(
+              icon: Icon(Icons.history_rounded, size: 18),
+              text: 'Histórico',
+              iconMargin: EdgeInsets.only(bottom: 2),
+            ),
+            Tab(
               icon: Icon(Icons.inventory_2_rounded, size: 18),
               text: 'Stock',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
             Tab(
-              icon: Icon(Icons.history_rounded, size: 18),
-              text: 'Histórico',
+              icon: Icon(Icons.request_quote_rounded, size: 18),
+              text: 'Cotiz.',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
           ],
@@ -163,8 +172,9 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
                 ResumenTab(),
                 VentasTab(),
                 ClientesTab(),
-                AnalisisTab(),
                 HistoricoTab(),
+                AnalisisTab(),
+                CotizacionesTab(),
               ],
             ),
           ),

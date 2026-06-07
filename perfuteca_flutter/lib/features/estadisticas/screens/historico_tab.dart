@@ -4,6 +4,7 @@ import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:shimmer/shimmer.dart';
 
 class HistoricoTab extends ConsumerStatefulWidget {
   const HistoricoTab({super.key});
@@ -21,7 +22,7 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
   Widget build(BuildContext context) {
     super.build(context);
     return ref.watch(historialGlobalProvider).when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const _HistoricoSkeleton(),
       error:   (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -98,7 +99,7 @@ class _HistoricoBody extends StatelessWidget {
                 'DESDE EL INICIO',
                 style: TextStyle(
                   color:         Color(0xFFD4A882),
-                  fontSize:      10,
+                  fontSize:      11,
                   fontWeight:    FontWeight.w700,
                   letterSpacing: 1.5,
                 ),
@@ -157,6 +158,10 @@ class _HistoricoBody extends StatelessWidget {
 
         const SizedBox(height: AppSpacing.lg),
 
+        // ── Comparar meses — visible antes del timeline ───────────────────
+        const _ComparaMesesSection(),
+        const SizedBox(height: AppSpacing.lg),
+
         // ── Timeline de meses ─────────────────────────────────────────────
         Row(
           children: [
@@ -194,7 +199,6 @@ class _HistoricoBody extends StatelessWidget {
           ),
 
         _TopPerfumesSection(masVendidos: s.masVendidosHistorico),
-        const _ComparaMesesSection(),
         _RankingDistritosSection(distritos: s.distritoRanking),
         const SizedBox(height: AppSpacing.xl),
       ],
@@ -230,119 +234,126 @@ class _TimelineMesesState extends State<_TimelineMeses> {
         final isOpen   = _expanded.contains(m.clave);
         final hasTop   = m.topPerfumes.isNotEmpty;
 
-        return GestureDetector(
-          onTap: hasTop
-              ? () => setState(() {
-                    if (isOpen) { _expanded.remove(m.clave); }
-                    else { _expanded.add(m.clave); }
-                  })
-              : null,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
-            decoration: BoxDecoration(
-              color: esMejor ? const Color(0xFFFFF9E6) : AppColors.surface,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(
-                color: esMejor ? const Color(0xFFD4A017) : AppColors.primaryLight,
-                width: esMejor ? 1.5 : 1,
-              ),
+        return Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+          decoration: BoxDecoration(
+            color: esMejor ? const Color(0xFFFFF9E6) : AppColors.surface,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            border: Border.all(
+              color: esMejor ? const Color(0xFFD4A017) : AppColors.primaryLight,
+              width: esMejor ? 1.5 : 1,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd - 1),
+            child: InkWell(
+              onTap: hasTop
+                  ? () => setState(() {
+                        if (isOpen) { _expanded.remove(m.clave); }
+                        else { _expanded.add(m.clave); }
+                      })
+                  : null,
+              splashColor: AppColors.primaryLight,
+              highlightColor: AppColors.primaryPale.withValues(alpha: 0.5),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md, vertical: AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width: 60,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            m.label,
-                            style: TextStyle(
-                              fontSize:   11,
-                              fontWeight: FontWeight.w700,
-                              color: esMejor ? const Color(0xFF7A5C00) : AppColors.textPrimary,
-                            ),
-                          ),
-                          if (esMejor)
-                            const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.emoji_events_rounded, size: 9, color: Color(0xFF7A5C00)),
-                                SizedBox(width: 2),
-                                Text('mejor', style: TextStyle(fontSize: 9, color: Color(0xFF7A5C00), fontWeight: FontWeight.w700)),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(4),
-                        child: SizedBox(
-                          height: 8,
-                          child: Stack(
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 60,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(color: esMejor ? const Color(0xFFF5DFA0) : AppColors.primaryPale),
-                              FractionallySizedBox(
-                                widthFactor: barPct,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: esMejor
-                                          ? [const Color(0xFFD4A017), const Color(0xFFF0C040)]
-                                          : [AppColors.primary, AppColors.primaryDark],
-                                    ),
-                                  ),
+                              Text(
+                                m.label,
+                                style: TextStyle(
+                                  fontSize:   11,
+                                  fontWeight: FontWeight.w700,
+                                  color: esMejor ? const Color(0xFF7A5C00) : AppColors.textPrimary,
                                 ),
                               ),
+                              if (esMejor)
+                                const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.emoji_events_rounded, size: 9, color: Color(0xFF7A5C00)),
+                                    SizedBox(width: 2),
+                                    Text('mejor', style: TextStyle(fontSize: 9, color: Color(0xFF7A5C00), fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
                             ],
                           ),
                         ),
-                      ),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: SizedBox(
+                              height: 8,
+                              child: Stack(
+                                children: [
+                                  Container(color: esMejor ? const Color(0xFFF5DFA0) : AppColors.primaryPale),
+                                  FractionallySizedBox(
+                                    widthFactor: barPct,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: esMejor
+                                              ? [const Color(0xFFD4A017), const Color(0xFFF0C040)]
+                                              : [AppColors.primary, AppColors.primaryDark],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Text(
+                          'S/ ${_fmt(m.total)}',
+                          style: TextStyle(
+                            fontSize:   12,
+                            fontWeight: FontWeight.w700,
+                            color: esMejor ? const Color(0xFF7A5C00) : AppColors.primaryDark,
+                          ),
+                        ),
+                        if (hasTop) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            isOpen ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                            size: 16,
+                            color: AppColors.textMuted,
+                          ),
+                        ],
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'S/ ${_fmt(m.total)}',
-                      style: TextStyle(
-                        fontSize:   12,
-                        fontWeight: FontWeight.w700,
-                        color: esMejor ? const Color(0xFF7A5C00) : AppColors.primaryDark,
-                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          '${m.numOrdenes} venta${m.numOrdenes != 1 ? 's' : ''}  ·  ${m.totalMl} ml',
+                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted, fontSize: 11),
+                        ),
+                      ],
                     ),
-                    if (hasTop) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        isOpen ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                        size: 16,
-                        color: AppColors.textMuted,
-                      ),
+                    if (isOpen && hasTop) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      const Divider(color: AppColors.primaryLight, height: 1),
+                      const SizedBox(height: AppSpacing.sm),
+                      ...m.topPerfumes.asMap().entries.map((e) => _TopPerfumeMesRow(
+                            pos:  e.key + 1,
+                            item: e.value,
+                          )),
                     ],
                   ],
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${m.numOrdenes} venta${m.numOrdenes != 1 ? 's' : ''}  ·  ${m.totalMl} ml',
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted, fontSize: 10),
-                    ),
-                  ],
-                ),
-                if (isOpen && hasTop) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  const Divider(color: AppColors.primaryLight, height: 1),
-                  const SizedBox(height: AppSpacing.sm),
-                  ...m.topPerfumes.asMap().entries.map((e) => _TopPerfumeMesRow(
-                        pos:  e.key + 1,
-                        item: e.value,
-                      )),
-                ],
-              ],
+              ),
             ),
           ),
         );
@@ -524,21 +535,23 @@ class _RankingDistritosSectionState extends State<_RankingDistritosSection> {
             _DistritoRow(pos: e.key + 1, stat: e.value, maxPedidos: maxPedidos)),
         if (quedan > 0)
           Center(
-            child: TextButton(
+            child: TextButton.icon(
               onPressed: () => setState(() => _visible += _paso),
-              child: Text(
-                '▼ Ver ${quedan > _paso ? _paso : quedan} más'
+              icon: const Icon(Icons.expand_more_rounded, size: 16),
+              label: Text(
+                'Ver ${quedan > _paso ? _paso : quedan} más'
                 '${quedan > _paso ? ' ($quedan restantes)' : ''}',
-                style: const TextStyle(color: AppColors.primary),
               ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
             ),
           ),
         if (_visible > _paso)
           Center(
-            child: TextButton(
+            child: TextButton.icon(
               onPressed: () => setState(() => _visible = _paso),
-              child: const Text('▲ Ver menos',
-                  style: TextStyle(color: AppColors.textMuted)),
+              icon: const Icon(Icons.expand_less_rounded, size: 16),
+              label: const Text('Ver menos'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
             ),
           ),
       ],
@@ -636,7 +649,7 @@ class _DistritoRow extends StatelessWidget {
                         color: AppColors.textPrimary)),
               ),
               const SizedBox(height: 3),
-              Text('S/ ${stat.totalSoles.toStringAsFixed(0)}',
+              Text('S/ ${stat.totalSoles.toStringAsFixed(2)}',
                   style: AppTextStyles.bodySmall.copyWith(
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryDark,
@@ -712,23 +725,23 @@ class _TopPerfumesSectionState extends State<_TopPerfumesSection> {
             .map((e) => _TopPerfumeRow(pos: e.key + 1, item: e.value)),
         if (quedan > 0)
           Center(
-            child: TextButton(
+            child: TextButton.icon(
               onPressed: () => setState(() => _visible += _paso),
-              child: Text(
-                '▼ Ver ${quedan > _paso ? _paso : quedan} más'
+              icon: const Icon(Icons.expand_more_rounded, size: 16),
+              label: Text(
+                'Ver ${quedan > _paso ? _paso : quedan} más'
                 '${quedan > _paso ? ' ($quedan restantes)' : ''}',
-                style: const TextStyle(color: AppColors.primary),
               ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
             ),
           ),
         if (_visible > _paso)
           Center(
-            child: TextButton(
+            child: TextButton.icon(
               onPressed: () => setState(() => _visible = _paso),
-              child: const Text(
-                '▲ Ver menos',
-                style: TextStyle(color: AppColors.textMuted),
-              ),
+              icon: const Icon(Icons.expand_less_rounded, size: 16),
+              label: const Text('Ver menos'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
             ),
           ),
       ],
@@ -746,7 +759,7 @@ class _TopPerfumeRow extends StatelessWidget {
     final Color rankBg;
     final Color rankFg;
     if (pos == 1) {
-      rankBg = AppColors.textPrimary;
+      rankBg = AppColors.primary;
       rankFg = Colors.white;
     } else if (pos == 2) {
       rankBg = AppColors.textMuted;
@@ -807,7 +820,7 @@ class _TopPerfumeRow extends StatelessWidget {
                         color: AppColors.textPrimary)),
               ),
               const SizedBox(height: 3),
-              Text('S/ ${item.totalSoles.toStringAsFixed(0)}',
+              Text('S/ ${item.totalSoles.toStringAsFixed(2)}',
                   style: AppTextStyles.bodySmall.copyWith(
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryDark,
@@ -932,8 +945,22 @@ class _MesDropdown extends StatelessWidget {
         decoration: InputDecoration(
           labelText: label,
           isDense: true,
+          filled: true,
+          fillColor: AppColors.background,
           contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            borderSide: const BorderSide(color: AppColors.primaryLight),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            borderSide: const BorderSide(color: AppColors.primaryLight),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            borderSide: const BorderSide(color: AppColors.primary),
+          ),
         ),
         child: DropdownButton<String>(
           value:      value,
@@ -1001,9 +1028,11 @@ class _DiferenciaBanner extends StatelessWidget {
     final diff     = stat1.total - stat2.total;
     final pct      = diff / stat1.total * 100;
     final positivo = diff >= 0;
-    final color    = positivo ? const Color(0xFF16a34a) : const Color(0xFFdc2626);
-    final bgColor  = positivo ? const Color(0xFFf0faf4) : const Color(0xFFfff5f5);
-    final borde    = positivo ? const Color(0xFFb7e4c7) : const Color(0xFFfed7d7);
+    final color    = positivo ? AppColors.stockOk : AppColors.error;
+    final bgColor  = positivo ? AppColors.successSurface : AppColors.errorSurface;
+    final borde    = positivo
+        ? AppColors.stockOk.withValues(alpha: 0.35)
+        : AppColors.error.withValues(alpha: 0.25);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -1041,6 +1070,53 @@ class _DiferenciaBanner extends StatelessWidget {
           Text('$mes1 vs $mes2',
               style:
                   AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Skeleton de carga ─────────────────────────────────────────────────────────
+
+class _HistoricoSkeleton extends StatelessWidget {
+  const _HistoricoSkeleton();
+
+  static Widget _box({double? w, required double h, double r = 8}) =>
+      Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(r),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: AppColors.primaryLight,
+      highlightColor: AppColors.surface,
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _box(h: 130, r: AppSpacing.radiusLg),
+          const SizedBox(height: AppSpacing.md),
+          Row(children: [
+            Expanded(child: _box(h: 72, r: AppSpacing.radiusMd)),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(child: _box(h: 72, r: AppSpacing.radiusMd)),
+          ]),
+          const SizedBox(height: AppSpacing.lg),
+          _box(w: 140, h: 14),
+          const SizedBox(height: AppSpacing.sm),
+          _box(h: 60, r: AppSpacing.radiusMd),
+          const SizedBox(height: AppSpacing.xs),
+          _box(h: 60, r: AppSpacing.radiusMd),
+          const SizedBox(height: AppSpacing.xs),
+          _box(h: 60, r: AppSpacing.radiusMd),
+          const SizedBox(height: AppSpacing.xs),
+          _box(h: 60, r: AppSpacing.radiusMd),
         ],
       ),
     );

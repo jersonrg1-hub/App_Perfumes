@@ -256,6 +256,10 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        ),
+        backgroundColor: AppColors.surface,
         title: const Text('Confirmar entrega'),
         content: Text(
           '¿Marcar como entregada la orden #${widget.orden.idCompra} '
@@ -283,6 +287,10 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        ),
+        backgroundColor: AppColors.surface,
         title: const Text('Anular orden'),
         content: Text(
           '¿Anular la orden #${widget.orden.idCompra} de ${widget.orden.comprador ?? '—'}?\n'
@@ -524,7 +532,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                       foregroundColor: AppColors.whatsappDark,
                       side: const BorderSide(color: AppColors.whatsappDark),
                       padding: const EdgeInsets.symmetric(
-                          vertical: AppSpacing.sm),
+                          vertical: AppSpacing.md),
                     ),
                   ),
                 ),
@@ -538,7 +546,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                         side: const BorderSide(color: AppColors.error),
                         padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.md,
-                            vertical: AppSpacing.sm),
+                            vertical: AppSpacing.md),
                       ),
                       icon: const Icon(Icons.cancel_outlined, size: 16),
                       label: const Text('Anular'),
@@ -550,7 +558,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                         style: FilledButton.styleFrom(
                           backgroundColor: AppColors.success,
                           padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.sm),
+                              vertical: AppSpacing.md),
                         ),
                         icon: const Icon(
                             Icons.check_circle_outline_rounded,
@@ -598,7 +606,7 @@ class _InfoChip extends StatelessWidget {
             Text(
               label,
               style: AppTextStyles.priceLabel
-                  .copyWith(color: textColor, fontWeight: FontWeight.w700),
+                  .copyWith(color: textColor, fontWeight: FontWeight.w700, fontSize: 11),
             ),
           ],
         ),
@@ -636,11 +644,11 @@ class _FechaAgeBadge extends StatelessWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.schedule_rounded, size: 10, color: color),
+          Icon(Icons.schedule_rounded, size: 11, color: color),
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: AppTextStyles.notasLabel.copyWith(color: color),
+            style: AppTextStyles.notasLabel.copyWith(color: color, fontSize: 11),
           ),
         ],
       );
@@ -746,7 +754,7 @@ class _AnimatedListItemState extends State<_AnimatedListItem>
     _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _slide   = Tween(begin: const Offset(0, 0.07), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    Future.delayed(Duration(milliseconds: widget.index * 40), () {
+    Future.delayed(Duration(milliseconds: (widget.index * 40).clamp(0, 320)), () {
       if (mounted) _ctrl.forward();
     });
   }

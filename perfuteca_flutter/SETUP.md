@@ -6,58 +6,46 @@ Descargar desde: https://docs.flutter.dev/get-started/install/windows
 Agregar `flutter/bin` al PATH de Windows.
 Verificar: `flutter doctor`
 
-## 2. Configurar la URL del backend
-
-Edita `lib/config/env.dart` y reemplaza `TU-APP` con tu URL de Render:
-
-```dart
-defaultValue: 'https://perfuteca-api.onrender.com',
-```
-
-O pásala como variable al compilar (sin tocar código):
-```bash
-flutter run --dart-define=BASE_URL=https://tu-app.onrender.com
-```
-
-## 3. Instalar dependencias
+## 2. Instalar dependencias
 
 ```bash
 cd perfuteca_flutter
 flutter pub get
 ```
 
-## 4. Generar código (Freezed + json_serializable)
+## 3. Generar código (Freezed + json_serializable)
 
 ```bash
-flutter pub run build_runner build --delete-conflicting-outputs
+dart run build_runner build --delete-conflicting-outputs
 ```
 
-Esto genera los archivos `*.freezed.dart` y `*.g.dart` para los modelos.
-Solo necesitas ejecutarlo cuando cambias un modelo con `@freezed`.
+Genera `*.freezed.dart` y `*.g.dart`. Solo necesario al cambiar modelos `@freezed`.
 
-## 5. Correr la app
+## 4. Correr la app
+
+Requiere `API_KEY` y `BASE_URL` como dart-defines:
+
+```powershell
+# Windows PowerShell
+flutter run `
+  --dart-define=API_KEY=TU_API_KEY `
+  --dart-define=BASE_URL=https://perfuteca-api.onrender.com
+```
+
+O usa `run.ps1` (ya tiene los valores configurados):
+```powershell
+.\run.ps1
+```
+
+## 5. Compilar APK release
 
 ```bash
-# En emulador/dispositivo Android
-flutter run
-
-# Con URL de producción
-flutter run --dart-define=BASE_URL=https://tu-app.onrender.com
+flutter build apk --release `
+  --dart-define=API_KEY=TU_API_KEY `
+  --dart-define=BASE_URL=https://perfuteca-api.onrender.com
 ```
 
-## 6. Compilar APK de debug
-
-```bash
-flutter build apk --debug
-```
-
-APK en: `build/app/outputs/flutter-apk/app-debug.apk`
-
-## 7. Compilar APK de release
-
-```bash
-flutter build apk --release --dart-define=BASE_URL=https://tu-app.onrender.com
-```
+APK en: `build/app/outputs/flutter-apk/app-release.apk`
 
 ---
 
@@ -65,25 +53,21 @@ flutter build apk --release --dart-define=BASE_URL=https://tu-app.onrender.com
 
 ```
 lib/
-├── config/env.dart          ← URL del backend (única config que necesitas cambiar)
+├── config/env.dart          ← URL base + API Key + timeouts (via dart-define)
 ├── core/
 │   ├── constants/           ← endpoints de la API
 │   ├── errors/              ← jerarquía de excepciones
-│   └── network/             ← Dio + interceptors (auth, logging, retry)
+│   └── network/             ← Dio + interceptors (auth, logging, retry, cache)
 ├── theme/                   ← colores, tipografía, tema Material 3
-├── models/                  ← Freezed: Perfume, Paginated, AppConfigModel
+├── models/                  ← Freezed: Perfume, Venta, Cotizacion, Paginated, AppConfig
 ├── repositories/            ← acceso a datos (llaman a Dio)
 ├── features/
-│   ├── catalogo/            ← pantalla principal + detalle
+│   ├── catalogo/            ← pantalla principal + detalle perfume
 │   ├── busqueda/            ← buscador con filtro de marcas
-│   └── marcas/              ← lista de marcas → perfumes por marca
-└── widgets/                 ← componentes reutilizables
+│   ├── marcas/              ← lista de marcas → perfumes por marca
+│   ├── notas/               ← filtro por notas olfativas
+│   ├── ventas/              ← nueva venta, pendientes, historial, cotizaciones hoy
+│   ├── cotizaciones/        ← nueva cotización con link WhatsApp
+│   └── estadisticas/        ← dashboard: resumen, ventas, clientes, histórico, análisis
+└── widgets/                 ← AppLoadingWidget, AppErrorWidget, EmptyStateWidget, PerfumeCard
 ```
-
-## Próximas funcionalidades preparadas
-
-- `lib/features/ventas/`      ← tab "Ventas" (placeholder activo)
-- `lib/features/perfil/`      ← tab "Perfil" / auth
-- Favoritos (SharedPreferences)
-- Carrito de compra
-- Offline caching (Hive o SQLite)

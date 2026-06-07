@@ -5,6 +5,7 @@ import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:shimmer/shimmer.dart';
 
 const double _kCritico = 5;
 const double _kBajo    = 15;
@@ -41,7 +42,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
     final estado = ref.watch(catalogoProvider);
 
     if (estado.isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const _StockSkeleton();
     }
     if (estado.error != null) {
       return Center(
@@ -107,130 +108,170 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
         ? 100.0
         : todos.fold(0.0, (m, p) => (p.stockMl ?? 0) > m ? p.stockMl! : m);
 
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      children: [
-        // ── Resumen de stock ───────────────────────────────────────
-        Row(children: [
-          Expanded(child: _StockChip(label: 'Total',  valor: '${todos.length}',   color: AppColors.primaryPale,         textColor: AppColors.textPrimary)),
-          const SizedBox(width: 6),
-          Expanded(child: _StockChip(label: 'Crítico', valor: '$criticos', color: const Color(0xFFfee2e2), textColor: const Color(0xFF7f1d1d))),
-          const SizedBox(width: 6),
-          Expanded(child: _StockChip(label: 'Bajo',    valor: '$bajos',    color: const Color(0xFFfef9c3), textColor: const Color(0xFF713f12))),
-          const SizedBox(width: 6),
-          Expanded(child: _StockChip(label: 'OK',      valor: '$ok',       color: const Color(0xFFdcfce7), textColor: const Color(0xFF14532d))),
-        ]),
-        const SizedBox(height: AppSpacing.md),
-
-        // ── Buscador ──────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-          child: TextField(
-            controller: _buscarCtrl,
-            decoration: InputDecoration(
-              hintText: 'Buscar perfume...',
-              prefixIcon: const Icon(Icons.search_rounded, size: 20),
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: const BorderSide(color: AppColors.primaryLight),
-              ),
-              suffixIcon: _buscar.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded, size: 18),
-                      onPressed: () {
-                        _buscarCtrl.clear();
-                        setState(() => _buscar = '');
-                      },
-                    )
-                  : null,
+    // Cabecera estática: chips + búscador + filtros + contador
+    final header = [
+      // ── Resumen de stock ─────────────────────────────────────
+      Row(children: [
+        Expanded(child: _StockChip(label: 'Total',   valor: '${todos.length}', color: AppColors.primaryPale,         textColor: AppColors.textPrimary)),
+        const SizedBox(width: 6),
+        Expanded(child: _StockChip(label: 'Crítico', valor: '$criticos',        color: AppColors.errorSurface,   textColor: AppColors.stockCritical)),
+        const SizedBox(width: 6),
+        Expanded(child: _StockChip(label: 'Bajo',    valor: '$bajos',           color: AppColors.warningSurface, textColor: AppColors.stockLow)),
+        const SizedBox(width: 6),
+        Expanded(child: _StockChip(label: 'OK',      valor: '$ok',              color: AppColors.successSurface, textColor: AppColors.stockOk)),
+      ]),
+      const SizedBox(height: AppSpacing.md),
+      // ── Buscador ─────────────────────────────────────────────
+      Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+        child: TextField(
+          controller: _buscarCtrl,
+          decoration: InputDecoration(
+            hintText: 'Buscar perfume...',
+            prefixIcon: const Icon(Icons.search_rounded, size: 20),
+            isDense: true,
+            filled: true,
+            fillColor: AppColors.background,
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              borderSide: const BorderSide(color: AppColors.primaryLight),
             ),
-            onChanged: (v) => setState(() => _buscar = v.trim()),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              borderSide: const BorderSide(color: AppColors.primaryLight),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+            ),
+            suffixIcon: _buscar.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear_rounded, size: 18),
+                    onPressed: () {
+                      _buscarCtrl.clear();
+                      setState(() => _buscar = '');
+                    },
+                  )
+                : null,
           ),
+          onChanged: (v) => setState(() => _buscar = v.trim()),
         ),
-
-        // ── Filtros y ordenamiento ─────────────────────────────────
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Mostrar',
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+      ),
+      // ── Filtros y ordenamiento ────────────────────────────────
+      Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'Mostrar',
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.background,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  borderSide: const BorderSide(color: AppColors.primaryLight),
                 ),
-                child: DropdownButton<_FiltroStock>(
-                  value:      _filtro,
-                  isExpanded: true,
-                  isDense:    true,
-                  underline:  const SizedBox.shrink(),
-                  items: const [
-                    DropdownMenuItem(value: _FiltroStock.todos,   child: Text('Todos')),
-                    DropdownMenuItem(value: _FiltroStock.critico,  child: Text('Críticos')),
-                    DropdownMenuItem(value: _FiltroStock.bajo,     child: Text('Bajos')),
-                    DropdownMenuItem(value: _FiltroStock.ok,       child: Text('OK')),
-                  ],
-                  onChanged: (v) => setState(() => _filtro = v!),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  borderSide: const BorderSide(color: AppColors.primaryLight),
                 ),
               ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              flex: 3,
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Ordenar por',
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
-                ),
-                child: DropdownButton<_OrdenStock>(
-                  value:      _orden,
-                  isExpanded: true,
-                  isDense:    true,
-                  underline:  const SizedBox.shrink(),
-                  items: const [
-                    DropdownMenuItem(value: _OrdenStock.menorPrimero, child: Text('Stock ↑')),
-                    DropdownMenuItem(value: _OrdenStock.mayorPrimero, child: Text('Stock ↓')),
-                    DropdownMenuItem(value: _OrdenStock.nombreAZ,     child: Text('Nombre A-Z')),
-                  ],
-                  onChanged: (v) => setState(() => _orden = v!),
-                ),
+              child: DropdownButton<_FiltroStock>(
+                value: _filtro, isExpanded: true, isDense: true,
+                underline: const SizedBox.shrink(),
+                items: const [
+                  DropdownMenuItem(value: _FiltroStock.todos,   child: Text('Todos')),
+                  DropdownMenuItem(value: _FiltroStock.critico, child: Text('Críticos')),
+                  DropdownMenuItem(value: _FiltroStock.bajo,    child: Text('Bajos')),
+                  DropdownMenuItem(value: _FiltroStock.ok,      child: Text('OK')),
+                ],
+                onChanged: (v) => setState(() => _filtro = v!),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-
-        Text(
-          '${lista.length} perfume${lista.length != 1 ? 's' : ''}',
-          style: AppTextStyles.bodySmall.copyWith(
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
           ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            flex: 3,
+            child: InputDecorator(
+              decoration: InputDecoration(
+                labelText: 'Ordenar por',
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.background,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  borderSide: const BorderSide(color: AppColors.primaryLight),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  borderSide: const BorderSide(color: AppColors.primaryLight),
+                ),
+              ),
+              child: DropdownButton<_OrdenStock>(
+                value: _orden, isExpanded: true, isDense: true,
+                underline: const SizedBox.shrink(),
+                items: const [
+                  DropdownMenuItem(value: _OrdenStock.menorPrimero, child: Text('Stock ↑')),
+                  DropdownMenuItem(value: _OrdenStock.mayorPrimero, child: Text('Stock ↓')),
+                  DropdownMenuItem(value: _OrdenStock.nombreAZ,     child: Text('Nombre A-Z')),
+                ],
+                onChanged: (v) => setState(() => _orden = v!),
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: AppSpacing.sm),
+      Text(
+        '${lista.length} perfume${lista.length != 1 ? 's' : ''}',
+        style: AppTextStyles.bodySmall.copyWith(
+          fontWeight: FontWeight.w700, color: AppColors.textPrimary,
         ),
-        const SizedBox(height: AppSpacing.sm),
+      ),
+      const SizedBox(height: AppSpacing.sm),
+    ];
 
-        // ── Lista ──────────────────────────────────────────────────
-        if (lista.isEmpty)
+    if (lista.isEmpty) {
+      return ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: [
+          ...header,
           Center(
             child: Padding(
               padding: const EdgeInsets.only(top: AppSpacing.xl),
               child: Text(
                 'No hay perfumes en esta categoría',
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.textMuted),
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
               ),
             ),
-          )
-        else
-          ...lista.map((p) => _StockRow(perfume: p, maxStock: maxStock)),
+          ),
+        ],
+      );
+    }
 
-        const SizedBox(height: AppSpacing.xl),
+    return CustomScrollView(
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, AppSpacing.md, AppSpacing.md, 0),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate(header),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
+          sliver: SliverList.builder(
+            itemCount: lista.length,
+            itemBuilder: (_, i) =>
+                _StockRow(perfume: lista[i], maxStock: maxStock),
+          ),
+        ),
       ],
     );
   }
@@ -257,7 +298,7 @@ class _StockChip extends StatelessWidget {
           vertical: AppSpacing.sm, horizontal: AppSpacing.sm),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       ),
       child: Column(
         children: [
@@ -266,7 +307,7 @@ class _StockChip extends StatelessWidget {
             style: AppTextStyles.bodySmall.copyWith(
               color:      textColor,
               fontWeight: FontWeight.w600,
-              fontSize:   10,
+              fontSize:   11,
             ),
             textAlign: TextAlign.center,
           ),
@@ -326,7 +367,7 @@ class _StockRow extends StatelessWidget {
                       style: AppTextStyles.bodySmall.copyWith(
                         color:         AppColors.primary,
                         fontWeight:    FontWeight.w700,
-                        fontSize:      9,
+                        fontSize:      10,
                         letterSpacing: 0.8,
                       ),
                     ),
@@ -376,6 +417,60 @@ class _StockRow extends StatelessWidget {
   }
 }
 
+// ── Skeleton de carga ─────────────────────────────────────────────────────────
+
+class _StockSkeleton extends StatelessWidget {
+  const _StockSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Shimmer.fromColors(
+        baseColor:      AppColors.primaryLight,
+        highlightColor: AppColors.primaryPale,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            Row(children: List.generate(4, (i) => Expanded(
+              child: Container(
+                margin: EdgeInsets.only(right: i < 3 ? 6 : 0),
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                ),
+              ),
+            ))),
+            const SizedBox(height: AppSpacing.md),
+            Container(height: 44, decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            )),
+            const SizedBox(height: AppSpacing.sm),
+            Row(children: [
+              Expanded(flex: 2, child: Container(height: 44, decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ))),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(flex: 3, child: Container(height: 44, decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              ))),
+            ]),
+            const SizedBox(height: AppSpacing.md),
+            ...List.generate(8, (_) => Container(
+              margin: const EdgeInsets.only(bottom: AppSpacing.sm - 2),
+              height: 60,
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              ),
+            )),
+          ],
+        ),
+      );
+}
+
 // ── Badge de stock ────────────────────────────────────────────────────────────
 
 class _StockBadge extends StatelessWidget {
@@ -388,13 +483,13 @@ class _StockBadge extends StatelessWidget {
     final Color fg;
 
     if (stock <= _kCritico) {
-      bg    = const Color(0xFFfee2e2);
+      bg    = AppColors.errorSurface;
       fg    = AppColors.stockCritical;
     } else if (stock <= _kBajo) {
-      bg    = const Color(0xFFfef9c3);
+      bg    = AppColors.warningSurface;
       fg    = AppColors.stockLow;
     } else {
-      bg    = const Color(0xFFdcfce7);
+      bg    = AppColors.successSurface;
       fg    = AppColors.stockOk;
     }
 

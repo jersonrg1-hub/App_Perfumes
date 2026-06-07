@@ -112,6 +112,23 @@ class VentasRepository {
     }
   }
 
+  Future<List<VentaResponse>> getVentasCliente(String celular) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        ApiConstants.ventasCliente(celular),
+        options: _cache.cacheFor(const Duration(minutes: 5)),
+      );
+      final compras = res.data!['compras'] as List? ?? [];
+      return compras
+          .map((e) => VentaResponse.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    } catch (_) {
+      throw const ParseException();
+    }
+  }
+
   Future<void> actualizarEstadoOrden({
     required String idVenta,
     required String nuevoEstado,

@@ -30,4 +30,22 @@ class EstadisticasRepository {
       throw const ParseException();
     }
   }
+
+  Future<List<Map<String, dynamic>>> getClientes({
+    int limit = 500,
+    int offset = 0,
+  }) async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        ApiConstants.estadisticasClientes,
+        queryParameters: {'limit': limit, 'offset': offset},
+        options: _cache.noCache,
+      );
+      return (res.data!['items'] as List).cast<Map<String, dynamic>>();
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    } catch (_) {
+      throw const ParseException();
+    }
+  }
 }

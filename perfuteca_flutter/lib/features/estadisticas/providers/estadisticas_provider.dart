@@ -15,7 +15,7 @@ final resumenBackendProvider = FutureProvider<Map<String, dynamic>>((ref) async 
 final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async {
   ref.keepAlive();
   final page = await ref.watch(ventasRepositoryProvider)
-      .getVentas(limit: 500);
+      .getVentas(limit: 500, bypassCache: true);
   return page.items;
 });
 
@@ -140,18 +140,40 @@ class TamanioStat {
 
 final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
   ref.keepAlive();
-  final data = await ref.watch(resumenBackendProvider.future);
-  final raw  = data['tamanios'] as List<dynamic>? ?? [];
+  final ventas = await ref.watch(ventasParaStatsProvider.future);
+  final now    = DateTime.now();
 
-  return raw.map((e) {
-    final map = e as Map<String, dynamic>;
-    return TamanioStat(
-      ml:          (map['ml']       as num).toInt(),
-      cantidad:    (map['cantidad'] as num).toInt(),
-      total:       (map['total']    as num).toDouble(),
-      topPerfumes: const [],  // backend no devuelve top por tamaño
+  // Filtrar solo ventas del mes actual (Entregado + Pendiente, igual que backend)
+  final delMes = ventas.where((v) {
+    if (v.estado?.toLowerCase() == 'anulado') return false;
+    if (v.fecha == null) return false;
+    try {
+      final d = DateTime.parse(v.fecha!);
+      return d.year == now.year && d.month == now.month;
+    } catch (_) {
+      return false;
+    }
+  });
+
+  final mlMap = <int, ({int cantidad, double total})>{};
+  for (final v in delMes) {
+    final ml = v.mlVendido ?? 0;
+    if (ml == 0) continue;
+    final prev = mlMap[ml] ?? (cantidad: 0, total: 0.0);
+    mlMap[ml] = (
+      cantidad: prev.cantidad + 1,
+      total:    prev.total + (v.precioCobrado ?? 0),
     );
-  }).toList()
+  }
+
+  return mlMap.entries
+      .map((e) => TamanioStat(
+            ml:          e.key,
+            cantidad:    e.value.cantidad,
+            total:       e.value.total,
+            topPerfumes: const [],
+          ))
+      .toList()
     ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
 });
 
@@ -261,7 +283,7 @@ final mesesDisponiblesProvider = FutureProvider<List<String>>((ref) async {
   final ventas = await ref.watch(ventasParaStatsProvider.future);
   final set    = <String>{};
 
-  for (final v in ventas.where((v) => v.estado?.toLowerCase() == 'entregado')) {
+  for (final v in ventas.where((v) => v.estado?.toLowerCase() != 'anulado')) {
     if (v.fecha == null) continue;
     try {
       final d = DateTime.parse(v.fecha!);
@@ -282,7 +304,8 @@ class MesStat {
 final mesStatsMapProvider = FutureProvider<Map<String, MesStat>>((ref) async {
   ref.keepAlive();
   final ventas     = await ref.watch(ventasParaStatsProvider.future);
-  final entregadas = ventas.where((v) => v.estado?.toLowerCase() == 'entregado');
+  // Incluye Pendiente — cobros por adelantado. Excluye solo Anulado.
+  final entregadas = ventas.where((v) => v.estado?.toLowerCase() != 'anulado');
 
   final map = <String, List<VentaResponse>>{};
   for (final v in entregadas) {
@@ -316,66 +339,42 @@ class ClienteStat {
     required this.totalGastado,
     required this.primeraCompra,
     required this.ultimaCompra,
-    required this.historial,
   });
-  final String              celular;
-  final String              nombre;
-  final String              direccion;
-  final String              distrito;
-  final int                 totalCompras;
-  final int                 totalItems;
-  final double              totalGastado;
-  final String?             primeraCompra;
-  final String?             ultimaCompra;
-  final List<VentaResponse> historial;
+  final String  celular;
+  final String  nombre;
+  final String  direccion;
+  final String  distrito;
+  final int     totalCompras;
+  final int     totalItems;
+  final double  totalGastado;
+  final String? primeraCompra;
+  final String? ultimaCompra;
 }
 
+// Lista de clientes pre-agregada por el backend — mucho más ligero que
+// descargar 500 ventas y procesarlas localmente.
 final clientesStatsProvider = FutureProvider<List<ClienteStat>>((ref) async {
   ref.keepAlive();
-  final ventas = await ref.watch(ventasParaStatsProvider.future);
-
-  final byCelular = <String, List<VentaResponse>>{};
-  for (final v in ventas) {
-    final cel = v.celular ?? '';
-    if (cel.isEmpty) continue;
-    (byCelular[cel] ??= []).add(v);
-  }
-
-  return byCelular.entries.map((e) {
-    final list       = e.value;
-    // Solo ventas entregadas para cálculos financieros — pendientes y
-    // canceladas no representan dinero real recibido.
-    final entregadas = list
-        .where((v) => v.estado?.toLowerCase() == 'entregado')
-        .toList();
-    final dates = list
-        .where((v) => v.fecha != null)
-        .map((v) => v.fecha!)
-        .toList()
-      ..sort();
-    final direccion = list
-        .lastWhere((v) => (v.direccion ?? '').trim().isNotEmpty,
-            orElse: () => list.first)
-        .direccion ?? '';
-    final distrito = list
-        .lastWhere((v) => (v.distrito ?? '').trim().isNotEmpty,
-            orElse: () => list.first)
-        .distrito ?? '';
-    return ClienteStat(
-      celular:       e.key,
-      nombre:        list.first.comprador ?? e.key,
-      direccion:     direccion,
-      distrito:      distrito,
-      totalCompras:  entregadas.map((v) => v.idCompra).toSet().length,
-      totalItems:    entregadas.length,
-      totalGastado:  entregadas.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
-      primeraCompra: dates.isEmpty ? null : dates.first,
-      ultimaCompra:  dates.isEmpty ? null : dates.last,
-      historial:     list,
-    );
-  }).toList()
-    ..sort((a, b) => b.totalGastado.compareTo(a.totalGastado));
+  final lista = await ref.watch(estadisticasRepositoryProvider).getClientes();
+  return lista.map((m) => ClienteStat(
+    celular:       m['celular']       as String?  ?? '',
+    nombre:        m['nombre']        as String?  ?? '',
+    direccion:     m['direccion']     as String?  ?? '',
+    distrito:      m['distrito']      as String?  ?? '',
+    totalCompras:  m['total_compras'] as int?     ?? 0,
+    totalItems:    m['total_items']   as int?     ?? 0,
+    totalGastado:  (m['total_gastado'] as num?)?.toDouble() ?? 0.0,
+    primeraCompra: m['primera_compra'] as String?,
+    ultimaCompra:  m['ultima_compra']  as String?,
+  )).toList();
 });
+
+// Historial de ventas de un cliente — carga on-demand al expandir la tarjeta.
+final ventasClienteProvider =
+    FutureProvider.autoDispose.family<List<VentaResponse>, String>(
+  (ref, celular) =>
+      ref.watch(ventasRepositoryProvider).getVentasCliente(celular),
+);
 
 // ── Historial global (todo el tiempo) ─────────────────────────────────────────
 
@@ -429,8 +428,9 @@ final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async
   ref.keepAlive();
   final ventas      = await ref.watch(ventasParaStatsProvider.future);
   final perfumesMap = await ref.watch(perfumesMapProvider.future);
+  // Incluye Pendiente — cobros por adelantado. Excluye solo Anulado.
   final entregadas = ventas
-      .where((v) => v.estado?.toLowerCase() == 'entregado')
+      .where((v) => v.estado?.toLowerCase() != 'anulado')
       .toList();
 
   final totalVentas    = entregadas.map((v) => v.idCompra).toSet().length;

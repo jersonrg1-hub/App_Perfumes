@@ -4,15 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
-import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
-import 'package:perfuteca/models/cotizacion.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
-import 'package:perfuteca/repositories/cotizaciones_repository.dart';
-import 'package:perfuteca/repositories/ventas_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
@@ -45,9 +40,26 @@ class _ClientesView extends ConsumerStatefulWidget {
   ConsumerState<_ClientesView> createState() => _ClientesViewState();
 }
 
+enum _Orden { gasto, fecha, pedidos }
+
 class _ClientesViewState extends ConsumerState<_ClientesView> {
-  String _buscar = '';
-  Timer? _debounce;
+  String  _buscar = '';
+  _Orden  _orden  = _Orden.gasto;
+  Timer?  _debounce;
+
+  List<ClienteStat> _sorted(List<ClienteStat> lista) {
+    final c = List<ClienteStat>.from(lista);
+    switch (_orden) {
+      case _Orden.gasto:
+        c.sort((a, b) => b.totalGastado.compareTo(a.totalGastado));
+      case _Orden.fecha:
+        c.sort((a, b) =>
+            (b.ultimaCompra ?? '').compareTo(a.ultimaCompra ?? ''));
+      case _Orden.pedidos:
+        c.sort((a, b) => b.totalCompras.compareTo(a.totalCompras));
+    }
+    return c;
+  }
 
   @override
   void dispose() {
@@ -59,24 +71,44 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
   Widget build(BuildContext context) {
     return ref.watch(clientesStatsProvider).when(
       loading: () => const _ClientesSkeleton(),
-      error:   (e, _) => Center(
-        child: Text(e.toString(), style: AppTextStyles.bodySmall),
+      error: (e, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textFaint),
+              const SizedBox(height: AppSpacing.md),
+              Text('Error al cargar clientes',
+                  style: AppTextStyles.body, textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.xs),
+              Text('Verifica tu conexión e intenta de nuevo',
+                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: AppSpacing.lg),
+              FilledButton.icon(
+                onPressed: () => ref.invalidate(clientesStatsProvider),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
       ),
       data: (clientes) {
-        final q = _buscar.toLowerCase();
+        final ordenados = _sorted(clientes);
+        final q         = _buscar.toLowerCase();
         final filtrados = q.isEmpty
-            ? clientes
-            : clientes.where((c) =>
+            ? ordenados
+            : ordenados.where((c) =>
                 c.nombre.toLowerCase().contains(q) ||
                 c.celular.contains(_buscar) ||
                 c.direccion.toLowerCase().contains(q),
               ).toList();
 
-        final top  = clientes.isNotEmpty ? clientes.first : null;
-        final prom = clientes.isEmpty
-            ? 0.0
-            : clientes.fold(0.0, (s, c) => s + c.totalGastado) /
-                clientes.length;
+        // Stats para chips
+        final top        = clientes.isNotEmpty ? clientes.first : null;
+        final totalSum   = clientes.fold(0.0, (s, c) => s + c.totalGastado);
 
         return Column(
           children: [
@@ -87,20 +119,23 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
               child: Row(
                 children: [
                   _ResumenChip(
-                    label: 'Total clientes',
+                    label: 'Clientes',
                     valor: '${clientes.length}',
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: _ResumenChip(
-                      label: 'Cliente top',
-                      valor: top?.nombre ?? '—',
+                      label: 'Top · ${top?.nombre.split(' ').first ?? '—'}',
+                      valor: top != null
+                          ? 'S/ ${top.totalGastado.toStringAsFixed(0)}'
+                          : '—',
+                      destacado: true,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   _ResumenChip(
-                    label: 'Gasto prom.',
-                    valor: 'S/ ${prom.toStringAsFixed(2)}',
+                    label: 'Total ventas',
+                    valor: 'S/ ${totalSum.toStringAsFixed(0)}',
                   ),
                 ],
               ),
@@ -132,29 +167,71 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
               ),
             ),
 
+            // ── Orden ──────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '${filtrados.length} cliente${filtrados.length != 1 ? 's' : ''}',
-                  style: AppTextStyles.bodySmall.copyWith(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+              padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.md, 0, AppSpacing.md, AppSpacing.xs),
+              child: Row(
+                children: [
+                  Text(
+                    '${filtrados.length} cliente${filtrados.length != 1 ? 's' : ''}',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
+                  const Spacer(),
+                  _OrdenChip(
+                    label: 'Gasto',
+                    activo: _orden == _Orden.gasto,
+                    onTap: () => setState(() => _orden = _Orden.gasto),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  _OrdenChip(
+                    label: 'Última',
+                    activo: _orden == _Orden.fecha,
+                    onTap: () => setState(() => _orden = _Orden.fecha),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  _OrdenChip(
+                    label: 'Pedidos',
+                    activo: _orden == _Orden.pedidos,
+                    onTap: () => setState(() => _orden = _Orden.pedidos),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpacing.xs),
 
             // ── Lista ──────────────────────────────────────────────
             Expanded(
               child: filtrados.isEmpty
                   ? Center(
-                      child: Text(
-                        'Sin resultados',
-                        style: AppTextStyles.bodySmall
-                            .copyWith(color: AppColors.textMuted),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.search_off_rounded,
+                                size: 48, color: AppColors.textFaint),
+                            const SizedBox(height: AppSpacing.md),
+                            Text(
+                              _buscar.isEmpty
+                                  ? 'Sin clientes'
+                                  : 'Sin resultados para "$_buscar"',
+                              style: AppTextStyles.body.copyWith(
+                                  color: AppColors.textMuted),
+                              textAlign: TextAlign.center,
+                            ),
+                            if (_buscar.isNotEmpty) ...[
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Prueba con el número de celular',
+                                style: AppTextStyles.bodySmall
+                                    .copyWith(color: AppColors.textFaint),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     )
                   : ListView.builder(
@@ -178,9 +255,14 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
 // ── Chip de resumen ───────────────────────────────────────────────────────────
 
 class _ResumenChip extends StatelessWidget {
-  const _ResumenChip({required this.label, required this.valor});
+  const _ResumenChip({
+    required this.label,
+    required this.valor,
+    this.destacado = false,
+  });
   final String label;
   final String valor;
+  final bool   destacado;
 
   @override
   Widget build(BuildContext context) {
@@ -188,24 +270,31 @@ class _ResumenChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.primaryPale,
+        color: destacado
+            ? AppColors.gold.withValues(alpha: 0.12)
+            : AppColors.primaryPale,
         borderRadius: BorderRadius.circular(10),
+        border: destacado
+            ? Border.all(color: AppColors.gold.withValues(alpha: 0.35))
+            : null,
       ),
       child: Column(
         children: [
           Text(
             label,
             style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textMuted,
+              color: destacado ? AppColors.gold : AppColors.textMuted,
               fontWeight: FontWeight.w600,
               fontSize: 10,
             ),
             textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           Text(
             valor,
             style: AppTextStyles.body.copyWith(
-              color: AppColors.textPrimary,
+              color: destacado ? AppColors.gold : AppColors.textPrimary,
               fontWeight: FontWeight.w700,
               fontSize: 13,
             ),
@@ -219,17 +308,100 @@ class _ResumenChip extends StatelessWidget {
   }
 }
 
+class _OrdenChip extends StatelessWidget {
+  const _OrdenChip({
+    required this.label,
+    required this.activo,
+    required this.onTap,
+  });
+  final String       label;
+  final bool         activo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: activo ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            border: Border.all(
+              color: activo ? AppColors.primary : AppColors.primaryLight,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize:   10,
+              fontWeight: FontWeight.w700,
+              color: activo ? AppColors.background : AppColors.textMuted,
+            ),
+          ),
+        ),
+      );
+}
+
+// ── Avatar con iniciales ──────────────────────────────────────────────────────
+
+class _AvatarIniciales extends StatelessWidget {
+  const _AvatarIniciales({required this.nombre});
+  final String nombre;
+
+  static const _paleta = [
+    Color(0xFFC8956C),
+    Color(0xFFC9A96E),
+    Color(0xFF7B9EC8),
+    Color(0xFF8B9E76),
+    Color(0xFFB07BB0),
+    Color(0xFF9E887B),
+  ];
+
+  String _iniciales() {
+    final partes = nombre.trim().split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty).toList();
+    if (partes.isEmpty) return '#';
+    if (partes.length == 1) return partes[0][0].toUpperCase();
+    return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
+  }
+
+  Color _color() => _paleta[nombre.hashCode.abs() % _paleta.length];
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: _color().withValues(alpha: 0.2),
+          shape: BoxShape.circle,
+          border: Border.all(color: _color().withValues(alpha: 0.5)),
+        ),
+        child: Center(
+          child: Text(
+            _iniciales(),
+            style: TextStyle(
+              fontSize:   13,
+              fontWeight: FontWeight.w800,
+              color:      _color(),
+              height:     1,
+            ),
+          ),
+        ),
+      );
+}
+
 // ── Tarjeta de cliente ────────────────────────────────────────────────────────
 
-class _ClienteCard extends StatefulWidget {
+class _ClienteCard extends ConsumerStatefulWidget {
   const _ClienteCard({required this.cliente});
   final ClienteStat cliente;
 
   @override
-  State<_ClienteCard> createState() => _ClienteCardState();
+  ConsumerState<_ClienteCard> createState() => _ClienteCardState();
 }
 
-class _ClienteCardState extends State<_ClienteCard> {
+class _ClienteCardState extends ConsumerState<_ClienteCard> {
   bool _expandido = false;
 
   String _badge(int compras) {
@@ -239,9 +411,9 @@ class _ClienteCardState extends State<_ClienteCard> {
   }
 
   Color _badgeColor(int compras) {
-    if (compras >= 5) return AppColors.primary;
-    if (compras >= 3) return AppColors.textMuted;
-    return AppColors.textFaint;
+    if (compras >= 5) return AppColors.gold;
+    if (compras >= 3) return AppColors.primary;
+    return AppColors.textMuted;
   }
 
   String _fmtFecha(String? raw) {
@@ -285,16 +457,7 @@ class _ClienteCardState extends State<_ClienteCard> {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Row(
                 children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primaryPale,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.person_rounded,
-                        size: 20, color: AppColors.primary),
-                  ),
+                  _AvatarIniciales(nombre: c.nombre),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Column(
@@ -321,12 +484,33 @@ class _ClienteCardState extends State<_ClienteCard> {
                             ),
                           ],
                         ),
-                        Text(
-                          _badge(c.totalCompras),
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color:      _badgeColor(c.totalCompras),
-                            fontWeight: FontWeight.w600,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _badge(c.totalCompras),
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color:      _badgeColor(c.totalCompras),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (c.ultimaCompra != null) ...[
+                              Text(
+                                '  ·  ',
+                                style: AppTextStyles.bodySmall
+                                    .copyWith(color: AppColors.textFaint),
+                              ),
+                              const Icon(Icons.schedule_rounded,
+                                  size: 10, color: AppColors.textFaint),
+                              const SizedBox(width: 2),
+                              Text(
+                                _fmtFecha(c.ultimaCompra),
+                                style: AppTextStyles.bodySmall.copyWith(
+                                    color: AppColors.textFaint,
+                                    fontSize: 10),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -404,8 +588,21 @@ class _ClienteCardState extends State<_ClienteCard> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.xs),
-                    ..._pedidosAgrupados(c.historial)
-                        .map((e) => _PedidoRow(idCompra: e.key, items: e.value)),
+                    ref.watch(ventasClienteProvider(widget.cliente.celular)).when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      ),
+                      error: (_, __) => Text(
+                        'Error al cargar historial',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                      ),
+                      data: (ventas) => Column(
+                        children: _pedidosAgrupados(ventas)
+                            .map((e) => _PedidoRow(idCompra: e.key, items: e.value))
+                            .toList(),
+                      ),
+                    ),
                   ],
                 ),
               ) : const SizedBox.shrink(),
@@ -417,7 +614,6 @@ class _ClienteCardState extends State<_ClienteCard> {
     );
   }
 
-  // Agrupa items por idCompra preservando orden descendente por fecha
   List<MapEntry<String, List<VentaResponse>>> _pedidosAgrupados(
       List<VentaResponse> historial) {
     final map = <String, List<VentaResponse>>{};
@@ -483,6 +679,7 @@ class _InfoRowMultiline extends StatelessWidget {
             flex: 3,
             child: Text(
               valor,
+              textAlign: TextAlign.start,
               style: AppTextStyles.bodySmall.copyWith(
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -611,1006 +808,6 @@ class _PedidoRow extends ConsumerWidget {
       ),
     );
   }
-}
-
-// ── Todas las cotizaciones (paginadas) ────────────────────────────────────────
-
-class CotizacionesTodasView extends ConsumerStatefulWidget {
-  const CotizacionesTodasView({super.key});
-
-  @override
-  ConsumerState<CotizacionesTodasView> createState() =>
-      CotizacionesTodasViewState();
-}
-
-class CotizacionesTodasViewState
-    extends ConsumerState<CotizacionesTodasView> {
-  static const _pageSize = 10;
-
-  final List<CotizacionResponse> _items     = [];
-  final _searchCtrl                          = TextEditingController();
-  String  _buscar   = '';
-  Timer?  _debounce;
-  int     _offset   = 0;
-  bool    _cargando = false;
-  bool    _hayMas   = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _cargarMas();
-  }
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _searchCtrl.dispose();
-    super.dispose();
-  }
-
-  bool _esExpirada(CotizacionResponse c) {
-    if (c.estado?.toLowerCase() != 'enviado') return false;
-    if (c.fecha == null) return false;
-    try {
-      return DateTime.now().difference(DateTime.parse(c.fecha!)).inDays >= 14;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  Future<void> _cargarMas() async {
-    if (_cargando || !_hayMas) return;
-    setState(() => _cargando = true);
-    try {
-      final page = await ref
-          .read(cotizacionesRepositoryProvider)
-          .getCotizaciones(limit: _pageSize, offset: _offset);
-
-      // Auto-rechazar expiradas en background (fire-and-forget)
-      for (final c in page.items) {
-        if (_esExpirada(c)) {
-          ref.read(cotizacionesRepositoryProvider).actualizarEstado(
-            idCotizacion: c.idCotizacion,
-            nuevoEstado:  'Rechazada',
-          ).ignore();
-        }
-      }
-
-      // Mostrar solo Enviado (<14 días) y Aceptada
-      final activas = page.items.where((c) {
-        final estado = c.estado?.toLowerCase() ?? '';
-        if (estado == 'rechazada') return false;
-        if (estado == 'pendiente') return false;
-        if (estado == 'anulado')   return false;
-        if (_esExpirada(c))        return false;
-        return true;
-      }).toList();
-
-      setState(() {
-        _items.addAll(activas);
-        _offset += page.items.length; // offset basado en server, no filtrado
-        _hayMas  = page.items.length == _pageSize;
-      });
-    } catch (_) {
-      // silencioso; el usuario puede reintentar con el botón
-    } finally {
-      setState(() => _cargando = false);
-    }
-  }
-
-  String _fmtFecha(String? raw) {
-    if (raw == null) return '—';
-    try {
-      return DateFormat('dd/MM/yy').format(DateTime.parse(raw));
-    } catch (_) {
-      return raw;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final filtrados = _buscar.isEmpty
-        ? _items
-        : _items
-            .where((c) => c.celular.contains(_buscar))
-            .toList();
-
-    return Column(
-      children: [
-        // ── Buscador ───────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-          child: TextField(
-            controller: _searchCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              hintText:       'Buscar por celular...',
-              prefixIcon:     const Icon(Icons.phone_rounded, size: 20),
-              isDense:        true,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: const BorderSide(color: AppColors.primaryLight),
-              ),
-              suffixIcon: _buscar.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear_rounded, size: 18),
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        setState(() => _buscar = '');
-                      },
-                    )
-                  : null,
-            ),
-            onChanged: (v) {
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 300), () {
-                if (mounted) setState(() => _buscar = v.trim());
-              });
-            },
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              '${filtrados.length} cotización${filtrados.length != 1 ? 'es' : ''}',
-              style: AppTextStyles.bodySmall.copyWith(
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.xs),
-
-        // ── Lista ──────────────────────────────────────────────
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            itemCount: filtrados.length + 1,
-            itemBuilder: (_, i) {
-              if (i < filtrados.length) {
-                return _CotizacionCard(
-                  c:        filtrados[i],
-                  fmtFecha: _fmtFecha,
-                );
-              }
-              // Pie de lista: botón cargar más o spinner
-              if (_cargando) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-              if (_hayMas && _buscar.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.md),
-                  child: Center(
-                    child: OutlinedButton.icon(
-                      onPressed: _cargarMas,
-                      icon: const Icon(Icons.expand_more_rounded, size: 18),
-                      label: const Text('Cargar más'),
-                    ),
-                  ),
-                );
-              }
-              return const SizedBox(height: AppSpacing.xl);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// IDs convertidos en esta sesión — bloquea re-apertura aunque el backend falle
-final _cotizacionesAceptadasClientesProvider =
-    StateProvider<Set<String>>((ref) => const {});
-
-// ── Tarjeta de cotización ─────────────────────────────────────────────────────
-
-class _CotizacionCard extends ConsumerStatefulWidget {
-  const _CotizacionCard({required this.c, required this.fmtFecha});
-  final CotizacionResponse        c;
-  final String Function(String?) fmtFecha;
-
-  @override
-  ConsumerState<_CotizacionCard> createState() => _CotizacionCardState();
-}
-
-class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
-  bool    _expandido   = false;
-  bool    _registrando = false;
-  bool    _exito       = false;
-  String? _error;
-  String? _idVenta;
-
-  final _compradorCtrl = TextEditingController();
-  final _direccionCtrl = TextEditingController();
-  final _distritoCtrl  = TextEditingController();
-  String _tipoEnvio  = '';
-  String _metodoPago = 'Yape';
-
-  @override
-  void dispose() {
-    _compradorCtrl.dispose();
-    _direccionCtrl.dispose();
-    _distritoCtrl.dispose();
-    super.dispose();
-  }
-
-  bool get _formValido =>
-      _compradorCtrl.text.trim().isNotEmpty &&
-      _tipoEnvio.isNotEmpty &&
-      (_tipoEnvio == 'Contraentrega' || _direccionCtrl.text.trim().isNotEmpty);
-
-  Future<void> _registrar() async {
-    final catalogo = ref.read(catalogoProvider).perfumes;
-    final cesta    = _parsearCesta(widget.c.items ?? '', catalogo, _metodoPago);
-
-    if (cesta.isEmpty) {
-      setState(() =>
-          _error = 'No se pudieron reconocer los perfumes de esta cotización');
-      return;
-    }
-
-    setState(() { _registrando = true; _error = null; });
-    try {
-      final registrada =
-          await ref.read(ventasRepositoryProvider).registrarVenta(
-        comprador: _compradorCtrl.text.trim(),
-        celular:   widget.c.celular,
-        direccion: _direccionCtrl.text.trim(),
-        distrito:  _distritoCtrl.text.trim(),
-        tipoEnvio: _tipoEnvio,
-        fecha:     DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        items: cesta
-            .map((i) => ItemCesta(
-                  perfume: i.perfume,
-                  ml:      i.ml,
-                  precio:  i.precio,
-                  metodo:  _metodoPago,
-                ).toApiMap())
-            .toList(),
-      );
-      ref.invalidate(historialProvider);
-      ref.invalidate(pendientesProvider);
-      setState(() {
-        _registrando = false;
-        _exito       = true;
-        _idVenta     = registrada.idCompra;
-      });
-      // Marcar cotización como Aceptado (silencioso si falla)
-      try {
-        await ref.read(cotizacionesRepositoryProvider).actualizarEstado(
-          idCotizacion: widget.c.idCotizacion,
-          nuevoEstado:  'Aceptada',
-        );
-      } catch (_) {}
-      // Bloquear re-apertura en sesión aunque el backend no responda
-      ref.read(_cotizacionesAceptadasClientesProvider.notifier)
-          .update((s) => {...s, widget.c.idCotizacion});
-    } catch (e) {
-      setState(() { _registrando = false; _error = e.toString(); });
-    }
-  }
-
-  Color _estadoColor(String? estado) {
-    if (estado == null) return AppColors.textFaint;
-    switch (estado.toLowerCase()) {
-      case 'pendiente': return AppColors.stockLow;
-      case 'entregado': return AppColors.stockOk;
-      case 'aceptado':  return AppColors.stockOk;
-      case 'anulado':   return AppColors.stockCritical;
-      default:          return AppColors.textMuted;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final aceptadas  = ref.watch(_cotizacionesAceptadasClientesProvider);
-    final esAceptada = aceptadas.contains(widget.c.idCotizacion) ||
-        widget.c.estado?.toLowerCase().startsWith('aceptad') == true;
-
-    if (_exito) {
-      return _CartaExitoCliente(
-        idVenta:      _idVenta ?? '',
-        idCotizacion: widget.c.idCotizacion,
-        comprador:    _compradorCtrl.text.trim(),
-        celular:      widget.c.celular,
-        tipoEnvio:    _tipoEnvio,
-        direccion:    _direccionCtrl.text.trim(),
-        distrito:     _distritoCtrl.text.trim(),
-        metodoPago:   _metodoPago,
-        itemsStr:     widget.c.items ?? '',
-        total:        widget.c.total ?? 0,
-      );
-    }
-
-    final c = widget.c;
-    return AnimatedSize(
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeInOut,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: esAceptada ? AppColors.successSurface : AppColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(
-            color: esAceptada
-                ? AppColors.stockOk.withValues(alpha: 0.4)
-                : (_expandido ? AppColors.primary : AppColors.primaryLight),
-            width: esAceptada ? 1.5 : (_expandido ? 1.5 : 1),
-          ),
-          boxShadow: const [
-            BoxShadow(
-                color: AppColors.shadowColor,
-                blurRadius: 4,
-                offset: Offset(0, 2))
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Cabecera ────────────────────────────────────────────
-            InkWell(
-              onTap: esAceptada
-                  ? null
-                  : () => setState(() => _expandido = !_expandido),
-              borderRadius: _expandido
-                  ? const BorderRadius.vertical(
-                      top: Radius.circular(AppSpacing.radiusMd))
-                  : BorderRadius.circular(AppSpacing.radiusMd),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: const BoxDecoration(
-                        color: AppColors.primaryPale,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.request_quote_rounded,
-                          size: 18, color: AppColors.primary),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.phone_rounded,
-                                  size: 14, color: AppColors.primary),
-                              const SizedBox(width: 4),
-                              Text(
-                                c.celular.isNotEmpty ? c.celular : '—',
-                                style: AppTextStyles.body.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(widget.fmtFecha(c.fecha),
-                              style: AppTextStyles.bodySmall),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'S/ ${(c.total ?? 0).toStringAsFixed(2)}',
-                          style: AppTextStyles.price.copyWith(
-                              fontSize: 14, color: AppColors.primaryDark),
-                        ),
-                        if (c.estado != null)
-                          Text(
-                            c.estado!,
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color:      _estadoColor(c.estado),
-                              fontWeight: FontWeight.w700,
-                              fontSize:   10,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(width: 4),
-                    AnimatedRotation(
-                      turns: _expandido ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 200),
-                      child: const Icon(Icons.keyboard_arrow_down_rounded,
-                          size: 20, color: AppColors.textMuted),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // ── Sección expandible ──────────────────────────────────
-            if (_expandido) ...[
-              const Divider(height: 1, color: AppColors.primaryLight),
-
-              // Mini-resumen de items
-              if (c.items != null && c.items!.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.all(AppSpacing.md),
-                  padding: const EdgeInsets.all(AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryPale,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      ...c.items!
-                          .split(' | ')
-                          .map((s) => s.trim())
-                          .where((s) => s.isNotEmpty)
-                          .map((l) => Padding(
-                                padding: const EdgeInsets.only(bottom: 3),
-                                child: Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4),
-                                      child: Icon(
-                                          Icons.local_florist_outlined,
-                                          size: 11,
-                                          color: AppColors.primary),
-                                    ),
-                                    const SizedBox(width: 5),
-                                    Expanded(
-                                      child: Text(l,
-                                          style: AppTextStyles.bodySmall
-                                              .copyWith(
-                                                  fontSize: 12,
-                                                  fontWeight:
-                                                      FontWeight.w500)),
-                                    ),
-                                  ],
-                                ),
-                              )),
-                      if (c.total != null) ...[
-                        const SizedBox(height: 4),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Text(
-                            'Total  S/ ${c.total!.toStringAsFixed(2)}',
-                            style: AppTextStyles.price.copyWith(
-                                fontSize: 13,
-                                color: AppColors.primaryDark),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-
-              const Divider(height: 1, color: AppColors.primaryLight),
-
-              // Bloqueo si ya fue aceptada / formulario de conversión
-              if (esAceptada)
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.all(AppSpacing.md),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: AppColors.successSurface,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusMd),
-                    border: Border.all(
-                        color: AppColors.stockOk.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(children: [
-                    const Icon(Icons.check_circle_rounded,
-                        color: AppColors.stockOk, size: 18),
-                    const SizedBox(width: AppSpacing.sm),
-                    Text('Esta cotización ya fue convertida en venta',
-                        style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.stockOk,
-                            fontWeight: FontWeight.w600)),
-                  ]),
-                )
-              else
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      const Icon(Icons.sell_outlined,
-                          size: 14, color: AppColors.primary),
-                      const SizedBox(width: 4),
-                      Text('Convertir en venta',
-                          style: AppTextStyles.notasLabel.copyWith(
-                              color: AppColors.primary, fontSize: 10)),
-                    ]),
-                    const SizedBox(height: AppSpacing.md),
-
-                    _CotFieldLabel('Nombre del comprador',
-                        Icons.person_outline_rounded),
-                    _CotField(
-                      controller: _compradorCtrl,
-                      hint: 'Nombre completo',
-                      capitalization: TextCapitalization.words,
-                      onChanged: (_) => setState(() {}),
-                    ),
-
-                    _CotFieldLabel(
-                        'Dirección de entrega', Icons.location_on_outlined),
-                    _CotField(
-                      controller: _direccionCtrl,
-                      hint: 'Jr. Los Jardines 123',
-                      capitalization: TextCapitalization.words,
-                      onChanged: (_) => setState(() {}),
-                    ),
-
-                    _CotFieldLabel(
-                        'Distrito/Provincia', Icons.map_outlined),
-                    _CotField(
-                      controller: _distritoCtrl,
-                      hint: 'Ej: Lima, Arequipa',
-                      capitalization: TextCapitalization.words,
-                    ),
-
-                    _CotFieldLabel(
-                        'Tipo de envío', Icons.local_shipping_outlined),
-                    _CotChips(
-                      opciones: const [
-                        'Shalom',
-                        'Motorizado',
-                        'Contraentrega'
-                      ],
-                      valor: _tipoEnvio,
-                      onSelect: (v) => setState(() => _tipoEnvio = v),
-                    ),
-
-                    _CotFieldLabel('Método de pago', Icons.payment_outlined),
-                    _CotChips(
-                      opciones: const [
-                        'Yape',
-                        'Plin',
-                        'Transferencia',
-                        'Tarjeta'
-                      ],
-                      valor: _metodoPago,
-                      onSelect: (v) => setState(() => _metodoPago = v),
-                    ),
-
-                    if (_error != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Container(
-                        padding: const EdgeInsets.all(AppSpacing.sm),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorSurface,
-                          borderRadius: BorderRadius.circular(
-                              AppSpacing.radiusSm),
-                          border: Border.all(
-                              color:
-                                  AppColors.error.withValues(alpha: 0.3)),
-                        ),
-                        child: Text(_error!,
-                            style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.error)),
-                      ),
-                    ],
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    Row(children: [
-                      OutlinedButton(
-                        onPressed: _registrando
-                            ? null
-                            : () => setState(() {
-                                  _expandido = false;
-                                  _error = null;
-                                }),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textMuted,
-                          side: const BorderSide(
-                              color: AppColors.primaryLight),
-                        ),
-                        child: const Text('Cancelar'),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: (!_formValido || _registrando)
-                              ? null
-                              : () async {
-                                  final confirmar =
-                                      await showDialog<bool>(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      title: const Row(
-                                        children: [
-                                          Icon(Icons.sell_outlined,
-                                              color: AppColors.primary,
-                                              size: 20),
-                                          SizedBox(width: 8),
-                                          Text('Confirmar venta'),
-                                        ],
-                                      ),
-                                      content: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          _ResumenFilaCot('Cliente',
-                                              _compradorCtrl.text.trim()),
-                                          _ResumenFilaCot('Celular',
-                                              widget.c.celular),
-                                          _ResumenFilaCot(
-                                              'Envío', _tipoEnvio),
-                                          _ResumenFilaCot('Dirección',
-                                              _direccionCtrl.text.trim()),
-                                          if (_distritoCtrl.text.trim().isNotEmpty)
-                                            _ResumenFilaCot('Distrito',
-                                                _distritoCtrl.text.trim()),
-                                          _ResumenFilaCot(
-                                              'Pago', _metodoPago),
-                                          if (widget.c.total != null) ...[
-                                            const Divider(height: 16),
-                                            Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                Text('TOTAL',
-                                                    style: AppTextStyles
-                                                        .notasLabel
-                                                        .copyWith(
-                                                            color: AppColors
-                                                                .textMuted)),
-                                                Text(
-                                                  'S/ ${widget.c.total!.toStringAsFixed(2)}',
-                                                  style: AppTextStyles
-                                                      .price
-                                                      .copyWith(
-                                                          color: AppColors
-                                                              .primaryDark,
-                                                          fontSize: 16),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx, false),
-                                          child: const Text('Cancelar'),
-                                        ),
-                                        FilledButton(
-                                          onPressed: () =>
-                                              Navigator.pop(ctx, true),
-                                          child:
-                                              const Text('Guardar venta'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirmar == true) _registrar();
-                                },
-                          icon: _registrando
-                              ? const SizedBox(
-                                  width: 14,
-                                  height: 14,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white))
-                              : const Icon(Icons.check_circle_rounded,
-                                  size: 16),
-                          label: Text(_registrando
-                              ? 'Registrando...'
-                              : 'Registrar venta'),
-                        ),
-                      ),
-                    ]),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Tarjeta de éxito tras conversión ─────────────────────────────────────────
-
-class _CartaExitoCliente extends StatelessWidget {
-  const _CartaExitoCliente({
-    required this.idVenta,
-    required this.idCotizacion,
-    required this.comprador,
-    required this.celular,
-    required this.tipoEnvio,
-    required this.direccion,
-    required this.distrito,
-    required this.metodoPago,
-    required this.itemsStr,
-    required this.total,
-  });
-  final String idVenta;
-  final String idCotizacion;
-  final String comprador;
-  final String celular;
-  final String tipoEnvio;
-  final String direccion;
-  final String distrito;
-  final String metodoPago;
-  final String itemsStr;
-  final double total;
-
-  Future<void> _enviarComunidad() async {
-    const sep = '────────────────────';
-    final lineas = itemsStr
-        .split(' | ')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .map((s) => '  🌸 $s')
-        .join('\n');
-    final dirLinea = direccion.isNotEmpty ? '\n📍 *Dirección:* $direccion' : '';
-    final distLinea = distrito.isNotEmpty ? '\n🗺️ *Distrito:* $distrito' : '';
-    final texto =
-        '📦 *Perfuteca — Pedido $idVenta*\n$sep\n'
-        '👤 *Cliente:* $comprador\n📱 *Celular:* $celular\n'
-        '🚚 *Envío:* $tipoEnvio$dirLinea$distLinea\n$sep\n'
-        '🌸 *Perfumes:*\n$lineas\n$sep\n'
-        '💰 *Total: S/ ${total.toStringAsFixed(2)}*\n'
-        '💳 *Pago:* $metodoPago';
-    final url = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(texto)}');
-    if (await canLaunchUrl(url)) await launchUrl(url);
-  }
-
-  @override
-  Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
-        padding: const EdgeInsets.all(AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.successSurface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border:
-              Border.all(color: AppColors.stockOk.withValues(alpha: 0.4)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.check_circle_rounded,
-                  color: AppColors.stockOk, size: 22),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('¡Venta registrada!  $idVenta',
-                        style: AppTextStyles.bodySmall.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.stockOk)),
-                    Text('Cotización $idCotizacion convertida',
-                        style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textMuted, fontSize: 10)),
-                  ],
-                ),
-              ),
-            ]),
-            const SizedBox(height: AppSpacing.sm),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _enviarComunidad,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.whatsapp,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                ),
-                icon: const Icon(Icons.send_rounded, size: 16),
-                label: const Text('Enviar pedido a comunidad',
-                    style: TextStyle(fontSize: 13)),
-              ),
-            ),
-          ],
-        ),
-      );
-}
-
-// ── Widgets auxiliares del formulario ─────────────────────────────────────────
-
-class _CotFieldLabel extends StatelessWidget {
-  const _CotFieldLabel(this.text, this.icon);
-  final String   text;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: 4),
-        child: Row(children: [
-          Icon(icon, size: 12, color: AppColors.primary),
-          const SizedBox(width: 4),
-          Text(text,
-              style: AppTextStyles.bodySmall.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                  fontSize: 11)),
-        ]),
-      );
-}
-
-class _CotField extends StatelessWidget {
-  const _CotField({
-    required this.controller,
-    required this.hint,
-    this.onChanged,
-    this.capitalization = TextCapitalization.none,
-  });
-  final TextEditingController controller;
-  final String                hint;
-  final ValueChanged<String>? onChanged;
-  final TextCapitalization    capitalization;
-
-  @override
-  Widget build(BuildContext context) => TextField(
-        controller:         controller,
-        textCapitalization: capitalization,
-        onChanged:          onChanged,
-        decoration: InputDecoration(
-          hintText:  hint,
-          hintStyle: AppTextStyles.bodySmall,
-          filled:    true,
-          fillColor: AppColors.background,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            borderSide: const BorderSide(color: AppColors.primaryLight),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            borderSide: const BorderSide(color: AppColors.primaryLight),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            borderSide:
-                const BorderSide(color: AppColors.primary, width: 1.5),
-          ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-      );
-}
-
-class _CotChips extends StatelessWidget {
-  const _CotChips({
-    required this.opciones,
-    required this.valor,
-    required this.onSelect,
-  });
-  final List<String>         opciones;
-  final String               valor;
-  final ValueChanged<String> onSelect;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: opciones.map((op) {
-            final sel = valor == op;
-            return Semantics(
-              button: true,
-              label: op,
-              selected: sel,
-              child: GestureDetector(
-                onTap: () => onSelect(op),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: sel ? AppColors.primary : AppColors.surface,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.radiusSm),
-                    border: Border.all(
-                      color: sel ? AppColors.primary : AppColors.primaryLight,
-                      width: sel ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Text(op,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight:
-                              sel ? FontWeight.w700 : FontWeight.w500,
-                          color: sel
-                              ? Colors.white
-                              : AppColors.textSecondary)),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      );
-}
-
-class _ResumenFilaCot extends StatelessWidget {
-  const _ResumenFilaCot(this.label, this.valor);
-  final String label;
-  final String valor;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 72,
-              child: Text(label,
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.textMuted)),
-            ),
-            Expanded(
-              child: Text(
-                valor.isNotEmpty ? valor : '—',
-                style: AppTextStyles.bodySmall
-                    .copyWith(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ],
-        ),
-      );
-}
-
-// ── Parser: items string → List<ItemCesta> ────────────────────────────────────
-// Formato: "Perfume A 2ml S/10.00 | Perfume B 5ml S/25.00"
-
-List<ItemCesta> _parsearCesta(String itemsStr, List<Perfume> catalogo, String metodoPago) {
-  if (itemsStr.isEmpty) return [];
-  final result = <ItemCesta>[];
-  final rx = RegExp(r'^(.+?)\s+(\d+)ml\s+S/(\d+\.?\d*)$');
-
-  for (final part in itemsStr.split(' | ')) {
-    final m = rx.firstMatch(part.trim());
-    if (m == null) continue;
-
-    final nombre = m.group(1)!;
-    final ml     = int.tryParse(m.group(2)!) ?? 0;
-    final precio = double.tryParse(m.group(3)!) ?? 0.0;
-    if (ml == 0) continue;
-
-    Perfume? perfume;
-    try {
-      perfume = catalogo.firstWhere(
-          (p) => p.nombre.toLowerCase() == nombre.toLowerCase());
-    } catch (_) {
-      try {
-        perfume = catalogo.firstWhere((p) =>
-            p.nombre.toLowerCase().contains(nombre.toLowerCase()) ||
-            nombre.toLowerCase().contains(p.nombre.toLowerCase()));
-      } catch (_) {
-        continue;
-      }
-    }
-    result.add(
-        ItemCesta(perfume: perfume, ml: ml, precio: precio, metodo: metodoPago));
-  }
-  return result;
 }
 
 // ── Stagger animation wrapper ─────────────────────────────────────────────────

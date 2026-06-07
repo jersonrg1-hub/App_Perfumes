@@ -23,6 +23,7 @@ from backend.api.dependencies import (
     get_catalogo_cached,
     get_image_url,
     df_to_json_list,
+    paginate_df,
 )
 from backend.api.models import PerfumeResponse, Paginated
 from backend.repositories.sheets_repository import SheetsRepository
@@ -84,15 +85,7 @@ def listar_catalogo(
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
-    total = len(df)
-    pagina = df.iloc[offset: offset + limit]
-    return {
-        "items": _serializar_catalogo(pagina),
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-        "has_more": (offset + limit) < total,
-    }
+    return paginate_df(df, _serializar_catalogo, limit, offset)
 
 
 @router.get(
@@ -137,15 +130,7 @@ def buscar_perfumes(
         raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
     resultado = filtrar_catalogo(df, texto=q, marca=marca or "")
-    total = len(resultado)
-    pagina = resultado.iloc[offset: offset + limit]
-    return {
-        "items": _serializar_catalogo(pagina),
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-        "has_more": (offset + limit) < total,
-    }
+    return paginate_df(resultado, _serializar_catalogo, limit, offset)
 
 
 @router.get(

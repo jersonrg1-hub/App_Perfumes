@@ -25,6 +25,7 @@ from backend.api.dependencies import (
     invalidar_cache_ventas,
     verify_api_key,
     df_to_json_list,
+    paginate_df,
 )
 from backend.api.routes import estadisticas as _estadisticas_mod
 from backend.api.models import (
@@ -69,15 +70,7 @@ def listar_ventas(
     if not df.empty and estado and "Estado" in df.columns:
         df = df[df["Estado"] == estado]
 
-    total = len(df)
-    pagina = df.iloc[offset: offset + limit]
-    return {
-        "items": df_to_json_list(pagina, snake=True),
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-        "has_more": (offset + limit) < total,
-    }
+    return paginate_df(df, lambda p: df_to_json_list(p, snake=True), limit, offset)
 
 
 @router.get(

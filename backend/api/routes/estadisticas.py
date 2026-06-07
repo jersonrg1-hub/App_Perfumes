@@ -9,9 +9,9 @@ from datetime import date, timedelta
 from typing import Optional, List
 
 import pandas as pd
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
-from backend.api.dependencies import get_repo, get_ventas_cached, verify_api_key
+from backend.api.dependencies import get_repo, get_ventas_cached, verify_api_key, paginate
 from backend.repositories.sheets_repository import SheetsRepository
 from backend.core.config import hoy_peru  # retorna date directamente
 
@@ -190,7 +190,6 @@ def get_resumen(repo: SheetsRepository = Depends(get_repo)):
     try:
         df = get_ventas_cached(repo)
     except Exception as e:
-        from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
 
     # Pendientes count — unique orders, not items
@@ -288,7 +287,6 @@ def get_clientes(
         try:
             df = get_ventas_cached(repo)
         except Exception as e:
-            from fastapi import HTTPException
             raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
         computed = _compute_clientes(df)
         with _clientes_lock:
@@ -304,11 +302,4 @@ def get_clientes(
             if q_lower in c["nombre"].lower() or q_lower in c["celular"]
         ]
 
-    total = len(resultado)
-    return {
-        "items":    resultado[offset: offset + limit],
-        "total":    total,
-        "limit":    limit,
-        "offset":   offset,
-        "has_more": (offset + limit) < total,
-    }
+    return paginate(resultado, limit, offset)

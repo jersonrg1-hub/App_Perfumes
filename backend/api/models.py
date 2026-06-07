@@ -7,13 +7,13 @@ Separación clara:
 
 Convención de nombres en responses:
   snake_case en todos los campos — estándar Dart/Flutter.
-  Los TypedDicts internos (backend/models/schemas.py) siguen siendo para uso interno.
+  Los TypedDicts de schemas.py fueron reemplazados por estos modelos Pydantic.
 
 Modelo de paginación:
   Todos los endpoints de lista devuelven Paginated[T] con metadata.
   Flutter puede implementar infinite scroll con has_more + offset.
 """
-from typing import Generic, Optional, TypeVar
+from typing import Generic, Literal, Optional, TypeVar
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -135,7 +135,7 @@ class ItemCestaAPI(BaseModel):
     perfume: str
     marca: str
     id_perfume: str
-    ml: int = Field(..., ge=1, description="Tamaño en ml: 2, 5 o 10")
+    ml: Literal[2, 5, 10] = Field(..., description="Tamaño en ml: 2, 5 o 10")
     precio: float = Field(..., ge=0)
     metodo: str = Field(..., description="Yape | Plin | Transferencia | Tarjeta")
 

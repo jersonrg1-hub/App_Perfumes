@@ -132,6 +132,31 @@ def get_cotizaciones_cached(repo: SheetsRepository) -> pd.DataFrame:
             return df
 
 
+def paginate(data: list, limit: int, offset: int) -> dict:
+    """Helper de paginación estándar para todos los endpoints de lista."""
+    total = len(data)
+    return {
+        "items":    data[offset: offset + limit],
+        "total":    total,
+        "limit":    limit,
+        "offset":   offset,
+        "has_more": (offset + limit) < total,
+    }
+
+
+def paginate_df(df, serializer, limit: int, offset: int) -> dict:
+    """Helper de paginación para DataFrames — serializa la página antes de devolver."""
+    total = len(df)
+    pagina = df.iloc[offset: offset + limit]
+    return {
+        "items":    serializer(pagina),
+        "total":    total,
+        "limit":    limit,
+        "offset":   offset,
+        "has_more": (offset + limit) < total,
+    }
+
+
 def invalidar_cache_cotizaciones() -> None:
     """Llamar tras guardar o actualizar una cotización."""
     with _lock:

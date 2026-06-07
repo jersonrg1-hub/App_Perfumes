@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.api.dependencies import (
     get_repo, verify_api_key, df_to_json_list,
     get_cotizaciones_cached, invalidar_cache_cotizaciones,
+    paginate_df,
 )
 from backend.api.models import (
     CotizacionRequest,
@@ -64,15 +65,7 @@ def listar_cotizaciones(
     if not df.empty and "Fecha" in df.columns:
         df = df.sort_values("Fecha", ascending=False, na_position="last")
 
-    total = len(df)
-    pagina = df.iloc[offset: offset + limit]
-    return {
-        "items": _serializar_cotizaciones(pagina),
-        "total": total,
-        "limit": limit,
-        "offset": offset,
-        "has_more": (offset + limit) < total,
-    }
+    return paginate_df(df, _serializar_cotizaciones, limit, offset)
 
 
 @router.get(

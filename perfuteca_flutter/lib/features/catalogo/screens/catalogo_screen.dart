@@ -84,7 +84,7 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
       );
     }
 
-    final marcas    = state.perfumes.map((p) => p.marca).toSet().toList()..sort();
+    final marcas    = ref.watch(marcasProvider).valueOrNull ?? [];
     final filtrados = _applyFilters(state.perfumes);
 
     return RefreshIndicator(

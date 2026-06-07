@@ -12,7 +12,6 @@ dependencies:
 
   # ── HTTP / Network ────────────────────────────────────────────────────────────
   dio: ^5.7.0
-  pretty_dio_logger: ^1.4.0
   dio_cache_interceptor: ^3.5.0
   dio_cache_interceptor_file_store: ^1.2.2
   path_provider: ^2.1.4
@@ -62,3 +61,4 @@ flutter:
   assets:
     - assets/images/
     - assets/icons/
+    - assets/fonts/

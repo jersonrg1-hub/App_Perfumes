@@ -28,8 +28,6 @@ from backend.core.config import (
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
     hoy_peru, fmt_precio, ML_BASE_DISPENSACION,
 )
-from backend.models.schemas import ItemCesta, DatosCliente
-
 logger = logging.getLogger(__name__)
 
 

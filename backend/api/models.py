@@ -131,11 +131,7 @@ class AppConfig(BaseModel):
 # ── Ventas — Requests ─────────────────────────────────────────────────────────
 
 class ItemCestaAPI(BaseModel):
-    """
-    Item de cesta de compra.
-    Campos coinciden con ItemCesta TypedDict — item.model_dump() se pasa directo
-    a register_complete_sale() sin conversión adicional.
-    """
+    """Item de cesta de compra. item.model_dump() se pasa directo a register_complete_sale()."""
     perfume: str
     marca: str
     id_perfume: str
@@ -145,11 +141,7 @@ class ItemCestaAPI(BaseModel):
 
 
 class VentaRequest(BaseModel):
-    """
-    Body de POST /ventas/.
-    Campos del cliente coinciden con DatosCliente TypedDict.
-    body.model_dump(exclude={'items'}) se pasa directo a register_complete_sale().
-    """
+    """Body de POST /ventas/. body.model_dump(exclude={'items'}) va directo a register_complete_sale()."""
     comprador: str = Field(..., min_length=1)
     celular: str = Field(
         ..., min_length=9, max_length=9, pattern=r"^\d{9}$",

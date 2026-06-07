@@ -3,16 +3,10 @@ backend/services/venta_service.py — Lógica pura de negocio para ventas.
 
 Sin imports de Streamlit ni de Google Sheets. Todas las funciones son puras:
 reciben datos, retornan resultados, no modifican estado global.
-
-Fuente de verdad: lo que antes estaba en logic/venta.py ahora vive aquí.
-El módulo logic/venta.py es un shim de compatibilidad que re-exporta desde aquí.
 """
-import uuid
 import pandas as pd
 from backend.core.config import METODOS_PAGO, TIPOS_ENVIO
 
-
-# ── Catálogo ──────────────────────────────────────────────────────────────────
 
 def filtrar_catalogo(
     df: pd.DataFrame,
@@ -55,80 +49,3 @@ def precio_catalogo(perfume_row, ml: str) -> float | None:
         return float(val)
     except (TypeError, ValueError):
         return None
-
-
-# ── Cesta ─────────────────────────────────────────────────────────────────────
-
-def construir_item(perfume_row, ml: str, metodo: str, precio: float) -> dict:
-    """
-    Crea un item de cesta con ID único inmutable (UUID4).
-
-    UUID en lugar de índice de lista previene el bug de index-shift cuando
-    se elimina un elemento mientras Streamlit re-renderiza la lista.
-    """
-    return {
-        "id": str(uuid.uuid4()),
-        "perfume": str(perfume_row["Nombre"]),
-        "marca": str(perfume_row.get("Marca", "")),
-        "id_perfume": perfume_row["ID_Perfume"],
-        "ml": ml,
-        "precio": round(float(precio), 2),
-        "metodo": metodo,
-    }
-
-
-def eliminar_item(cesta: list, item_id: str) -> list:
-    """
-    Retorna una nueva cesta sin el item con ese ID.
-    No muta la lista original — el caller reemplaza state["cesta"].
-    """
-    return [i for i in cesta if i["id"] != item_id]
-
-
-def calcular_total(cesta: list) -> float:
-    return round(sum(float(i["precio"]) for i in cesta), 2)
-
-
-# ── Cliente ───────────────────────────────────────────────────────────────────
-
-def buscar_cliente_previo(df_ventas: pd.DataFrame, celular: str) -> dict | None:
-    """
-    Retorna los datos del último pedido registrado para un número de celular.
-    Retorna None si no hay historial o si el nombre está vacío.
-    """
-    if df_ventas.empty or "Celular" not in df_ventas.columns:
-        return None
-    matches = df_ventas[df_ventas["Celular"].astype(str) == celular]
-    if matches.empty:
-        return None
-    row = matches.iloc[-1]
-    nombre = str(row.get("Comprador", "")).strip()
-    if not nombre:
-        return None
-    return {
-        "nombre": nombre,
-        "direccion": str(row.get("Direccion", "")),
-        "metodo": str(row.get("Metodo_Pago", "")),
-        "tipo_envio": str(row.get("Tipo_Envio", "")),
-    }
-
-
-def validar_paso_cliente(
-    comprador: str,
-    celular: str,
-    direccion: str,
-    tipo_envio: str,
-) -> list[str]:
-    """
-    Valida los datos del paso 1 del wizard de venta.
-    Retorna lista de mensajes de error (vacía = datos válidos).
-    Función pura: no renderiza nada, solo valida y retorna.
-    """
-    errores: list[str] = []
-    if not comprador.strip():
-        errores.append("El nombre es requerido")
-    if len(celular) != 9 or not celular.isdigit():
-        errores.append("Celular debe tener exactamente 9 dígitos numéricos")
-    if tipo_envio != "Contraentrega" and not direccion.strip():
-        errores.append(f"Dirección requerida para envío por {tipo_envio}")
-    return errores

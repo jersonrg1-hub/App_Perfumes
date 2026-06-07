@@ -14,6 +14,7 @@ snake_case en respuestas:
   .lower() es suficiente: "ID_Perfume" → "id_perfume", "Precio_2ml" → "precio_2ml".
   Activar con snake=True en df_to_json_list().
 """
+import hmac
 import json
 import logging
 import math
@@ -254,7 +255,7 @@ def verify_api_key(api_key: str = Security(_api_key_header)) -> None:
             "API_KEY no configurada — endpoint sin autenticacion (solo desarrollo)"
         )
         return
-    if not api_key or api_key != expected:
+    if not api_key or not hmac.compare_digest(api_key, expected):
         raise HTTPException(
             status_code=401,
             detail="X-API-Key invalida o ausente",

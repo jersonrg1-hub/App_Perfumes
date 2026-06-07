@@ -11,6 +11,7 @@ services:
     env: python
     region: oregon          # US-West — menor latencia a Perú desde Render free tier
     plan: free              # Free tier: 512 MB RAM, spin-down tras 15 min inactivo
+    pythonVersion: "3.12.4" # Fijar versión exacta — evita sorpresas si Render actualiza default
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health

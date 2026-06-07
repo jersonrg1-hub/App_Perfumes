@@ -54,7 +54,7 @@ class VentasRepository {
   Future<List<VentaResponse>> getPendientes() async {
     try {
       final res = await _dio.get<List<dynamic>>(
-        '${ApiConstants.ventas}pendientes',
+        ApiConstants.ventasPendientes,
         options: _cache.noCache,
       );
       return res.data!

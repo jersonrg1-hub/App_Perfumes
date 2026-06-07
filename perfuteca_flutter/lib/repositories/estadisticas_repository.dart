@@ -21,7 +21,7 @@ class EstadisticasRepository {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
         ApiConstants.estadisticasResumen,
-        options: _cache.cacheFor(const Duration(minutes: 5)),
+        options: _cache.cacheFor(const Duration(minutes: 2)),
       );
       return res.data!;
     } on DioException catch (e) {

@@ -149,7 +149,7 @@ class VentaRequest(BaseModel):
     )
     direccion: str = Field(..., min_length=1)
     distrito: Optional[str] = None
-    tipo_envio: str = Field(..., description="Shalom | Motorizado | Contraentrega")
+    tipo_envio: str = Field(..., description="Shalom | Motorizado")
     fecha: str = Field(..., description="Fecha ISO: YYYY-MM-DD")
     items: list[ItemCestaAPI] = Field(..., min_length=1)
 

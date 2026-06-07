@@ -68,7 +68,7 @@ Start Command: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT --worker
 
 ```python
 METODOS_PAGO         = ["Yape", "Plin", "Transferencia", "Tarjeta"]
-TIPOS_ENVIO          = ["Shalom", "Motorizado", "Contraentrega"]
+TIPOS_ENVIO          = ["Shalom", "Motorizado"]
 ML_OPCIONES          = [2, 5, 10]
 ML_BASE_DISPENSACION = {2: 2.2, 5: 5.1}    # ml reales dispensados pre-merma
 STOCK_CRITICO        = 10   # ml — badge rojo

@@ -37,7 +37,7 @@ ML_OPCIONES: list[int] = [int(k.replace(" ml", "")) for k in PRECIOS_COLUMNAS]
 
 METODOS_PAGO: list[str] = ["Yape", "Plin", "Transferencia", "Tarjeta"]
 
-TIPOS_ENVIO: list[str] = ["Shalom", "Motorizado", "Contraentrega"]
+TIPOS_ENVIO: list[str] = ["Shalom", "Motorizado"]
 
 # ── Columnas de hojas de cálculo ──────────────────────────────────────────────
 

@@ -21,8 +21,8 @@ class AppConfigModel with _$AppConfigModel {
     mlOpciones:     [2, 5, 10],
     metodosPago:    ['Yape', 'Plin', 'Transferencia', 'Tarjeta'],
     tiposEnvio:     ['Shalom', 'Motorizado', 'Contraentrega'],
-    stockCriticoMl: 5,
-    stockBajoMl:    15,
+    stockCriticoMl: 10,
+    stockBajoMl:    20,
     version:        '—',
   );
 }

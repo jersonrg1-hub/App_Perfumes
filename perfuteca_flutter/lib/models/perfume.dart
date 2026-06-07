@@ -35,6 +35,6 @@ extension PerfumeX on Perfume {
   };
 
   bool get tieneStock   => (stockMl ?? 0) > 0;
-  bool get stockCritico => (stockMl ?? 0) <= 5  && tieneStock;
-  bool get stockBajo    => (stockMl ?? 0) <= 15 && tieneStock && !stockCritico;
+  bool get stockCritico => (stockMl ?? 0) <= 10 && tieneStock;
+  bool get stockBajo    => (stockMl ?? 0) <= 20 && tieneStock && !stockCritico;
 }

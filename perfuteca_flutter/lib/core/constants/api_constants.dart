@@ -4,8 +4,10 @@ abstract class ApiConstants {
   static const String catalogoMarcas = '/api/v1/catalogo/marcas';
   static const String ventas        = '/api/v1/ventas/';
   static const String cotizaciones  = '/api/v1/cotizaciones/';
-  static const String estadisticasResumen = '/api/v1/estadisticas/resumen';
-  static const String config        = '/api/v1/config';
+  static const String estadisticasResumen  = '/api/v1/estadisticas/resumen';
+  static const String estadisticasClientes = '/api/v1/estadisticas/clientes';
+  static const String ventasPendientes     = '/api/v1/ventas/pendientes';
+  static const String config               = '/api/v1/config';
   static const String health        = '/health';
 
   static String catalogoDetalle(String id) => '/api/v1/catalogo/$id';

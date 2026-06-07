@@ -62,7 +62,7 @@ class _NuevaCotizacionScreenState
 
     return Column(
       children: [
-        // G: step indicator con info contextual de pasos completados
+        // step indicator con info contextual de pasos completados
         _StepIndicator(
           paso:       state.paso,
           onTapPaso:  _irA,
@@ -170,7 +170,7 @@ class _Dot extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedContainer(
-                duration: _kNormal, // H: 250→220ms
+                duration: _kNormal
                 width:  actual ? 30 : 24,
                 height: actual ? 30 : 24,
                 decoration: BoxDecoration(
@@ -202,7 +202,7 @@ class _Dot extends StatelessWidget {
                   fontWeight: actual ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
-              // G: sublabel con info de paso completado
+              // sublabel con info de paso completado
               AnimatedSwitcher(
                 duration: _kNormal,
                 child: sublabel != null
@@ -212,7 +212,7 @@ class _Dot extends StatelessWidget {
                         style: AppTextStyles.priceLabel.copyWith(
                           color: AppColors.primary,
                           fontWeight: FontWeight.w700,
-                          fontSize: 9,
+                          fontSize: 11,
                         ),
                         overflow: TextOverflow.ellipsis,
                       )
@@ -337,6 +337,10 @@ class _Paso1State extends ConsumerState<_Paso1> {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 borderSide: const BorderSide(color: AppColors.primaryLight),
               ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              ),
             ),
             onChanged: (v) => _onCelularChanged(v, notifier),
           ),
@@ -394,7 +398,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
 
     return Column(
       children: [
-        // A: _CestaPanel con estado controlado desde aquí
+        // _CestaPanel con estado controlado desde aquí
         if (state.cesta.isNotEmpty)
           _CestaPanel(
             cesta:    state.cesta,
@@ -411,7 +415,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
             decoration: InputDecoration(
               hintText: 'Buscar perfume o marca...',
               prefixIcon: const Icon(Icons.search_rounded, size: 18),
-              // C: solo la X del campo, sin "Limpiar" redundante
+              // solo la X del campo, sin "Limpiar" redundante
               suffixIcon: _filtro.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear_rounded, size: 18),
@@ -429,12 +433,16 @@ class _Paso2State extends ConsumerState<_Paso2> {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 borderSide: BorderSide.none,
               ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              ),
             ),
             onChanged: (v) => setState(() => _filtro = v),
           ),
         ),
 
-        // C: contador sin "Limpiar" duplicado
+        // contador sin "Limpiar" duplicado
         if (!catalogoState.isLoading)
           Padding(
             padding: const EdgeInsets.symmetric(
@@ -561,7 +569,7 @@ class _PerfumeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: _kNormal, // H: 200→220ms
+      duration: _kNormal
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm),
@@ -605,31 +613,36 @@ class _PerfumeRow extends StatelessWidget {
 
           // Chip en cesta o botones ml (B: Wrap para responsividad)
           if (itemEnCesta != null)
-            GestureDetector(
-              onTap: onQuitar,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.sm, vertical: 7),
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.check_rounded, size: 14, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${itemEnCesta!.ml}ml · S/${_fmtPrecio(itemEnCesta!.precio)}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              child: InkWell(
+                onTap: onQuitar,
+                splashColor: AppColors.primaryDark.withValues(alpha: 0.3),
+                highlightColor: AppColors.primaryDark.withValues(alpha: 0.15),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${itemEnCesta!.ml}ml · S/${_fmtPrecio(itemEnCesta!.precio)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(Icons.close_rounded, size: 12, color: Colors.white70),
-                  ],
+                      const SizedBox(width: 6),
+                      const Icon(Icons.close_rounded, size: 12, color: Colors.white70),
+                    ],
+                  ),
                 ),
               ),
             )
@@ -650,7 +663,7 @@ class _PerfumeRow extends StatelessWidget {
   }
 }
 
-// H: botón ml, animación 160ms (era 120ms)
+// botón ml, animación 160ms (era 120ms)
 class _MlBtn extends StatefulWidget {
   const _MlBtn({
     required this.ml,
@@ -725,7 +738,7 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
                     'S/${_fmtPrecio(widget.precio)}',
                     style: const TextStyle(
                       color: Colors.white70,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -829,25 +842,30 @@ class _Paso3 extends ConsumerWidget {
           const SizedBox(height: AppSpacing.sm),
 
           // Toggle delivery
-          GestureDetector(
-            onTap: notifier.toggleDelivery,
-            child: AnimatedContainer(
-              duration: _kNormal,
-              padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-              decoration: BoxDecoration(
+          AnimatedContainer(
+            duration: _kNormal,
+            decoration: BoxDecoration(
+              color: state.conDelivery
+                  ? AppColors.primaryPale
+                  : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
                 color: state.conDelivery
-                    ? AppColors.primaryPale
-                    : AppColors.surface,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                border: Border.all(
-                  color: state.conDelivery
-                      ? AppColors.primary
-                      : AppColors.primaryLight,
-                  width: state.conDelivery ? 1.5 : 1,
-                ),
+                    ? AppColors.primary
+                    : AppColors.primaryLight,
+                width: state.conDelivery ? 1.5 : 1,
               ),
-              child: Row(
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd - 1),
+              child: InkWell(
+                onTap: notifier.toggleDelivery,
+                splashColor: AppColors.primaryLight,
+                highlightColor: AppColors.primaryPale.withValues(alpha: 0.5),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  child: Row(
                 children: [
                   Icon(
                     Icons.delivery_dining_rounded,
@@ -885,9 +903,11 @@ class _Paso3 extends ConsumerWidget {
                     activeTrackColor: AppColors.primaryLight,
                   ),
                 ],
-              ),
-            ),
-          ),
+                  ),     // Row
+                ),       // Padding
+              ),         // InkWell
+            ),           // ClipRRect
+          ),             // AnimatedContainer
 
           const SizedBox(height: AppSpacing.sm),
 
@@ -1146,8 +1166,8 @@ class _TicketExitoState extends State<_TicketExito>
                 icon: const Icon(Icons.send_rounded, size: 18),
                 label: const Text('Enviar por WhatsApp'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF25D366),
-                  side: const BorderSide(color: Color(0xFF25D366)),
+                  foregroundColor: AppColors.whatsapp,
+                  side: const BorderSide(color: AppColors.whatsapp),
                   padding:
                       const EdgeInsets.symmetric(vertical: AppSpacing.md),
                 ),
@@ -1258,7 +1278,7 @@ class _CestaPanelState extends State<_CestaPanel> {
                           child: Text(
                             '${e.value.ml}ml',
                             style: const TextStyle(
-                              fontSize: 9,
+                              fontSize: 10,
                               fontWeight: FontWeight.w700,
                               color: AppColors.primaryDark,
                             ),
@@ -1324,7 +1344,7 @@ class _ReceiptCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFFFFFDF9),
+        color: AppColors.surface,
         boxShadow: [
           BoxShadow(color: Color(0x28000000), blurRadius: 20, offset: Offset(0, 6)),
           BoxShadow(color: Color(0x0F000000), blurRadius: 4,  offset: Offset(0, 2)),
@@ -1338,7 +1358,7 @@ class _ReceiptCard extends StatelessWidget {
                 AppSpacing.lg, AppSpacing.md, AppSpacing.lg, AppSpacing.sm),
             child: Column(
               children: [
-                // F: cabecera con icono + ID badge prominente con fondo primary
+                // cabecera con icono + ID badge prominente con fondo primary
                 Row(
                   children: [
                     const Row(
@@ -1358,7 +1378,7 @@ class _ReceiptCard extends StatelessWidget {
                       ],
                     ),
                     const Spacer(),
-                    // F: ID badge fondo primary, texto blanco — más visible
+                    // ID badge fondo primary, texto blanco — más visible
                     Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
@@ -1398,7 +1418,7 @@ class _ReceiptCard extends StatelessWidget {
                 const SizedBox(height: AppSpacing.sm),
                 const _DashedDivider(),
                 const SizedBox(height: AppSpacing.sm),
-                // F: items más compactos (bottom: 5 en vez de 8)
+                // items más compactos (bottom: 5 en vez de 8)
                 ...cesta.map((i) => Padding(
                   padding: const EdgeInsets.only(bottom: 5),
                   child: Row(
@@ -1458,7 +1478,7 @@ class _ReceiptCard extends StatelessWidget {
                   ),
                 const _DashedDivider(),
                 const SizedBox(height: AppSpacing.sm),
-                // F: total más impactante con alineación clara
+                // total más impactante con alineación clara
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -1466,7 +1486,7 @@ class _ReceiptCard extends StatelessWidget {
                     const Text(
                       'TOTAL',
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textMuted,
                         letterSpacing: 2,

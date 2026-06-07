@@ -1,9 +1,0 @@
-pandas
-gspread
-google-auth
-fpdf2
-pytz
-tenacity
-fastapi
-uvicorn[standard]
-cachetools

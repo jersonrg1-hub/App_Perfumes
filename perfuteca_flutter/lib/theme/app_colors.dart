@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Paleta de colores — espeja la paleta Streamlit del backend.
+/// Paleta de colores de Perfuteca — terracota cálido + dorado.
 abstract class AppColors {
   // Terracota (color primario)
   static const primary      = Color(0xFFC8956C);

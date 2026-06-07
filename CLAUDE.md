@@ -8,27 +8,25 @@ FastAPI + Google Sheets (`gspread`). Frontend Flutter en `../perfuteca_flutter/`
 pythonProject/
 ├── backend/
 │   ├── core/config.py              # Constantes, TZ Peru, helpers de formato
-│   ├── models/schemas.py           # TypedDicts: ItemCesta, DatosCliente
+│   ├── models/                     # solo __init__.py (TypedDicts migrados a Pydantic)
 │   ├── repositories/
 │   │   └── sheets_repository.py   # SheetsRepository — toda la lógica gspread
 │   ├── services/
-│   │   ├── venta_service.py        # filtrar_catalogo, construir_item, validar_paso_cliente
-│   │   ├── costos_service.py       # costo_total_item, MERMA_PCT, calcular_costo_ventas_df
-│   │   ├── auth_service.py         # verificar_contrasena, segundos_restantes
+│   │   ├── venta_service.py        # filtrar_catalogo, precio_catalogo
+│   │   ├── costos_service.py       # MERMA_PCT, calcular_costo_ventas_df
 │   │   ├── whatsapp_service.py     # generar_url_whatsapp()
 │   │   └── pdf_service.py          # exportar_pdf_ventas_*()
 │   ├── utils/
-│   │   ├── validators.py           # validar_dataframe(), validar_celular()
-│   │   └── formatters.py           # stock_badge_html, notas_pills_html, construir_catalogo_dict
+│   │   └── formatters.py           # construir_catalogo_dict, nombre_por_id
 │   └── api/
-│       ├── main.py                 # FastAPI app, CORS, logging middleware, lifespan
-│       ├── dependencies.py         # Singleton repo, TTLCache, auth X-API-Key, df_to_json
+│       ├── main.py                 # FastAPI app, CORS, GZip, logging, lifespan
+│       ├── dependencies.py         # Singleton repo, TTLCache x3, auth X-API-Key, df_to_json
 │       ├── models.py               # Pydantic: VentaRequest, CotizacionRequest, etc.
 │       └── routes/
-│           ├── catalogo.py         # GET /api/v1/catalogo/ — PÚBLICO
-│           ├── ventas.py           # GET/POST/PUT /api/v1/ventas/ — X-API-Key
-│           ├── cotizaciones.py     # GET/POST/PUT /api/v1/cotizaciones/ — X-API-Key
-│           └── estadisticas.py     # GET /api/v1/estadisticas/ — X-API-Key
+│           ├── catalogo.py         # GET /api/v1/catalogo/* — PÚBLICO
+│           ├── ventas.py           # GET/POST/PUT /api/v1/ventas/* — X-API-Key
+│           ├── cotizaciones.py     # GET/POST/PUT /api/v1/cotizaciones/* — X-API-Key
+│           └── estadisticas.py     # GET /api/v1/estadisticas/* — X-API-Key
 ├── imagenes/                        # Fotos de perfumes por marca
 ├── render.yaml                      # Config deploy Render
 ├── DEPLOY_RENDER.md                 # Pasos de deploy con troubleshooting
@@ -60,11 +58,6 @@ Catálogo es público (sin key).
 - `API_KEY` — clave para endpoints protegidos
 - `CORS_ORIGINS` — default `*`
 
-## Cache (TTLCache en `dependencies.py`)
-
-- Catálogo: TTL 30 min
-- Ventas: TTL 5 min (300 s) — se invalida inmediatamente al guardar/actualizar venta via app
-
 ## Deploy Render
 
 ```
@@ -74,12 +67,12 @@ Start Command: uvicorn backend.api.main:app --host 0.0.0.0 --port $PORT --worker
 ## Constantes clave (`backend/core/config.py`)
 
 ```python
-METODOS_PAGO  = ["Yape", "Plin", "Transferencia", "Tarjeta"]
-TIPOS_ENVIO   = ["Shalom", "Motorizado", "Contraentrega"]
-ML_OPCIONES          = [2, 5, 10]          # derivado de PRECIOS_COLUMNAS
-ML_BASE_DISPENSACION = {2: 2.2, 5: 5.1}    # ml reales dispensados pre-merma (2ml→2.2ml, 5ml→5.1ml)
-STOCK_CRITICO = 10   # ml — badge rojo
-STOCK_BAJO    = 20   # ml — badge amarillo
+METODOS_PAGO         = ["Yape", "Plin", "Transferencia", "Tarjeta"]
+TIPOS_ENVIO          = ["Shalom", "Motorizado", "Contraentrega"]
+ML_OPCIONES          = [2, 5, 10]
+ML_BASE_DISPENSACION = {2: 2.2, 5: 5.1}    # ml reales dispensados pre-merma
+STOCK_CRITICO        = 10   # ml — badge rojo
+STOCK_BAJO           = 20   # ml — badge amarillo
 TZ_PERU = pytz.timezone("America/Lima")
 ```
 
@@ -96,6 +89,9 @@ TZ_PERU = pytz.timezone("America/Lima")
 | GET | `/health` | NO | Health check con versión y timestamp |
 | GET | `/api/v1/config` | NO | Opciones app: ml_opciones, metodos_pago, tipos_envio, stock |
 | GET | `/api/v1/catalogo/` | NO | Catálogo paginado con image_url |
+| GET | `/api/v1/catalogo/marcas` | NO | Lista de marcas únicas |
+| GET | `/api/v1/catalogo/buscar` | NO | Buscar por texto/marca |
+| GET | `/api/v1/catalogo/{id}` | NO | Detalle de un perfume |
 | GET | `/api/v1/ventas/` | X-API-Key | Lista ventas paginada (limit/offset/estado) |
 | GET | `/api/v1/ventas/pendientes` | X-API-Key | Solo ventas con Estado=Pendiente |
 | GET | `/api/v1/ventas/cliente/{celular}` | X-API-Key | Historial + datos cliente para autocompletar |
@@ -103,17 +99,18 @@ TZ_PERU = pytz.timezone("America/Lima")
 | PUT | `/api/v1/ventas/{id}/estado` | X-API-Key | Cambiar estado (usa fila_sheet del GET) |
 | GET | `/api/v1/cotizaciones/` | X-API-Key | Lista cotizaciones paginada |
 | GET | `/api/v1/cotizaciones/cliente/{celular}` | X-API-Key | Cotizaciones de un cliente |
-| POST | `/api/v1/cotizaciones/` | X-API-Key | Guardar cotización |
+| POST | `/api/v1/cotizaciones/` | X-API-Key | Guardar cotización (invalida cache cotizaciones) |
 | PUT | `/api/v1/cotizaciones/{id}` | X-API-Key | Cambiar estado cotización |
 | GET | `/api/v1/estadisticas/resumen` | X-API-Key | Métricas pre-agregadas (hoy, mes, semana, top perfumes) |
+| GET | `/api/v1/estadisticas/clientes` | X-API-Key | Clientes agrupados con métricas, paginado |
 
-## Cache
+## Cache (`dependencies.py` + `estadisticas.py`)
 
-- Catálogo: TTL 30 min (`dependencies.py`)
+- Catálogo: TTL 30 min — invalida al registrar venta (stock cambia)
 - Ventas: TTL 5 min (300 s) — invalida inmediato al POST/PUT venta via app
-- Cotizaciones: TTL 5 min (300 s) — invalida inmediato al POST/PUT cotización via app; PUT usa `repo.fetch_quotes()` fresco para fila_sheet exacto
-- Stats (`estadisticas.py`): TTL 5 min — caché local propio, invalida junto con ventas
+- Cotizaciones: TTL 5 min (300 s) — invalida inmediato al POST/PUT cotización; PUT usa `repo.fetch_quotes()` fresco para fila_sheet exacto
+- Stats + Clientes (`estadisticas.py`): TTL 5 min — caché propio, invalida junto con ventas
 
 ## Stack
 
-FastAPI + uvicorn · gspread + google-auth · fpdf2 · pytz(`America/Lima`) · tenacity
+FastAPI + uvicorn · gspread + google-auth · fpdf2 · pytz(`America/Lima`) · tenacity · cachetools

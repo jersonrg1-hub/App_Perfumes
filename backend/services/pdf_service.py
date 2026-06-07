@@ -1,16 +1,12 @@
 """
 backend/services/pdf_service.py — Generación de PDFs de ventas.
 
-Sin dependencias de Streamlit. Puede reutilizarse desde FastAPI para
-servir PDFs como respuesta de endpoint (Response con media_type="application/pdf").
-
-Fuente de verdad: extraído de pdf_generator.py.
-El pdf_generator.py raíz es un shim de compatibilidad que re-exporta desde aquí.
+Puede reutilizarse desde FastAPI como endpoint:
+    Response(content=pdf_bytes, media_type="application/pdf")
 """
 from fpdf import FPDF
 import pandas as pd
-from datetime import date
-from backend.core.config import fmt_precio
+from backend.core.config import fmt_precio, hoy_peru
 
 MESES_ES = [
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
@@ -141,7 +137,7 @@ def _construir_pdf(
 
 
 def exportar_pdf_ventas_hoy(df_ventas: pd.DataFrame, df_catalogo: pd.DataFrame) -> bytes | None:
-    hoy = date.today()
+    hoy = hoy_peru()
     df = df_ventas.copy()
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     filtrado = df[df["Fecha"].dt.date == hoy]
@@ -153,7 +149,7 @@ def exportar_pdf_ventas_hoy(df_ventas: pd.DataFrame, df_catalogo: pd.DataFrame) 
 
 
 def exportar_pdf_ventas_mes(df_ventas: pd.DataFrame, df_catalogo: pd.DataFrame) -> bytes | None:
-    hoy = date.today()
+    hoy = hoy_peru()
     df = df_ventas.copy()
     df["Fecha"] = pd.to_datetime(df["Fecha"], errors="coerce")
     filtrado = df[

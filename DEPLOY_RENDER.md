@@ -99,7 +99,7 @@ En Render → tu servicio → **Environment** → **Add Environment Variable**:
 curl https://perfuteca-api.onrender.com/health
 
 # Respuesta esperada:
-# {"status":"ok","version":"0.1.0"}
+# {"status":"ok","version":"0.2.0"}
 
 # Catálogo (sin API Key, endpoint público)
 curl https://perfuteca-api.onrender.com/api/v1/catalogo/

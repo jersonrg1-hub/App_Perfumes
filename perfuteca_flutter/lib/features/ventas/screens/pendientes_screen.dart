@@ -52,15 +52,102 @@ List<_Orden> _agrupar(List<VentaResponse> ventas) {
 
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 
-class PendientesScreen extends ConsumerWidget {
+class PendientesScreen extends ConsumerStatefulWidget {
   const PendientesScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async      = ref.watch(pendientesProvider);
-    final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
+  ConsumerState<PendientesScreen> createState() => _PendientesScreenState();
+}
 
-    final removidos = ref.watch(_pendientesRemovidosProvider);
+class _PendientesScreenState extends ConsumerState<PendientesScreen> {
+  Set<String>  _seleccionados   = {};
+
+  bool get _modoSeleccion => _seleccionados.isNotEmpty;
+
+  void _iniciarSeleccion(String idCompra) {
+    setState(() => _seleccionados = {idCompra});
+  }
+
+  void _toggleSeleccion(String idCompra) {
+    setState(() {
+      if (_seleccionados.contains(idCompra)) {
+        _seleccionados = Set.from(_seleccionados)..remove(idCompra);
+      } else {
+        _seleccionados = {..._seleccionados, idCompra};
+      }
+    });
+  }
+
+  void _cancelarSeleccion() {
+    setState(() => _seleccionados = {});
+  }
+
+  Future<void> _marcarSeleccionadosEntregados() async {
+    final seleccionados = Set<String>.from(_seleccionados);
+
+    // Derivar ordenes desde el provider — evita captura de estado stale
+    final ventas   = ref.read(pendientesProvider).valueOrNull ?? [];
+    final removidos = ref.read(_pendientesRemovidosProvider);
+    final ordenes  = _agrupar(ventas)
+        .where((o) =>
+            seleccionados.contains(o.idCompra) &&
+            !removidos.contains(o.idCompra))
+        .toList();
+
+    if (ordenes.isEmpty) return;
+
+    _cancelarSeleccion();
+
+    // Optimista: ocultar inmediatamente
+    ref
+        .read(_pendientesRemovidosProvider.notifier)
+        .update((s) => {...s, ...seleccionados});
+
+    try {
+      await Future.wait(
+        ordenes.map(
+          (orden) => ref.read(estadoVentaProvider.notifier).actualizar(
+                idVenta:     orden.idCompra,
+                nuevoEstado: 'Entregado',
+                filasSheet:  orden.filas,
+              ),
+        ),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${seleccionados.length} pedido${seleccionados.length != 1 ? "s" : ""} '
+              'marcado${seleccionados.length != 1 ? "s" : ""} como entregado${seleccionados.length != 1 ? "s" : ""}',
+            ),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (_) {
+      // Restaurar items que fallaron
+      ref
+          .read(_pendientesRemovidosProvider.notifier)
+          .update((s) => s.difference(seleccionados));
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al actualizar. Intenta de nuevo.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final async       = ref.watch(pendientesProvider);
+    final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
+    final removidos   = ref.watch(_pendientesRemovidosProvider);
 
     return async.when(
       loading: () => const _PendientesShimmer(),
@@ -77,12 +164,39 @@ class PendientesScreen extends ConsumerWidget {
           ref.invalidate(pendientesProvider);
           await ref.read(pendientesProvider.future);
         }
+
         final ordenes = _agrupar(ventas)
             .where((o) => !removidos.contains(o.idCompra))
             .toList();
-        return ordenes.isEmpty
-            ? RefreshIndicator(onRefresh: onRefresh, child: const _EmptyView())
-            : _ListaOrdenes(ordenes: ordenes, perfumesMap: perfumesMap, onRefresh: onRefresh);
+
+        if (ordenes.isEmpty) {
+          return RefreshIndicator(
+              onRefresh: onRefresh, child: const _EmptyView());
+        }
+
+        return Stack(
+          children: [
+            _ListaOrdenes(
+              ordenes:       ordenes,
+              perfumesMap:   perfumesMap,
+              onRefresh:     onRefresh,
+              seleccionados: _seleccionados,
+              onLongPress:   _iniciarSeleccion,
+              onToggle:      _toggleSeleccion,
+            ),
+            if (_modoSeleccion)
+              Positioned(
+                bottom: AppSpacing.lg,
+                left:   AppSpacing.lg,
+                right:  AppSpacing.lg,
+                child: _BarraSeleccion(
+                  count:      _seleccionados.length,
+                  onEntregar: _marcarSeleccionadosEntregados,
+                  onCancelar: _cancelarSeleccion,
+                ),
+              ),
+          ],
+        );
       },
     );
   }
@@ -95,10 +209,16 @@ class _ListaOrdenes extends StatelessWidget {
     required this.ordenes,
     required this.perfumesMap,
     required this.onRefresh,
+    required this.seleccionados,
+    required this.onLongPress,
+    required this.onToggle,
   });
   final List<_Orden>            ordenes;
   final Map<String, Perfume>    perfumesMap;
   final Future<void> Function() onRefresh;
+  final Set<String>             seleccionados;
+  final void Function(String)   onLongPress;
+  final void Function(String)   onToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -118,7 +238,14 @@ class _ListaOrdenes extends StatelessWidget {
               itemCount: ordenes.length,
               itemBuilder: (_, i) => _AnimatedListItem(
                 index: i,
-                child: _OrdenCard(orden: ordenes[i], perfumesMap: perfumesMap),
+                child: _OrdenCard(
+                  orden:          ordenes[i],
+                  perfumesMap:    perfumesMap,
+                  seleccionado:   seleccionados.contains(ordenes[i].idCompra),
+                  modoSeleccion:  seleccionados.isNotEmpty,
+                  onLongPress:    () => onLongPress(ordenes[i].idCompra),
+                  onTapSeleccion: () => onToggle(ordenes[i].idCompra),
+                ),
               ),
             ),
           ),
@@ -177,9 +304,20 @@ class _ResumenBanner extends StatelessWidget {
 // ── Tarjeta de orden agrupada ─────────────────────────────────────────────────
 
 class _OrdenCard extends ConsumerStatefulWidget {
-  const _OrdenCard({required this.orden, required this.perfumesMap});
+  const _OrdenCard({
+    required this.orden,
+    required this.perfumesMap,
+    required this.seleccionado,
+    required this.modoSeleccion,
+    required this.onLongPress,
+    required this.onTapSeleccion,
+  });
   final _Orden               orden;
   final Map<String, Perfume> perfumesMap;
+  final bool                 seleccionado;
+  final bool                 modoSeleccion;
+  final VoidCallback         onLongPress;
+  final VoidCallback         onTapSeleccion;
 
   @override
   ConsumerState<_OrdenCard> createState() => _OrdenCardState();
@@ -318,259 +456,295 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
   Widget build(BuildContext context) {
     final orden = widget.orden;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.primaryLight),
-        boxShadow: const [
-          BoxShadow(
-              color: AppColors.shadowColor,
-              blurRadius: 4,
-              offset: Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return GestureDetector(
+      onLongPress: widget.onLongPress,
+      onTap: widget.modoSeleccion ? widget.onTapSeleccion : null,
+      child: Stack(
         children: [
-          // ── Header ────────────────────────────────────────────────────
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-            decoration: const BoxDecoration(
-              color: AppColors.primaryPale,
-              borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppSpacing.radiusMd)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '#${orden.idCompra}',
-                            style: AppTextStyles.priceLabel.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryLight,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${orden.items.length} ítem${orden.items.length != 1 ? 's' : ''}',
-                              style: AppTextStyles.priceLabel.copyWith(
-                                  color: AppColors.primaryDark),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        orden.comprador ?? '—',
-                        style: AppTextStyles.body.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (orden.celular != null)
-                        Text(orden.celular!,
-                            style: AppTextStyles.bodySmall),
-                    if (orden.fecha != null) ...[
-                      const SizedBox(height: 3),
-                      _FechaAgeBadge(fecha: orden.fecha!),
-                    ],
-                    ],
-                  ),
-                ),
-                Text(
-                  'S/ ${orden.total.toStringAsFixed(2)}',
-                  style: AppTextStyles.price.copyWith(
-                    fontSize: 20,
-                    color: AppColors.primaryDark,
-                  ),
-                ),
+            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            decoration: BoxDecoration(
+              color: widget.seleccionado
+                  ? AppColors.primaryPale
+                  : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: widget.seleccionado
+                    ? AppColors.primary
+                    : AppColors.primaryLight,
+                width: widget.seleccionado ? 2 : 1,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                    color: AppColors.shadowColor,
+                    blurRadius: 4,
+                    offset: Offset(0, 2)),
               ],
             ),
-          ),
-
-          // ── Lista de ítems ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
             child: Column(
-              children: orden.items.map((item) {
-                final normId = item.idPerfume != null
-                    ? (double.tryParse(item.idPerfume!)?.toInt().toString()
-                        ?? item.idPerfume!)
-                    : null;
-                final perfume = normId != null
-                    ? widget.perfumesMap[normId]
-                    : null;
-                final nombre = perfume != null
-                    ? '${perfume.nombre} (${perfume.marca})'
-                    : (item.idPerfume != null
-                        ? 'Perfume #${item.idPerfume}'
-                        : '—');
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Header ──────────────────────────────────────────
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primaryPale,
+                    borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(AppSpacing.radiusMd)),
+                  ),
                   child: Row(
                     children: [
-                      Container(
-                        width: 6, height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: Text(
-                          '$nombre  ·  ${item.mlVendido ?? '?'} ml',
-                          style: AppTextStyles.body.copyWith(
-                              color: AppColors.textSecondary),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  '#${orden.idCompra}',
+                                  style: AppTextStyles.priceLabel.copyWith(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.sm),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryLight,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    '${orden.items.length} ítem${orden.items.length != 1 ? 's' : ''}',
+                                    style: AppTextStyles.priceLabel.copyWith(
+                                        color: AppColors.primaryDark),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.xs),
+                            Text(
+                              orden.comprador ?? '—',
+                              style: AppTextStyles.body.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (orden.celular != null)
+                              Text(orden.celular!,
+                                  style: AppTextStyles.bodySmall),
+                            if (orden.fecha != null) ...[
+                              const SizedBox(height: 3),
+                              _FechaAgeBadge(fecha: orden.fecha!),
+                            ],
+                          ],
                         ),
                       ),
                       Text(
-                        'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
-                        style: AppTextStyles.body.copyWith(
-                          fontWeight: FontWeight.w600,
+                        'S/ ${orden.total.toStringAsFixed(2)}',
+                        style: AppTextStyles.price.copyWith(
+                          fontSize: 20,
                           color: AppColors.primaryDark,
                         ),
                       ),
                     ],
                   ),
-                );
-              }).toList(),
-            ),
-          ),
-
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Divider(height: AppSpacing.md),
-          ),
-
-          // ── Info logística ────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    _InfoChip(
-                      icon: Icons.local_shipping_outlined,
-                      label: orden.tipoEnvio ?? '—',
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    _InfoChip(
-                      icon: Icons.payment_outlined,
-                      label: orden.metodoPago ?? '—',
-                      color: AppColors.goldLight,
-                      textColor: AppColors.gold,
-                    ),
-                  ],
                 ),
-                const SizedBox(height: AppSpacing.xs + 2),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_outlined,
-                        size: 13, color: AppColors.textMuted),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        orden.direccion ?? '—',
-                        style: AppTextStyles.bodySmall,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                if (orden.distrito?.trim().isNotEmpty == true) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Row(
-                    children: [
-                      const Icon(Icons.map_outlined,
-                          size: 13, color: AppColors.textMuted),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          orden.distrito!,
-                          style: AppTextStyles.bodySmall,
+
+                // ── Lista de ítems ────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
+                  child: Column(
+                    children: orden.items.map((item) {
+                      final normId = item.idPerfume != null
+                          ? (double.tryParse(item.idPerfume!)?.toInt().toString()
+                              ?? item.idPerfume!)
+                          : null;
+                      final perfume = normId != null
+                          ? widget.perfumesMap[normId]
+                          : null;
+                      final nombre = perfume != null
+                          ? '${perfume.nombre} (${perfume.marca})'
+                          : (item.idPerfume != null
+                              ? 'Perfume #${item.idPerfume}'
+                              : '—');
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 6, height: 6,
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                '$nombre  ·  ${item.mlVendido ?? '?'} ml',
+                                style: AppTextStyles.body.copyWith(
+                                    color: AppColors.textSecondary),
+                              ),
+                            ),
+                            Text(
+                              'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
+                              style: AppTextStyles.body.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryDark,
+                              ),
+                            ),
+                          ],
                         ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: Divider(height: AppSpacing.md),
+                ),
+
+                // ── Info logística ────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          _InfoChip(
+                            icon: Icons.local_shipping_outlined,
+                            label: orden.tipoEnvio ?? '—',
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          _InfoChip(
+                            icon: Icons.payment_outlined,
+                            label: orden.metodoPago ?? '—',
+                            color: AppColors.goldLight,
+                            textColor: AppColors.gold,
+                          ),
+                        ],
                       ),
+                      const SizedBox(height: AppSpacing.xs + 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined,
+                              size: 13, color: AppColors.textMuted),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              orden.direccion ?? '—',
+                              style: AppTextStyles.bodySmall,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (orden.distrito?.trim().isNotEmpty == true) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Row(
+                          children: [
+                            const Icon(Icons.map_outlined,
+                                size: 13, color: AppColors.textMuted),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                orden.distrito!,
+                                style: AppTextStyles.bodySmall,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                ],
+                ),
+
+                // ── Acciones (ocultas en modo selección) ──────────
+                if (!widget.modoSeleccion)
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    child: Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _enviarComunidad,
+                            icon: const Icon(Icons.groups_rounded, size: 16),
+                            label: const Text('Enviar pedido a comunidad'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.whatsappDark,
+                              side: const BorderSide(
+                                  color: AppColors.whatsappDark),
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: AppSpacing.md),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Row(
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: _confirmarAnular,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.error,
+                                side: const BorderSide(color: AppColors.error),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpacing.md,
+                                    vertical: AppSpacing.md),
+                              ),
+                              icon: const Icon(Icons.cancel_outlined, size: 16),
+                              label: const Text('Anular'),
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: _confirmarEntregado,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: AppSpacing.md),
+                                ),
+                                icon: const Icon(
+                                    Icons.check_circle_outline_rounded,
+                                    size: 16),
+                                label: const Text('Marcar entregado'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
 
-          // ── Acciones ──────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _enviarComunidad,
-                    icon: const Icon(Icons.groups_rounded, size: 16),
-                    label: const Text('Enviar pedido a comunidad'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.whatsappDark,
-                      side: const BorderSide(color: AppColors.whatsappDark),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: AppSpacing.md),
-                    ),
-                  ),
+          // Checkbox de selección
+          if (widget.seleccionado)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _confirmarAnular,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: const BorderSide(color: AppColors.error),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.md),
-                      ),
-                      icon: const Icon(Icons.cancel_outlined, size: 16),
-                      label: const Text('Anular'),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _confirmarEntregado,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.success,
-                          padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.md),
-                        ),
-                        icon: const Icon(
-                            Icons.check_circle_outline_rounded,
-                            size: 16),
-                        label: const Text('Marcar entregado'),
-                      ),
-                    ),
-                  ],
+                padding: const EdgeInsets.all(2),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 16,
                 ),
-              ],
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -725,6 +899,68 @@ class _ErrorView extends StatelessWidget {
           ),
         ),
       );
+}
+
+// ── Barra flotante de selección múltiple ──────────────────────────────────────
+
+class _BarraSeleccion extends StatelessWidget {
+  const _BarraSeleccion({
+    required this.count,
+    required this.onEntregar,
+    required this.onCancelar,
+  });
+  final int          count;
+  final VoidCallback onEntregar;
+  final VoidCallback onCancelar;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      border: Border.all(color: AppColors.primaryLight),
+      boxShadow: const [
+        BoxShadow(
+          color: AppColors.shadowColor,
+          blurRadius: 12,
+          offset: Offset(0, -2),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        IconButton(
+          onPressed: onCancelar,
+          icon: const Icon(Icons.close_rounded),
+          color: AppColors.textMuted,
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            '$count seleccionado${count != 1 ? "s" : ""}',
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ),
+        FilledButton.icon(
+          onPressed: onEntregar,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.success,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+          ),
+          icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+          label: Text('Entregar ($count)'),
+        ),
+      ],
+    ),
+  );
 }
 
 // ── Animación de entrada staggered ────────────────────────────────────────────

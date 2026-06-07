@@ -20,7 +20,7 @@ final _ventasNavKey       = GlobalKey<NavigatorState>(debugLabel: 'ventas');
 final _notasNavKey        = GlobalKey<NavigatorState>(debugLabel: 'notas');
 final _estadisticasNavKey = GlobalKey<NavigatorState>(debugLabel: 'estadisticas');
 
-// ── C: Transición fade + slide suave para rutas sobre el root navigator ───────
+// ── Transición fade + slide suave para rutas sobre el root navigator ──────────
 Page<T> _fadeSlidePage<T>(GoRouterState state, Widget child) =>
     CustomTransitionPage<T>(
       key:   state.pageKey,
@@ -111,7 +111,7 @@ class PerfutecaApp extends StatelessWidget {
   );
 }
 
-// ── D: Shell con NavigationBar mejorada (sombra superior + altura) ────────────
+// ── Shell con NavigationBar (sombra superior) ─────────────────────────────────
 class _Shell extends ConsumerStatefulWidget {
   const _Shell({required this.shell});
   final StatefulNavigationShell shell;

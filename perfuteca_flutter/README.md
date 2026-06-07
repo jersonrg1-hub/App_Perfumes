@@ -1,17 +1,19 @@
-# perfuteca
+# Perfuteca Flutter
 
-A new Flutter project.
+App móvil de gestión de perfumería. Conectada a [FastAPI en Render](../pythonProject/).
 
-## Getting Started
+## Features
 
-This project is a starting point for a Flutter application.
+- **Catálogo** — búsqueda por nombre, marca y notas olfativas
+- **Ventas** — registro de ventas, pedidos pendientes, historial
+- **Cotizaciones** — generar y gestionar cotizaciones por WhatsApp
+- **Estadísticas** — dashboard con métricas diarias, semanales y mensuales
+- **Clientes** — historial por cliente con datos de entrega
 
-A few resources to get you started if this is your first Flutter project:
+## Stack
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Flutter 3 · Riverpod · Dio · Freezed · go_router · Material 3
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Setup
+
+Ver [SETUP.md](SETUP.md).

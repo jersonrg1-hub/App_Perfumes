@@ -66,6 +66,13 @@ class _ResumenBody extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
+        // ── Strip compacto de hoy ─────────────────────────────────────────────
+        _HoyStrip(
+          total:      s.totalHoy,
+          ordenes:    s.ventasHoy,
+          pendientes: s.pendientesCount,
+        ),
+
         // ── Hoy — primero, es lo que más importa ─────────────────────────────
         _SeccionLabel('Hoy · ${_diaLabel(now)}', icono: Icons.wb_sunny_rounded),
         const SizedBox(height: AppSpacing.sm),
@@ -1234,6 +1241,101 @@ class _TamaniosChips extends StatelessWidget {
       }).toList(),
     );
   }
+}
+
+// ── Strip compacto con métricas de hoy ────────────────────────────────────────
+
+class _HoyStrip extends StatelessWidget {
+  const _HoyStrip({
+    required this.total,
+    required this.ordenes,
+    required this.pendientes,
+  });
+  final double total;
+  final int    ordenes;
+  final int    pendientes;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+    decoration: BoxDecoration(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      border: Border.all(color: AppColors.primaryLight),
+      boxShadow: const [
+        BoxShadow(
+          color:      AppColors.shadowColor,
+          blurRadius: 4,
+          offset:     Offset(0, 2),
+        ),
+      ],
+    ),
+    child: Row(
+      children: [
+        _StripMetric(
+          label: 'HOY',
+          valor: 'S/ ${total.toStringAsFixed(0)}',
+          color: AppColors.primaryDark,
+        ),
+        _StripDivider(),
+        _StripMetric(
+          label: 'ÓRDENES',
+          valor: '$ordenes',
+          color: AppColors.textPrimary,
+        ),
+        _StripDivider(),
+        _StripMetric(
+          label: 'PENDIENTES',
+          valor: '$pendientes',
+          color: pendientes > 0 ? AppColors.warning : AppColors.stockOk,
+        ),
+      ],
+    ),
+  );
+}
+
+class _StripMetric extends StatelessWidget {
+  const _StripMetric({
+    required this.label,
+    required this.valor,
+    required this.color,
+  });
+  final String label;
+  final String valor;
+  final Color  color;
+
+  @override
+  Widget build(BuildContext context) => Expanded(
+    child: Column(
+      children: [
+        Text(
+          valor,
+          style: AppTextStyles.price.copyWith(
+            fontSize: 16,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: AppTextStyles.priceLabel.copyWith(fontSize: 9),
+        ),
+      ],
+    ),
+  );
+}
+
+class _StripDivider extends StatelessWidget {
+  const _StripDivider();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 1,
+    height: 28,
+    color: AppColors.primaryLight,
+    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+  );
 }
 
 // ── Skeleton de carga ─────────────────────────────────────────────────────────

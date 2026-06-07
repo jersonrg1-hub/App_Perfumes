@@ -82,8 +82,8 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
             .reset_index()
         )
         tamanios = [
-            {"ml": int(r["Ml_Vendido"]), "cantidad": int(r["cantidad"]), "total": float(r["total"])}
-            for _, r in tam_group.iterrows()
+            {"ml": int(r.Ml_Vendido), "cantidad": int(r.cantidad), "total": float(r.total)}
+            for r in tam_group.itertuples(index=False)
         ]
 
     # Top perfumes del mes
@@ -102,12 +102,12 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
         )
         top_perfumes = [
             {
-                "id_perfume": str(r["ID_Perfume"]),
-                "total_ml": int(r["total_ml"]),
-                "total_soles": float(r["total_soles"]),
-                "cantidad": int(r["cantidad"]),
+                "id_perfume": str(r.ID_Perfume),
+                "total_ml": int(r.total_ml),
+                "total_soles": float(r.total_soles),
+                "cantidad": int(r.cantidad),
             }
-            for _, r in top_group.iterrows()
+            for r in top_group.itertuples(index=False)
         ]
 
     # Clientes top del mes
@@ -124,12 +124,8 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
             .reset_index()
         )
         clientes_top = [
-            {
-                "celular": str(r["Celular"]),
-                "ordenes": int(r["ordenes"]),
-                "total": float(r["total"]),
-            }
-            for _, r in cli_group.iterrows()
+            {"celular": str(r.Celular), "ordenes": int(r.ordenes), "total": float(r.total)}
+            for r in cli_group.itertuples(index=False)
         ]
 
     sem_total_ant = float(sem_ant_df["Precio_Cobrado"].sum()) if "Precio_Cobrado" in sem_ant_df.columns else 0.0
@@ -231,27 +227,38 @@ def _compute_clientes(df: pd.DataFrame) -> List[dict]:
     if df.empty:
         return []
 
-    entregadas = df[df["Estado"] == "Entregado"].copy()
-    todas      = df.copy()
+    entregadas = df[df["Estado"] == "Entregado"]
+    # Pre-agrupar entregadas por celular una sola vez — evita O(n_clientes × n_ventas)
+    ent_por_cel = {cel: g for cel, g in entregadas.groupby("Celular")} if not entregadas.empty else {}
 
     clientes = []
-    for celular, group in todas.groupby("Celular"):
+    for celular, group in df.groupby("Celular"):
         if not celular:
             continue
-        ent = entregadas[entregadas["Celular"] == celular]
+
+        ent = ent_por_cel.get(celular, pd.DataFrame())
         fechas = group["Fecha"].dropna().sort_values().tolist()
+        ultimo = group.iloc[-1]
+
         direccion = ""
-        non_empty = group[group["Direccion"].notna() & (group["Direccion"].str.strip() != "")]
-        if not non_empty.empty:
-            direccion = str(non_empty.iloc[-1]["Direccion"])
+        non_empty_dir = group[group["Direccion"].notna() & (group["Direccion"].str.strip() != "")]
+        if not non_empty_dir.empty:
+            direccion = str(non_empty_dir.iloc[-1]["Direccion"])
+
+        distrito = ""
+        if "Distrito" in group.columns:
+            non_empty_dis = group[group["Distrito"].notna() & (group["Distrito"].astype(str).str.strip() != "")]
+            if not non_empty_dis.empty:
+                distrito = str(non_empty_dis.iloc[-1]["Distrito"])
 
         clientes.append({
             "celular":        str(celular),
-            "nombre":         str(group.iloc[0]["Comprador"]) if "Comprador" in group.columns else str(celular),
+            "nombre":         str(ultimo["Comprador"]) if "Comprador" in group.columns else str(celular),
             "direccion":      direccion,
-            "total_compras":  int(ent["ID_Compra"].nunique()) if "ID_Compra" in ent.columns else 0,
+            "distrito":       distrito,
+            "total_compras":  int(ent["ID_Compra"].nunique()) if not ent.empty and "ID_Compra" in ent.columns else 0,
             "total_items":    len(ent),
-            "total_gastado":  float(ent["Precio_Cobrado"].sum()) if "Precio_Cobrado" in ent.columns else 0.0,
+            "total_gastado":  float(ent["Precio_Cobrado"].sum()) if not ent.empty and "Precio_Cobrado" in ent.columns else 0.0,
             "primera_compra": str(fechas[0]) if fechas else None,
             "ultima_compra":  str(fechas[-1]) if fechas else None,
         })

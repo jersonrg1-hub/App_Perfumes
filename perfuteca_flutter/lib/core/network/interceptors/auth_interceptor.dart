@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 
 /// Inyecta X-API-Key en endpoints que lo requieren.
-/// Actualmente solo ventas y cotizaciones necesitan autenticación.
+/// Protegidos: ventas, cotizaciones, estadisticas.
 class AuthInterceptor extends Interceptor {
   AuthInterceptor(this._apiKey);
 

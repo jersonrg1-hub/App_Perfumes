@@ -57,6 +57,9 @@ COL_ESTADO_NUM: int = COLUMNAS_VENTAS.index("Estado") + 1
 STOCK_CRITICO: int = 10   # ml — muestra badge rojo
 STOCK_BAJO: int = 20      # ml — muestra badge amarillo
 
+# ml realmente dispensados antes de aplicar merma (2ml requiere 2.2ml de frasco)
+ML_BASE_DISPENSACION: dict[int, float] = {2: 2.2, 5: 5.1}
+
 # ── Zona horaria ──────────────────────────────────────────────────────────────
 
 TZ_PERU = pytz.timezone("America/Lima")

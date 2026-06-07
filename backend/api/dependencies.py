@@ -74,8 +74,9 @@ def get_repo() -> SheetsRepository:
 
 # ── Cache TTL ─────────────────────────────────────────────────────────────────
 
-_cache_catalogo: TTLCache = TTLCache(maxsize=1, ttl=1800)  # 30 min
-_cache_ventas:   TTLCache = TTLCache(maxsize=1, ttl=300)   # 5 min
+_cache_catalogo:     TTLCache = TTLCache(maxsize=1, ttl=1800)  # 30 min
+_cache_ventas:       TTLCache = TTLCache(maxsize=1, ttl=300)   # 5 min (300 s)
+_cache_cotizaciones: TTLCache = TTLCache(maxsize=1, ttl=300)   # 5 min (300 s)
 _lock = threading.Lock()
 _K = "df"
 
@@ -93,7 +94,7 @@ def get_catalogo_cached(repo: SheetsRepository) -> pd.DataFrame:
 
 
 def get_ventas_cached(repo: SheetsRepository) -> pd.DataFrame:
-    """Ventas desde cache (TTL 2 min) o recarga desde Sheets si expiró."""
+    """Ventas desde cache (TTL 5 min) o recarga desde Sheets si expiró."""
     with _lock:
         try:
             return _cache_ventas[_K]
@@ -116,6 +117,25 @@ def invalidar_cache_ventas() -> None:
     with _lock:
         _cache_ventas.clear()
     logger.debug("Cache ventas invalidado")
+
+
+def get_cotizaciones_cached(repo: SheetsRepository) -> pd.DataFrame:
+    """Cotizaciones desde cache (TTL 5 min) o recarga desde Sheets si expiró."""
+    with _lock:
+        try:
+            return _cache_cotizaciones[_K]
+        except KeyError:
+            df = repo.fetch_quotes()
+            _cache_cotizaciones[_K] = df
+            logger.debug("Cache cotizaciones recargado desde Sheets")
+            return df
+
+
+def invalidar_cache_cotizaciones() -> None:
+    """Llamar tras guardar o actualizar una cotización."""
+    with _lock:
+        _cache_cotizaciones.clear()
+    logger.debug("Cache cotizaciones invalidado")
 
 
 # ── Índice de imágenes ────────────────────────────────────────────────────────

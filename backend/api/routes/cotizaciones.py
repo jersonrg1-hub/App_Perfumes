@@ -16,7 +16,10 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from backend.api.dependencies import get_repo, verify_api_key, df_to_json_list
+from backend.api.dependencies import (
+    get_repo, verify_api_key, df_to_json_list,
+    get_cotizaciones_cached, invalidar_cache_cotizaciones,
+)
 from backend.api.models import (
     CotizacionRequest,
     CotizacionRegistrada,
@@ -51,7 +54,7 @@ def listar_cotizaciones(
     Ejemplo: GET /api/v1/cotizaciones/?limit=20&offset=0&estado=Enviado
     """
     try:
-        df = repo.fetch_quotes()
+        df = get_cotizaciones_cached(repo)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar cotizaciones: {e}")
 
@@ -87,7 +90,7 @@ def cotizaciones_por_cliente(
     Ejemplo: GET /api/v1/cotizaciones/cliente/987654321
     """
     try:
-        df = repo.fetch_quotes()
+        df = get_cotizaciones_cached(repo)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar cotizaciones: {e}")
 
@@ -114,6 +117,7 @@ def guardar_cotizacion(
     items = [item.model_dump() for item in body.items]
     try:
         id_cot = repo.save_quote(body.celular, items, body.total)
+        invalidar_cache_cotizaciones()
         return CotizacionRegistrada(id_cotizacion=id_cot)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al guardar cotizacion: {e}")
@@ -139,7 +143,7 @@ def actualizar_estado_cotizacion(
             detail=f"Estado invalido. Validos: {sorted(_ESTADOS_VALIDOS)}",
         )
     try:
-        df = repo.fetch_quotes()
+        df = repo.fetch_quotes()  # fresco — necesita fila_sheet exacto
         filas = df[df["ID_Cotizacion"].astype(str) == id_cotizacion]["fila_sheet"]
         if filas.empty:
             raise HTTPException(status_code=404, detail="Cotización no encontrada")
@@ -148,6 +152,7 @@ def actualizar_estado_cotizacion(
             fila_sheet=int(filas.iloc[0]),
             col_estado=_COL_ESTADO_COT,
         )
+        invalidar_cache_cotizaciones()
         return {"id_cotizacion": id_cotizacion, "estado": body.nuevo_estado}
     except HTTPException:
         raise

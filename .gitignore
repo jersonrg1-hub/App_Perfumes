@@ -1,7 +1,11 @@
 credenciales.json
 secrets.txt
 __pycache__/
+*.pyc
 .idea/
 .env
 .streamlit/secrets.toml
 .claude/
+.venv*/
+venv/
+env/

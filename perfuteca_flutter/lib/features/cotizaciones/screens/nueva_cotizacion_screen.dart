@@ -20,6 +20,8 @@ const _kPage   = Duration(milliseconds: 300);
 String _fmtPrecio(double p) =>
     p == p.truncateToDouble() ? p.toInt().toString() : p.toStringAsFixed(2);
 
+double _round10(double p) => (p * 10).round() / 10.0;
+
 class NuevaCotizacionScreen extends ConsumerStatefulWidget {
   const NuevaCotizacionScreen({super.key});
 
@@ -83,6 +85,7 @@ class _NuevaCotizacionScreenState
                       total:        state.totalConDelivery,
                       cesta:        state.cesta,
                       conDelivery:  state.conDelivery,
+                      conDescuento: state.conDescuento,
                       onNueva:      () {
                         ref.read(nuevaCotizacionProvider.notifier).reset();
                         _irA(1);
@@ -829,15 +832,119 @@ class _Paso3 extends ConsumerWidget {
                   ],
                 ),
               ),
-              child: ItemCestaCard(
-                item:           e.value,
-                index:          e.key,
-                onQuitar:       () => notifier.quitarItem(e.key),
-                nombreFontSize: 15,
-                marcaFontSize:  12,
+              child: Column(
+                children: [
+                  ItemCestaCard(
+                    item:           e.value,
+                    index:          e.key,
+                    onQuitar:       () => notifier.quitarItem(e.key),
+                    nombreFontSize: 15,
+                    marcaFontSize:  12,
+                  ),
+                  if (state.conDescuento)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                          bottom: AppSpacing.sm, right: AppSpacing.md),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            'S/ ${_fmtPrecio(e.value.precio)}',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textMuted,
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '→  S/ ${_fmtPrecio(state.precioEfectivo(e.value.precio))}',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.success,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             );
           }),
+
+          const SizedBox(height: AppSpacing.sm),
+
+          // Toggle descuento 10%
+          AnimatedContainer(
+            duration: _kNormal,
+            decoration: BoxDecoration(
+              color: state.conDescuento
+                  ? AppColors.primaryPale
+                  : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: state.conDescuento
+                    ? AppColors.primary
+                    : AppColors.primaryLight,
+                width: state.conDescuento ? 1.5 : 1,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd - 1),
+              child: InkWell(
+                onTap: notifier.toggleDescuento,
+                splashColor: AppColors.primaryLight,
+                highlightColor: AppColors.primaryPale.withValues(alpha: 0.5),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.local_offer_rounded,
+                        size: 20,
+                        color: state.conDescuento
+                            ? AppColors.primary
+                            : AppColors.textMuted,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Descuento 10%',
+                              style: AppTextStyles.body.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: state.conDescuento
+                                    ? AppColors.primaryDark
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              state.conDescuento
+                                  ? 'ahorras S/ ${state.ahorro.toStringAsFixed(2)}'
+                                  : 'aplica 10% sobre cada perfume',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: state.conDescuento
+                                    ? AppColors.success
+                                    : AppColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: state.conDescuento,
+                        onChanged: (_) => notifier.toggleDescuento(),
+                        activeThumbColor: AppColors.primary,
+                        activeTrackColor: AppColors.primaryLight,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
 
           const SizedBox(height: AppSpacing.sm),
 
@@ -935,15 +1042,44 @@ class _Paso3 extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      'S/ ${state.subtotal.toStringAsFixed(2)}',
-                      style: const TextStyle(
+                      state.conDescuento
+                          ? 'S/ ${state.subtotalOriginal.toStringAsFixed(2)}'
+                          : 'S/ ${state.subtotal.toStringAsFixed(2)}',
+                      style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
+                        decoration: state.conDescuento ? TextDecoration.lineThrough : null,
+                        decorationColor: Colors.white54,
                       ),
                     ),
                   ],
                 ),
+                if (state.conDescuento) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'DESCUENTO -10%',
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      Text(
+                        '-S/ ${state.ahorro.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Color(0xFF81C784),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 if (state.conDelivery) ...[
                   const SizedBox(height: 4),
                   const Row(
@@ -1056,6 +1192,7 @@ class _TicketExito extends StatefulWidget {
     required this.total,
     required this.cesta,
     required this.conDelivery,
+    required this.conDescuento,
     required this.onNueva,
   });
   final String          idCotizacion;
@@ -1063,6 +1200,7 @@ class _TicketExito extends StatefulWidget {
   final double          total;
   final List<ItemCesta> cesta;
   final bool            conDelivery;
+  final bool            conDescuento;
   final VoidCallback    onNueva;
 
   @override
@@ -1096,16 +1234,24 @@ class _TicketExitoState extends State<_TicketExito>
     for (var idx = 0; idx < widget.cesta.length; idx++) {
       final i = widget.cesta[idx];
       final nombreCompleto = '${i.perfume.marca} ${i.perfume.nombre}'.trim();
+      final precioMostrado = widget.conDescuento
+          ? _round10(i.precio * 0.90)
+          : i.precio;
       bloques.add(
         '*${idx + 1}.* 🌸 *$nombreCompleto*\n'
-        '     📏 ${i.ml}ml  ·  💰 *S/ ${i.precio.toStringAsFixed(2)}*',
+        '     📏 ${i.ml}ml  ·  💰 *S/ ${precioMostrado.toStringAsFixed(2)}*',
       );
     }
+    final subtotalOriginal =
+        widget.cesta.fold(0.0, (s, i) => s + i.precio);
+    final descuentoLine = widget.conDescuento
+        ? '🎉 *Descuento 10%* (precio regular S/ ${subtotalOriginal.toStringAsFixed(2)})\n'
+        : '';
     final deliveryLine = widget.conDelivery ? '🛵 Delivery: +S/ 10.00\n' : '';
     final texto =
         '✨ *Tu cotización — Perfuteca* ✨\n$sep\n\n'
         '${bloques.join('\n\n')}\n\n'
-        '$sep\n$deliveryLine'
+        '$sep\n$descuentoLine$deliveryLine'
         '💰 *Total: S/ ${widget.total.toStringAsFixed(2)}*\n$sep\n\n'
         '_Si confirmas, te envío los datos de Yape/Plin para que puedas apartar 💛_';
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');

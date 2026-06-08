@@ -176,5 +176,5 @@ def exportar_pdf_mes_especifico(
     return _construir_pdf(
         filtrado, df_catalogo,
         titulo=f"Ventas de {nombre_mes} {anio}",
-        subtitulo=f"Generado el {date.today().strftime('%d/%m/%Y')}",
+        subtitulo=f"Generado el {hoy_peru().strftime('%d/%m/%Y')}",
     )

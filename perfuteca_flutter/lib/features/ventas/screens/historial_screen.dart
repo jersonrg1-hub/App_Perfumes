@@ -155,7 +155,10 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
             ),
             data: (ventas) {
               final filtradas = _aplicarFiltro(ventas);
-              final onRefresh = () => ref.refresh(historialProvider.future);
+              Future<void> onRefresh() async {
+                ref.invalidate(perfumesMapProvider);
+                await ref.refresh(historialProvider.future);
+              }
               if (filtradas.isEmpty) {
                 return ventas.isEmpty
                     ? RefreshIndicator(

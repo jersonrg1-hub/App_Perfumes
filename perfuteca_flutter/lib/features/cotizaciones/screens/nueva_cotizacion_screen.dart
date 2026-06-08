@@ -170,7 +170,7 @@ class _Dot extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               AnimatedContainer(
-                duration: _kNormal
+                duration: _kNormal,
                 width:  actual ? 30 : 24,
                 height: actual ? 30 : 24,
                 decoration: BoxDecoration(
@@ -569,7 +569,7 @@ class _PerfumeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: _kNormal
+      duration: _kNormal,
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm),

@@ -295,7 +295,7 @@ class SheetsRepository:
         """Guarda una cotización y retorna el ID asignado."""
         id_cotizacion = self.get_next_quote_id()
         items_txt = " | ".join(
-            f"{i['perfume']} {i['ml']}ml S/{fmt_precio(i['precio'])}"
+            f"{i.get('marca', '')} {i['perfume']} {i['ml']}ml S/{fmt_precio(i['precio'])}".strip()
             for i in items
         )
         fila = [

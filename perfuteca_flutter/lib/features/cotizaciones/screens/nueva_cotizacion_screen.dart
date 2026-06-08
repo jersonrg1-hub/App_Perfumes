@@ -1106,7 +1106,8 @@ class _TicketExitoState extends State<_TicketExito>
         '✨ *Tu cotización — Perfuteca* ✨\n$sep\n\n'
         '${bloques.join('\n\n')}\n\n'
         '$sep\n$deliveryLine'
-        '💰 *Total: S/ ${widget.total.toStringAsFixed(2)}*\n$sep';
+        '💰 *Total: S/ ${widget.total.toStringAsFixed(2)}*\n$sep\n\n'
+        '_Si confirmas, te envío los datos de Yape/Plin para que puedas apartar 💛_';
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
     final prefijo = numero.startsWith('51') ? numero : '51$numero';
     final uri = Uri.parse(

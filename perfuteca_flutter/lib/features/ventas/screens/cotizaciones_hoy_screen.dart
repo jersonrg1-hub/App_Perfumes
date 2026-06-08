@@ -861,11 +861,9 @@ class _CartaExito extends StatelessWidget {
 
   Future<void> _enviarComunidad() async {
     const sep = '────────────────────';
-    final lineas = itemsStr
-        .split(' | ')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .map((s) => '  🌸 $s')
+    final partes = itemsStr.split(' | ').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    final lineas = partes.asMap().entries
+        .map((e) => '  *${e.key + 1}.* 🌸 ${e.value}')
         .join('\n');
     final dirLinea = direccion.isNotEmpty ? '\n📍 *Dirección:* $direccion' : '';
     final distLinea = distrito.isNotEmpty ? '\n🗺️ *Distrito:* $distrito' : '';

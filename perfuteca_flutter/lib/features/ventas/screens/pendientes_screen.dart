@@ -376,7 +376,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
         : '';
 
     final msg = Uri.encodeComponent(
-      '📦 *Perfuteca — Pedido Nuevo ${orden.idCompra}*\n$sep\n'
+      '📦 *Perfuteca — Pedido ${orden.idCompra}*\n$sep\n'
       '👤 *Cliente:* ${orden.comprador ?? '—'}\n'
       '📱 *Celular:* ${orden.celular ?? '—'}\n'
       '🚚 *Envío:* ${orden.tipoEnvio ?? '—'}$dirLinea$distLinea\n'

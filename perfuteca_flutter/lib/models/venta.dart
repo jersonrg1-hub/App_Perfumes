@@ -48,6 +48,7 @@ class ClientePrevio with _$ClientePrevio {
   const factory ClientePrevio({
     required String comprador,
     required String direccion,
+    @Default('') String distrito,
     @JsonKey(name: 'tipo_envio')                        required String tipoEnvio,
     @JsonKey(name: 'metodo_pago')                       required String metodoPago,
     @JsonKey(name: 'total_compras', fromJson: _toInt)   @Default(0) int totalCompras,

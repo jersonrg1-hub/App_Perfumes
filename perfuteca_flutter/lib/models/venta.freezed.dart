@@ -489,6 +489,7 @@ ClientePrevio _$ClientePrevioFromJson(Map<String, dynamic> json) {
 mixin _$ClientePrevio {
   String get comprador => throw _privateConstructorUsedError;
   String get direccion => throw _privateConstructorUsedError;
+  String get distrito => throw _privateConstructorUsedError;
   @JsonKey(name: 'tipo_envio')
   String get tipoEnvio => throw _privateConstructorUsedError;
   @JsonKey(name: 'metodo_pago')
@@ -515,6 +516,7 @@ abstract class $ClientePrevioCopyWith<$Res> {
   $Res call(
       {String comprador,
       String direccion,
+      String distrito,
       @JsonKey(name: 'tipo_envio') String tipoEnvio,
       @JsonKey(name: 'metodo_pago') String metodoPago,
       @JsonKey(name: 'total_compras', fromJson: _toInt) int totalCompras});
@@ -537,6 +539,7 @@ class _$ClientePrevioCopyWithImpl<$Res, $Val extends ClientePrevio>
   $Res call({
     Object? comprador = null,
     Object? direccion = null,
+    Object? distrito = null,
     Object? tipoEnvio = null,
     Object? metodoPago = null,
     Object? totalCompras = null,
@@ -549,6 +552,10 @@ class _$ClientePrevioCopyWithImpl<$Res, $Val extends ClientePrevio>
       direccion: null == direccion
           ? _value.direccion
           : direccion // ignore: cast_nullable_to_non_nullable
+              as String,
+      distrito: null == distrito
+          ? _value.distrito
+          : distrito // ignore: cast_nullable_to_non_nullable
               as String,
       tipoEnvio: null == tipoEnvio
           ? _value.tipoEnvio
@@ -577,6 +584,7 @@ abstract class _$$ClientePrevioImplCopyWith<$Res>
   $Res call(
       {String comprador,
       String direccion,
+      String distrito,
       @JsonKey(name: 'tipo_envio') String tipoEnvio,
       @JsonKey(name: 'metodo_pago') String metodoPago,
       @JsonKey(name: 'total_compras', fromJson: _toInt) int totalCompras});
@@ -597,6 +605,7 @@ class __$$ClientePrevioImplCopyWithImpl<$Res>
   $Res call({
     Object? comprador = null,
     Object? direccion = null,
+    Object? distrito = null,
     Object? tipoEnvio = null,
     Object? metodoPago = null,
     Object? totalCompras = null,
@@ -609,6 +618,10 @@ class __$$ClientePrevioImplCopyWithImpl<$Res>
       direccion: null == direccion
           ? _value.direccion
           : direccion // ignore: cast_nullable_to_non_nullable
+              as String,
+      distrito: null == distrito
+          ? _value.distrito
+          : distrito // ignore: cast_nullable_to_non_nullable
               as String,
       tipoEnvio: null == tipoEnvio
           ? _value.tipoEnvio
@@ -632,6 +645,7 @@ class _$ClientePrevioImpl implements _ClientePrevio {
   const _$ClientePrevioImpl(
       {required this.comprador,
       required this.direccion,
+      this.distrito = '',
       @JsonKey(name: 'tipo_envio') required this.tipoEnvio,
       @JsonKey(name: 'metodo_pago') required this.metodoPago,
       @JsonKey(name: 'total_compras', fromJson: _toInt) this.totalCompras = 0});
@@ -644,6 +658,8 @@ class _$ClientePrevioImpl implements _ClientePrevio {
   @override
   final String direccion;
   @override
+  final String distrito;
+  @override
   @JsonKey(name: 'tipo_envio')
   final String tipoEnvio;
   @override
@@ -655,7 +671,7 @@ class _$ClientePrevioImpl implements _ClientePrevio {
 
   @override
   String toString() {
-    return 'ClientePrevio(comprador: $comprador, direccion: $direccion, tipoEnvio: $tipoEnvio, metodoPago: $metodoPago, totalCompras: $totalCompras)';
+    return 'ClientePrevio(comprador: $comprador, direccion: $direccion, distrito: $distrito, tipoEnvio: $tipoEnvio, metodoPago: $metodoPago, totalCompras: $totalCompras)';
   }
 
   @override
@@ -667,6 +683,8 @@ class _$ClientePrevioImpl implements _ClientePrevio {
                 other.comprador == comprador) &&
             (identical(other.direccion, direccion) ||
                 other.direccion == direccion) &&
+            (identical(other.distrito, distrito) ||
+                other.distrito == distrito) &&
             (identical(other.tipoEnvio, tipoEnvio) ||
                 other.tipoEnvio == tipoEnvio) &&
             (identical(other.metodoPago, metodoPago) ||
@@ -678,7 +696,7 @@ class _$ClientePrevioImpl implements _ClientePrevio {
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(
-      runtimeType, comprador, direccion, tipoEnvio, metodoPago, totalCompras);
+      runtimeType, comprador, direccion, distrito, tipoEnvio, metodoPago, totalCompras);
 
   /// Create a copy of ClientePrevio
   /// with the given fields replaced by the non-null parameter values.
@@ -700,6 +718,7 @@ abstract class _ClientePrevio implements ClientePrevio {
   const factory _ClientePrevio(
       {required final String comprador,
       required final String direccion,
+      final String distrito,
       @JsonKey(name: 'tipo_envio') required final String tipoEnvio,
       @JsonKey(name: 'metodo_pago') required final String metodoPago,
       @JsonKey(name: 'total_compras', fromJson: _toInt)
@@ -712,6 +731,8 @@ abstract class _ClientePrevio implements ClientePrevio {
   String get comprador;
   @override
   String get direccion;
+  @override
+  String get distrito;
   @override
   @JsonKey(name: 'tipo_envio')
   String get tipoEnvio;

@@ -44,6 +44,7 @@ _$ClientePrevioImpl _$$ClientePrevioImplFromJson(Map<String, dynamic> json) =>
     _$ClientePrevioImpl(
       comprador: json['comprador'] as String,
       direccion: json['direccion'] as String,
+      distrito: json['distrito'] as String? ?? '',
       tipoEnvio: json['tipo_envio'] as String,
       metodoPago: json['metodo_pago'] as String,
       totalCompras:
@@ -54,6 +55,7 @@ Map<String, dynamic> _$$ClientePrevioImplToJson(_$ClientePrevioImpl instance) =>
     <String, dynamic>{
       'comprador': instance.comprador,
       'direccion': instance.direccion,
+      'distrito': instance.distrito,
       'tipo_envio': instance.tipoEnvio,
       'metodo_pago': instance.metodoPago,
       'total_compras': instance.totalCompras,

@@ -354,16 +354,18 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final orden = widget.orden;
     const sep = '────────────────────';
 
-    final itemsLineas = orden.items.map((item) {
+    final itemsLineas = orden.items.asMap().entries.map((entry) {
+      final idx  = entry.key + 1;
+      final item = entry.value;
       final normId = item.idPerfume != null
           ? (double.tryParse(item.idPerfume!)?.toInt().toString()
               ?? item.idPerfume!)
           : null;
       final perfume = normId != null ? widget.perfumesMap[normId] : null;
       final nombre = perfume != null
-          ? '${perfume.marca} ${perfume.nombre}'
+          ? '${perfume.marca} — ${perfume.nombre}'
           : (item.idPerfume != null ? 'Perfume #${item.idPerfume}' : '—');
-      return '  • *$nombre* ${item.mlVendido ?? '?'}ml — S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}';
+      return '  *$idx.* *$nombre* ${item.mlVendido ?? '?'}ml — S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}';
     }).join('\n');
 
     final dirLinea = (orden.direccion?.trim().isNotEmpty == true)

@@ -19,6 +19,25 @@ final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async 
   return page.items;
 });
 
+// ── Helpers normalización de distritos ───────────────────────────────────────
+
+String _normalizarDistrito(String s) {
+  const from = 'áàäâãéèëêíìïîóòöôõúùüûÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛñÑ';
+  const to   = 'aaaaaeeeeiiiiooooouuuuAAAAAEEEEIIIIOOOOOUUUUnn';
+  final buf = StringBuffer();
+  for (final c in s.toLowerCase().runes) {
+    final ch = String.fromCharCode(c);
+    final idx = from.indexOf(ch);
+    buf.write(idx >= 0 ? to[idx] : ch);
+  }
+  return buf.toString();
+}
+
+String _titleCase(String s) => s
+    .split(' ')
+    .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+    .join(' ');
+
 // ── Resumen (hoy + mes + top perfumes) ───────────────────────────────────────
 
 class DistritoStat {
@@ -540,11 +559,12 @@ final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async
   for (final v in entregadas) {
     final dist = (v.distrito ?? '').trim();
     if (dist.isEmpty) continue;
-    (distOrders[dist] ??= {}).add(v.idCompra);
-    distSoles[dist] = (distSoles[dist] ?? 0.0) + (v.precioCobrado ?? 0);
+    final key = _normalizarDistrito(dist);
+    (distOrders[key] ??= {}).add(v.idCompra);
+    distSoles[key] = (distSoles[key] ?? 0.0) + (v.precioCobrado ?? 0);
   }
   final distritoRanking = distOrders.entries.map((e) => DistritoStat(
-    nombre:     e.key,
+    nombre:     _titleCase(e.key),
     pedidos:    e.value.length,
     totalSoles: distSoles[e.key] ?? 0,
   )).toList()

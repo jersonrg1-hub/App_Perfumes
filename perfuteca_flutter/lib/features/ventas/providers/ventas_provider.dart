@@ -10,7 +10,7 @@ final ventasTabProvider = StateProvider<int>((ref) => 0);
 
 final historialProvider = FutureProvider<List<VentaResponse>>((ref) async {
   final page = await ref.watch(ventasRepositoryProvider).getVentas(
-    limit: 200,
+    limit: 500,
     bypassCache: true,
   );
   return page.items;

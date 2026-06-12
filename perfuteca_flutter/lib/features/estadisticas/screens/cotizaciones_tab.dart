@@ -22,7 +22,7 @@ final cotizaciones14dProvider =
   final ahora  = DateTime.now();
   final limite = ahora.subtract(const Duration(days: 14));
   final page   = await ref.read(cotizacionesRepositoryProvider)
-      .getCotizaciones(limit: 300, bypassCache: true);
+      .getCotizaciones(limit: 500, bypassCache: true);
   return page.items.where((c) {
     if (c.fecha == null) return false;
     try {

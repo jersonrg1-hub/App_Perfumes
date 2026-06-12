@@ -21,7 +21,7 @@ final cotizacionesHoyProvider =
     FutureProvider<List<CotizacionResponse>>((ref) async {
   final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
   final page  = await ref.read(cotizacionesRepositoryProvider)
-      .getCotizaciones(limit: 100, bypassCache: true);
+      .getCotizaciones(limit: 500, bypassCache: true);
   // La API serializa fecha como ISO "2026-05-16T00:00:00", no como "2026-05-16"
   return page.items.where((c) => c.fecha?.startsWith(today) == true).toList();
 });

@@ -268,7 +268,7 @@ def _compute_clientes(df: pd.DataFrame) -> List[dict]:
 
 @router.get("/clientes", summary="Clientes agrupados con métricas — paginado")
 def get_clientes(
-    limit:  int           = Query(30, ge=1, le=100),
+    limit:  int           = Query(30, ge=1, le=500),
     offset: int           = Query(0, ge=0),
     q:      Optional[str] = Query(None, description="Buscar por nombre o celular"),
     repo:   SheetsRepository = Depends(get_repo),

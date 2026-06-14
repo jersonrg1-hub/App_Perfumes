@@ -82,6 +82,7 @@ class VentaResponse(BaseModel):
     metodo_pago: Optional[str] = None
     tipo_envio: Optional[str] = None
     direccion: Optional[str] = None
+    distrito: Optional[str] = None
     estado: Optional[str] = None
     fila_sheet: Optional[int] = None
 

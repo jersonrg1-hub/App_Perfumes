@@ -32,6 +32,7 @@ from backend.api.routes import estadisticas as _estadisticas_mod
 from backend.api.models import (
     VentaRequest,
     VentaRegistrada,
+    VentaResponse,
     EstadoVentaUpdate,
     ClientePrevioResponse,
     Paginated,
@@ -48,7 +49,7 @@ _ESTADOS_VALIDOS = {"Pendiente", "Entregado", "Anulado"}
 
 @router.get(
     "/",
-    response_model=Paginated[dict],
+    response_model=Paginated[VentaResponse],
     summary="Listar ventas con paginación",
 )
 def listar_ventas(
@@ -77,7 +78,7 @@ def listar_ventas(
 
 @router.get(
     "/pendientes",
-    response_model=list[dict],
+    response_model=list[VentaResponse],
     summary="Ventas pendientes de entrega",
 )
 def listar_pendientes(repo: SheetsRepository = Depends(get_repo)):

@@ -26,7 +26,7 @@ from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_excep
 from backend.core.config import (
     SCOPES, SHEET_NAME,
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
-    hoy_peru, fmt_precio, ML_BASE_DISPENSACION,
+    hoy_peru, fmt_precio, ML_BASE_DISPENSACION, COLUMNAS_VENTAS,
 )
 logger = logging.getLogger(__name__)
 
@@ -357,6 +357,45 @@ class SheetsRepository:
             def _write():
                 self._get_worksheet(WORKSHEET_CATALOGO).batch_update(peticiones)
             self._ejecutar_con_reintento(_write, "update_stock_batch")
+
+    def get_sale_row(self, fila_sheet: int) -> dict:
+        """Lee una fila cruda de Ventas_Pendientes por número de fila (para anulación)."""
+        def _fetch():
+            return self._get_worksheet(WORKSHEET_VENTAS).row_values(fila_sheet)
+        valores = self._ejecutar_con_reintento(_fetch, "get_sale_row")
+        return dict(zip(COLUMNAS_VENTAS, valores))
+
+    def restore_stock_single(self, id_perfume: str, ml_vendido, merma_pct: float) -> None:
+        """
+        Repone el stock de un perfume al anular una venta — inverso de update_stock_batch.
+        Aplica la misma lógica de merma/ml_base para que el stock vuelva al valor previo.
+        """
+        df_cat = self.fetch_catalog()
+        if df_cat.empty or "fila_sheet" not in df_cat.columns:
+            raise ValueError("Catálogo vacío o sin fila_sheet")
+        if not {"Stock_ml", "ID_Perfume"}.issubset(df_cat.columns):
+            raise ValueError("Faltan columnas ID_Perfume o Stock_ml en Catalogo")
+
+        fila = df_cat[df_cat["ID_Perfume"].astype(str) == str(id_perfume)]
+        if fila.empty:
+            logger.warning(f"[restore_stock_single] ID_Perfume {id_perfume} no encontrado en catalogo")
+            return
+
+        sheet_cols = [c for c in df_cat.columns if c != "fila_sheet"]
+        col_stock = sheet_cols.index("Stock_ml") + 1
+
+        ml_float = float(ml_vendido)
+        ml_base = ML_BASE_DISPENSACION.get(int(ml_float), ml_float)
+        ml_con_merma = ml_base * (1 + merma_pct)
+
+        row = fila.iloc[0]
+        nuevo_valor = float(row["Stock_ml"]) + ml_con_merma
+
+        def _write():
+            self._get_worksheet(WORKSHEET_CATALOGO).update_cell(
+                int(row["fila_sheet"]), col_stock, nuevo_valor
+            )
+        self._ejecutar_con_reintento(_write, "restore_stock_single")
 
     def update_sales_multi_batch(
         self, filas_cambios: list[tuple[int, dict[int, object]]]

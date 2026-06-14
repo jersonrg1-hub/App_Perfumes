@@ -27,6 +27,7 @@ from backend.api.dependencies import (
     df_to_json_list,
     paginate_df,
 )
+import logging
 from backend.api.routes import estadisticas as _estadisticas_mod
 from backend.api.models import (
     VentaRequest,
@@ -40,6 +41,7 @@ from backend.services.costos_service import MERMA_PCT
 from backend.core.config import COL_ESTADO_NUM
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
+logger = logging.getLogger("perfuteca.api")
 
 _ESTADOS_VALIDOS = {"Pendiente", "Entregado", "Anulado"}
 
@@ -196,7 +198,8 @@ def actualizar_estado_venta(
     """
     Cambia el estado de una venta (Entregado / Anulado).
     fila_sheet viene del campo 'fila_sheet' en la respuesta de GET /ventas/.
-    Para Flutter: botón 'Marcar entregado' en la lista de pendientes.
+    Al anular, repone el stock descontado al registrar la venta.
+    Para Flutter: botón 'Marcar entregado' / 'Anular' en la lista de pendientes.
     """
     if body.nuevo_estado not in _ESTADOS_VALIDOS:
         raise HTTPException(
@@ -204,6 +207,17 @@ def actualizar_estado_venta(
             detail=f"Estado invalido. Validos: {sorted(_ESTADOS_VALIDOS)}",
         )
     try:
+        if body.nuevo_estado == "Anulado":
+            fila_actual = repo.get_sale_row(body.fila_sheet)
+            if fila_actual.get("Estado") != "Anulado" and fila_actual.get("ID_Perfume"):
+                try:
+                    repo.restore_stock_single(
+                        fila_actual["ID_Perfume"], fila_actual["Ml_Vendido"], MERMA_PCT
+                    )
+                    invalidar_cache_catalogo()
+                except Exception as e:
+                    logger.error(f"[anular_venta/restock] {type(e).__name__}: {e}")
+
         repo.update_sales_multi_batch(
             [(body.fila_sheet, {COL_ESTADO_NUM: body.nuevo_estado})]
         )

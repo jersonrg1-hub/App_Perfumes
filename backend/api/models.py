@@ -14,7 +14,7 @@ Modelo de paginación:
   Flutter puede implementar infinite scroll con has_more + offset.
 """
 from typing import Generic, Literal, Optional, TypeVar
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 T = TypeVar("T")
 
@@ -85,6 +85,12 @@ class VentaResponse(BaseModel):
     distrito: Optional[str] = None
     estado: Optional[str] = None
     fila_sheet: Optional[int] = None
+
+    @field_validator("id_compra", "celular", "id_perfume", mode="before")
+    @classmethod
+    def _coerce_str(cls, v):
+        """Sheets devuelve IDs numéricos (ej. ID_Perfume=39) como int, no str."""
+        return str(v) if v is not None else v
 
 
 class ClientePrevioResponse(BaseModel):

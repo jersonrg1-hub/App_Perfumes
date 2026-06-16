@@ -203,8 +203,9 @@ class SheetsRepository:
             for col in ["Precio_Cobrado", "Ml_Vendido", "precio", "cantidad", "total", "ml"]:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-            if "Celular" in df.columns:
-                df["Celular"] = df["Celular"].astype(str)
+            for col in ["ID_Compra", "ID_Perfume", "Comprador", "Celular"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str)
             df["fila_sheet"] = range(2, len(df) + 2)
             if "Estado" in df.columns:
                 df = df[df["Estado"] != "Anulado"].reset_index(drop=True)
@@ -332,10 +333,7 @@ class SheetsRepository:
         ml_por_id: dict[str, float] = {}
         for item in items_vendidos:
             id_perf = str(item["id_perfume"])
-            ml_vendido = float(item["ml"])
-            ml_base = ML_BASE_DISPENSACION.get(int(ml_vendido), ml_vendido)
-            ml_con_merma = ml_base * (1 + merma_pct)
-            ml_por_id[id_perf] = ml_por_id.get(id_perf, 0) + ml_con_merma
+            ml_por_id[id_perf] = ml_por_id.get(id_perf, 0) + self._ml_con_merma(item["ml"], merma_pct)
 
         peticiones = []
         for _, row in df_cat[df_cat["ID_Perfume"].astype(str).isin(ml_por_id)].iterrows():
@@ -358,17 +356,27 @@ class SheetsRepository:
                 self._get_worksheet(WORKSHEET_CATALOGO).batch_update(peticiones)
             self._ejecutar_con_reintento(_write, "update_stock_batch")
 
+    @staticmethod
+    def _ml_con_merma(ml_vendido: float, merma_pct: float) -> float:
+        """ml reales a descontar/reponer del stock (base de dispensación + merma)."""
+        ml_float = float(ml_vendido)
+        ml_base  = ML_BASE_DISPENSACION.get(int(ml_float), ml_float)
+        return ml_base * (1 + merma_pct)
+
     def get_sale_row(self, fila_sheet: int) -> dict:
         """Lee una fila cruda de Ventas_Pendientes por número de fila (para anulación)."""
         def _fetch():
             return self._get_worksheet(WORKSHEET_VENTAS).row_values(fila_sheet)
         valores = self._ejecutar_con_reintento(_fetch, "get_sale_row")
-        return dict(zip(COLUMNAS_VENTAS, valores))
+        # Padding: zip trunca silenciosamente si la fila tiene menos celdas que COLUMNAS_VENTAS
+        padded = list(valores) + [''] * max(0, len(COLUMNAS_VENTAS) - len(valores))
+        return dict(zip(COLUMNAS_VENTAS, padded))
 
     def restore_stock_single(self, id_perfume: str, ml_vendido, merma_pct: float) -> None:
         """
         Repone el stock de un perfume al anular una venta — inverso de update_stock_batch.
-        Aplica la misma lógica de merma/ml_base para que el stock vuelva al valor previo.
+        Aplica la misma lógica de merma/ml_base (via _ml_con_merma) para que el stock
+        vuelva al valor previo exacto.
         """
         df_cat = self.fetch_catalog()
         if df_cat.empty or "fila_sheet" not in df_cat.columns:
@@ -382,14 +390,9 @@ class SheetsRepository:
             return
 
         sheet_cols = [c for c in df_cat.columns if c != "fila_sheet"]
-        col_stock = sheet_cols.index("Stock_ml") + 1
-
-        ml_float = float(ml_vendido)
-        ml_base = ML_BASE_DISPENSACION.get(int(ml_float), ml_float)
-        ml_con_merma = ml_base * (1 + merma_pct)
-
-        row = fila.iloc[0]
-        nuevo_valor = float(row["Stock_ml"]) + ml_con_merma
+        col_stock  = sheet_cols.index("Stock_ml") + 1
+        row        = fila.iloc[0]
+        nuevo_valor = float(row["Stock_ml"]) + self._ml_con_merma(ml_vendido, merma_pct)
 
         def _write():
             self._get_worksheet(WORKSHEET_CATALOGO).update_cell(

@@ -14,6 +14,7 @@ Flujo de POST /ventas/:
     → invalida cache ventas + catálogo (stock cambió)
     → retorna VentaRegistrada(id_compra="V042")
 """
+import threading
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -44,7 +45,8 @@ from backend.core.config import COL_ESTADO_NUM
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 logger = logging.getLogger("perfuteca.api")
 
-_ESTADOS_VALIDOS = {"Pendiente", "Entregado", "Anulado"}
+_ESTADOS_VALIDOS  = {"Pendiente", "Entregado", "Anulado"}
+_anulacion_lock   = threading.Lock()   # serializa check-update en anulaciones concurrentes
 
 
 @router.get(
@@ -198,33 +200,56 @@ def actualizar_estado_venta(
 ):
     """
     Cambia el estado de una venta (Entregado / Anulado).
-    fila_sheet viene del campo 'fila_sheet' en la respuesta de GET /ventas/.
-    Al anular, repone el stock descontado al registrar la venta.
-    Para Flutter: botón 'Marcar entregado' / 'Anular' en la lista de pendientes.
+    Al anular: actualiza Estado primero (operación primaria), luego repone stock
+    (best-effort — si falla, Estado queda correcto y stock se puede corregir manualmente).
+    Lock serializa anulaciones concurrentes para evitar doble-restock.
     """
     if body.nuevo_estado not in _ESTADOS_VALIDOS:
         raise HTTPException(
             status_code=422,
             detail=f"Estado invalido. Validos: {sorted(_ESTADOS_VALIDOS)}",
         )
-    try:
-        if body.nuevo_estado == "Anulado":
-            fila_actual = repo.get_sale_row(body.fila_sheet)
-            if fila_actual.get("Estado") != "Anulado" and fila_actual.get("ID_Perfume"):
-                try:
-                    repo.restore_stock_single(
-                        fila_actual["ID_Perfume"], fila_actual["Ml_Vendido"], MERMA_PCT
-                    )
-                    invalidar_cache_catalogo()
-                except Exception as e:
-                    logger.error(f"[anular_venta/restock] {type(e).__name__}: {e}")
 
-        repo.update_sales_multi_batch(
-            [(body.fila_sheet, {COL_ESTADO_NUM: body.nuevo_estado})]
-        )
+    fila_para_restock: Optional[dict] = None
+
+    if body.nuevo_estado == "Anulado":
+        with _anulacion_lock:
+            fila_actual = repo.get_sale_row(body.fila_sheet)
+            if fila_actual.get("Estado") == "Anulado":
+                raise HTTPException(status_code=409, detail="La venta ya está anulada")
+
+            try:
+                repo.update_sales_multi_batch(
+                    [(body.fila_sheet, {COL_ESTADO_NUM: body.nuevo_estado})]
+                )
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error al actualizar estado: {e}")
+
+            invalidar_cache_ventas()
+            _estadisticas_mod._invalidar_cache_stats()
+            _estadisticas_mod._invalidar_cache_clientes()
+
+            if fila_actual.get("ID_Perfume") and fila_actual.get("Ml_Vendido"):
+                fila_para_restock = fila_actual
+    else:
+        try:
+            repo.update_sales_multi_batch(
+                [(body.fila_sheet, {COL_ESTADO_NUM: body.nuevo_estado})]
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error al actualizar estado: {e}")
+
         invalidar_cache_ventas()
         _estadisticas_mod._invalidar_cache_stats()
         _estadisticas_mod._invalidar_cache_clientes()
-        return {"id_venta": id_venta, "estado": body.nuevo_estado}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al actualizar estado: {e}")
+
+    if fila_para_restock:
+        try:
+            repo.restore_stock_single(
+                fila_para_restock["ID_Perfume"], fila_para_restock["Ml_Vendido"], MERMA_PCT
+            )
+            invalidar_cache_catalogo()
+        except Exception as e:
+            logger.error(f"[anular_venta/restock] {type(e).__name__}: {e}")
+
+    return {"id_venta": id_venta, "estado": body.nuevo_estado}

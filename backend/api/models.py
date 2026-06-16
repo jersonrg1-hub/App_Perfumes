@@ -86,10 +86,10 @@ class VentaResponse(BaseModel):
     estado: Optional[str] = None
     fila_sheet: Optional[int] = None
 
-    @field_validator("id_compra", "celular", "id_perfume", mode="before")
+    @field_validator("id_compra", "celular", "id_perfume", "comprador", mode="before")
     @classmethod
     def _coerce_str(cls, v):
-        """Sheets devuelve IDs numéricos (ej. ID_Perfume=39) como int, no str."""
+        """Sheets puede devolver columnas numéricas (ej. ID_Perfume=39) como int, no str."""
         return str(v) if v is not None else v
 
 

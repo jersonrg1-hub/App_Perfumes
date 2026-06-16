@@ -281,18 +281,14 @@ def get_clientes(
     global _cache_clientes, _cache_clientes_ts
     now = time.monotonic()
     with _clientes_lock:
-        cached = _cache_clientes
-        cached_ts = _cache_clientes_ts
-    if cached is None or (now - cached_ts) >= _STATS_TTL:
-        try:
-            df = get_ventas_cached(repo)
-        except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
-        computed = _compute_clientes(df)
-        with _clientes_lock:
-            _cache_clientes    = computed
+        if _cache_clientes is None or (now - _cache_clientes_ts) >= _STATS_TTL:
+            try:
+                df = get_ventas_cached(repo)
+            except Exception as e:
+                raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
+            _cache_clientes    = _compute_clientes(df)
             _cache_clientes_ts = time.monotonic()
-        cached = computed
+        cached = _cache_clientes
 
     resultado = cached
     if q:

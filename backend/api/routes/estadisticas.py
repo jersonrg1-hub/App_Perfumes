@@ -41,21 +41,25 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
 
     hoy: date = hoy_peru()  # retorna date, sin .date()
 
-    hoy_df = entregadas[entregadas["_fecha"] == hoy]
-    mes_df = entregadas[entregadas["_fecha"].apply(
-        lambda d: bool(d) and d.year == hoy.year and d.month == hoy.month
-    )]
-    prev = (hoy.replace(day=1) - timedelta(days=1))
-    mes_prev_df = entregadas[entregadas["_fecha"].apply(
-        lambda d: bool(d) and d.year == prev.year and d.month == prev.month
-    )]
+    # Convertir _fecha a Timestamps una vez para comparaciones vectorizadas
+    _fechas_ts = pd.to_datetime(entregadas["_fecha"], errors="coerce")
+    _valid = _fechas_ts.notna()
+
+    hoy_df = entregadas[_valid & (_fechas_ts.dt.date == hoy)]
+    prev = hoy.replace(day=1) - timedelta(days=1)
+    mes_df = entregadas[
+        _valid & (_fechas_ts.dt.year == hoy.year) & (_fechas_ts.dt.month == hoy.month)
+    ]
+    mes_prev_df = entregadas[
+        _valid & (_fechas_ts.dt.year == prev.year) & (_fechas_ts.dt.month == prev.month)
+    ]
 
     # Semanal (lunes a domingo de la semana actual)
     inicio_semana = hoy - timedelta(days=hoy.weekday())
     semanal = []
     for i in range(7):
         dia = inicio_semana + timedelta(days=i)
-        dia_df = entregadas[entregadas["_fecha"] == dia]
+        dia_df = entregadas[_valid & (_fechas_ts.dt.date == dia)]
         semanal.append({
             "fecha": dia.isoformat(),
             "ordenes": int(dia_df["ID_Compra"].nunique()) if "ID_Compra" in dia_df.columns else 0,
@@ -66,9 +70,9 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
     # Semana anterior para variación
     inicio_ant = inicio_semana - timedelta(days=7)
     fin_ant = inicio_semana - timedelta(days=1)
-    sem_ant_df = entregadas[entregadas["_fecha"].apply(
-        lambda d: bool(d) and inicio_ant <= d <= fin_ant
-    )]
+    sem_ant_df = entregadas[
+        _valid & (_fechas_ts.dt.date >= inicio_ant) & (_fechas_ts.dt.date <= fin_ant)
+    ]
 
     # Tamaños del mes (no de todo el tiempo)
     tamanios = []

@@ -458,7 +458,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
   Widget build(BuildContext context) {
     final orden = widget.orden;
 
-    return GestureDetector(
+    final content = GestureDetector(
       onLongPress: widget.onLongPress,
       onTap: widget.modoSeleccion ? widget.onTapSeleccion : null,
       child: Stack(
@@ -669,60 +669,24 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                   ),
                 ),
 
-                // ── Acciones (ocultas en modo selección) ──────────
+                // ── Enviar a comunidad (las acciones de entregar/anular pasan a swipe) ──
                 if (!widget.modoSeleccion)
                   Padding(
                     padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _enviarComunidad,
-                            icon: const Icon(Icons.groups_rounded, size: 16),
-                            label: const Text('Enviar pedido a comunidad'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.whatsappDark,
-                              side: const BorderSide(
-                                  color: AppColors.whatsappDark),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: AppSpacing.md),
-                            ),
-                          ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _enviarComunidad,
+                        icon: const Icon(Icons.groups_rounded, size: 16),
+                        label: const Text('Enviar pedido a comunidad'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.whatsappDark,
+                          side: const BorderSide(
+                              color: AppColors.whatsappDark),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.md),
                         ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: _confirmarAnular,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.error,
-                                side: const BorderSide(color: AppColors.error),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.md,
-                                    vertical: AppSpacing.md),
-                              ),
-                              icon: const Icon(Icons.cancel_outlined, size: 16),
-                              label: const Text('Anular'),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: _confirmarEntregado,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.success,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: AppSpacing.md),
-                                ),
-                                icon: const Icon(
-                                    Icons.check_circle_outline_rounded,
-                                    size: 16),
-                                label: const Text('Marcar entregado'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
                   ),
               ],
@@ -750,7 +714,70 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
         ],
       ),
     );
+
+    if (widget.modoSeleccion) return content;
+
+    return Dismissible(
+      key: ValueKey('pendiente-${orden.idCompra}'),
+      background: const _SwipeBackground(
+        color: AppColors.success,
+        icon: Icons.check_circle_outline_rounded,
+        label: 'Entregar',
+        alignment: Alignment.centerLeft,
+      ),
+      secondaryBackground: const _SwipeBackground(
+        color: AppColors.error,
+        icon: Icons.cancel_outlined,
+        label: 'Anular',
+        alignment: Alignment.centerRight,
+      ),
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          await _confirmarEntregado();
+        } else {
+          await _confirmarAnular();
+        }
+        return false;
+      },
+      child: content,
+    );
   }
+}
+
+// ── Fondo revelado al hacer swipe ─────────────────────────────────────────────
+
+class _SwipeBackground extends StatelessWidget {
+  const _SwipeBackground({
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.alignment,
+  });
+  final Color     color;
+  final IconData  icon;
+  final String    label;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        margin: const EdgeInsets.only(bottom: AppSpacing.md),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        alignment: alignment,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 20),
+            const SizedBox(width: AppSpacing.sm),
+            Text(label,
+                style: AppTextStyles.body.copyWith(
+                    color: Colors.white, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
 }
 
 // ── Chip de info ──────────────────────────────────────────────────────────────

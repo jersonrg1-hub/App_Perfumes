@@ -773,7 +773,7 @@ class _SwipeBackground extends StatelessWidget {
             Icon(icon, color: Colors.white, size: 20),
             const SizedBox(width: AppSpacing.sm),
             Text(label,
-                style: const TextStyle(
+                style: AppTextStyles.body.copyWith(
                     color: Colors.white, fontWeight: FontWeight.w700)),
           ],
         ),

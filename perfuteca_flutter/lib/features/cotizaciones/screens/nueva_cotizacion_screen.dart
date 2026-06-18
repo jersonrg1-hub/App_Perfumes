@@ -84,8 +84,8 @@ class _NuevaCotizacionScreenState
                       celular:      state.celular,
                       total:        state.totalConDelivery,
                       cesta:        state.cesta,
-                      conDelivery:  state.conDelivery,
-                      conDescuento: state.conDescuento,
+                      conDelivery:         state.conDelivery,
+                      indicesConDescuento: state.indicesConDescuento,
                       onNueva:      () {
                         ref.read(nuevaCotizacionProvider.notifier).reset();
                         _irA(1);
@@ -755,13 +755,20 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
 
 // ── Paso 3: Resumen + confirmar ───────────────────────────────────────────────
 
-class _Paso3 extends ConsumerWidget {
+class _Paso3 extends ConsumerStatefulWidget {
   const _Paso3({required this.onAnterior, required this.onGuardar});
   final VoidCallback onAnterior;
   final VoidCallback onGuardar;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Paso3> createState() => _Paso3State();
+}
+
+class _Paso3State extends ConsumerState<_Paso3> {
+  bool _modoSeleccion = false;
+
+  @override
+  Widget build(BuildContext context) {
     final state    = ref.watch(nuevaCotizacionProvider);
     final notifier = ref.read(nuevaCotizacionProvider.notifier);
 
@@ -796,15 +803,24 @@ class _Paso3 extends ConsumerWidget {
           ),
 
           const SizedBox(height: AppSpacing.md),
-          Text(
-            'Perfumes cotizados',
-            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Perfumes cotizados',
+                style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _modoSeleccion = !_modoSeleccion),
+                child: Text(_modoSeleccion ? 'Listo' : 'Elegir productos'),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm),
 
           // Items de la cesta
           ...state.cesta.asMap().entries.map((e) {
-            final notifier = ref.read(nuevaCotizacionProvider.notifier);
+            final seleccionado = state.itemConDescuento(e.key);
             return Dismissible(
               key: ValueKey('${e.value.perfume.idPerfume}_${e.value.ml}_${e.key}'),
               direction: DismissDirection.endToStart,
@@ -834,14 +850,27 @@ class _Paso3 extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  ItemCestaCard(
-                    item:           e.value,
-                    index:          e.key,
-                    onQuitar:       () => notifier.quitarItem(e.key),
-                    nombreFontSize: 15,
-                    marcaFontSize:  12,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ItemCestaCard(
+                          item:           e.value,
+                          index:          e.key,
+                          onQuitar:       () => notifier.quitarItem(e.key),
+                          nombreFontSize: 15,
+                          marcaFontSize:  12,
+                        ),
+                      ),
+                      if (_modoSeleccion) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        _DescuentoChip(
+                          seleccionado: seleccionado,
+                          onTap: () => notifier.toggleItemDescuento(e.key),
+                        ),
+                      ],
+                    ],
                   ),
-                  if (state.conDescuento)
+                  if (seleccionado)
                     Padding(
                       padding: const EdgeInsets.only(
                           bottom: AppSpacing.sm, right: AppSpacing.md),
@@ -857,7 +886,7 @@ class _Paso3 extends ConsumerWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '→  S/ ${_fmtPrecio(state.precioEfectivo(e.value.precio))}',
+                            '→  S/ ${_fmtPrecio(state.precioEfectivoIndex(e.key, e.value.precio))}',
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.success,
                               fontWeight: FontWeight.w700,
@@ -921,11 +950,11 @@ class _Paso3 extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              state.conDescuento
+                              state.algunDescuento
                                   ? 'ahorras S/ ${state.ahorro.toStringAsFixed(2)}'
                                   : 'aplica 10% sobre cada perfume',
                               style: AppTextStyles.bodySmall.copyWith(
-                                color: state.conDescuento
+                                color: state.algunDescuento
                                     ? AppColors.success
                                     : AppColors.textMuted,
                               ),
@@ -1042,20 +1071,20 @@ class _Paso3 extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      state.conDescuento
+                      state.algunDescuento
                           ? 'S/ ${state.subtotalOriginal.toStringAsFixed(2)}'
                           : 'S/ ${state.subtotal.toStringAsFixed(2)}',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        decoration: state.conDescuento ? TextDecoration.lineThrough : null,
+                        decoration: state.algunDescuento ? TextDecoration.lineThrough : null,
                         decorationColor: Colors.white54,
                       ),
                     ),
                   ],
                 ),
-                if (state.conDescuento) ...[
+                if (state.algunDescuento) ...[
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1153,13 +1182,13 @@ class _Paso3 extends ConsumerWidget {
           Row(
             children: [
               OutlinedButton(
-                onPressed: state.registrando ? null : onAnterior,
+                onPressed: state.registrando ? null : widget.onAnterior,
                 child: const Text('Editar'),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: state.registrando ? null : onGuardar,
+                  onPressed: state.registrando ? null : widget.onGuardar,
                   icon: state.registrando
                       ? const SizedBox(
                           width: 16, height: 16,
@@ -1183,6 +1212,39 @@ class _Paso3 extends ConsumerWidget {
   }
 }
 
+// ── Chip de descuento por item ───────────────────────────────────────────────
+
+class _DescuentoChip extends StatelessWidget {
+  const _DescuentoChip({required this.seleccionado, required this.onTap});
+  final bool         seleccionado;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: _kFast,
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm, vertical: 6),
+          decoration: BoxDecoration(
+            color: seleccionado ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            border: Border.all(
+              color: seleccionado ? AppColors.primary : AppColors.primaryLight,
+              width: seleccionado ? 1.5 : 1,
+            ),
+          ),
+          child: Text(
+            '10%',
+            style: AppTextStyles.priceLabel.copyWith(
+              color: seleccionado ? Colors.white : AppColors.textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+}
+
 // ── Ticket de éxito ───────────────────────────────────────────────────────────
 
 class _TicketExito extends StatefulWidget {
@@ -1192,7 +1254,7 @@ class _TicketExito extends StatefulWidget {
     required this.total,
     required this.cesta,
     required this.conDelivery,
-    required this.conDescuento,
+    required this.indicesConDescuento,
     required this.onNueva,
   });
   final String          idCotizacion;
@@ -1200,7 +1262,7 @@ class _TicketExito extends StatefulWidget {
   final double          total;
   final List<ItemCesta> cesta;
   final bool            conDelivery;
-  final bool            conDescuento;
+  final Set<int>        indicesConDescuento;
   final VoidCallback    onNueva;
 
   @override
@@ -1234,7 +1296,7 @@ class _TicketExitoState extends State<_TicketExito>
     for (var idx = 0; idx < widget.cesta.length; idx++) {
       final i = widget.cesta[idx];
       final nombreCompleto = '${i.perfume.marca} ${i.perfume.nombre}'.trim();
-      final precioMostrado = widget.conDescuento
+      final precioMostrado = widget.indicesConDescuento.contains(idx)
           ? _round10(i.precio * 0.90)
           : i.precio;
       bloques.add(
@@ -1244,7 +1306,7 @@ class _TicketExitoState extends State<_TicketExito>
     }
     final subtotalOriginal =
         widget.cesta.fold(0.0, (s, i) => s + i.precio);
-    final descuentoLine = widget.conDescuento
+    final descuentoLine = widget.indicesConDescuento.isNotEmpty
         ? '🎉 *Descuento 10%* (precio regular S/ ${subtotalOriginal.toStringAsFixed(2)})\n'
         : '';
     final deliveryLine = widget.conDelivery ? '🛵 Delivery: +S/ 10.00\n' : '';
@@ -1253,7 +1315,7 @@ class _TicketExitoState extends State<_TicketExito>
         '${bloques.join('\n\n')}\n\n'
         '$sep\n$descuentoLine$deliveryLine'
         '💰 *Total: S/ ${widget.total.toStringAsFixed(2)}*\n$sep\n\n'
-        '_Si confirmas, te envío los datos de Yape/Plin para que puedas apartar 💛_';
+        '_Si confirmas, te envío los datos de Yape para que puedas apartar 💛_';
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
     final prefijo = numero.startsWith('51') ? numero : '51$numero';
     final uri = Uri.parse(

@@ -30,6 +30,18 @@ final cotizacionesHoyProvider =
 final _cotizacionesAceptadasProvider =
     StateProvider<Set<String>>((ref) => const {});
 
+// ── Decide si se puede saltar el formulario e ir directo a confirmar ──────────
+
+bool clienteListoParaConfirmar({
+  required String comprador,
+  required String direccion,
+  required String tipoEnvio,
+}) {
+  return comprador.trim().isNotEmpty &&
+      direccion.trim().isNotEmpty &&
+      tipoEnvio.isNotEmpty;
+}
+
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 
 class CotizacionesHoyScreen extends ConsumerWidget {
@@ -304,6 +316,14 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
           }
           if (_tipoEnvio.isEmpty) _tipoEnvio = cliente.tipoEnvio;
           _metodoPago = cliente.metodoPago;
+          // Cliente conocido + datos completos → salta el form, va directo a confirmar
+          if (clienteListoParaConfirmar(
+            comprador: _compradorCtrl.text,
+            direccion: _direccionCtrl.text,
+            tipoEnvio: _tipoEnvio,
+          )) {
+            _confirmando = true;
+          }
         });
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_botonKey.currentContext != null) {
@@ -359,7 +379,6 @@ class _CotizacionCardState extends ConsumerState<_CotizacionCard> {
       ref.invalidate(resumenBackendProvider);
       ref.invalidate(resumenStatsProvider);
       ref.invalidate(semanaStatsProvider);
-      ref.invalidate(tamaniosStatsProvider);
       ref.read(catalogoProvider.notifier).load();
       setState(() {
         _registrando = false;

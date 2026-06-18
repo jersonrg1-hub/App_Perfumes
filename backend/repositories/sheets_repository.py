@@ -449,8 +449,8 @@ class SheetsRepository:
 
         self.append_sale_rows(filas)
 
-        df_cat = self.fetch_catalog()
         try:
+            df_cat = self.fetch_catalog()
             self.update_stock_batch(cesta, merma_pct, df_cat)
         except Exception as e:
             logger.error(f"[register_complete_sale/stock] {type(e).__name__}: {e}")

@@ -314,14 +314,11 @@ class SheetsRepository:
         self._ejecutar_con_reintento(_write, "save_quote")
         return id_cotizacion
 
-    def update_stock_batch(self, items_vendidos: list[dict], merma_pct: float) -> None:
-        """
-        Descuenta stock en batch considerando merma.
-
-        Requiere que el catálogo ya esté cargado FRESCO (sin cache) para
-        que fila_sheet sea exacto. El caller debe limpiar el cache antes de llamar.
-        """
-        df_cat = self.fetch_catalog()
+    def update_stock_batch(
+        self, items_vendidos: list[dict], merma_pct: float, df_catalogo: pd.DataFrame
+    ) -> None:
+        """Descuenta stock en batch considerando merma. Caller provee df_catalogo."""
+        df_cat = df_catalogo
         if df_cat.empty or "fila_sheet" not in df_cat.columns:
             raise ValueError("Catálogo vacío o sin fila_sheet")
         if not {"Stock_ml", "ID_Perfume"}.issubset(df_cat.columns):
@@ -452,8 +449,9 @@ class SheetsRepository:
 
         self.append_sale_rows(filas)
 
+        df_cat = self.fetch_catalog()
         try:
-            self.update_stock_batch(cesta, merma_pct)
+            self.update_stock_batch(cesta, merma_pct, df_cat)
         except Exception as e:
             logger.error(f"[register_complete_sale/stock] {type(e).__name__}: {e}")
             raise StockUpdateError(id_compra, e)

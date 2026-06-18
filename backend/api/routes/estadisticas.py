@@ -44,8 +44,9 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
     # Convertir _fecha a Timestamps una vez para comparaciones vectorizadas
     _fechas_ts = pd.to_datetime(entregadas["_fecha"], errors="coerce")
     _valid = _fechas_ts.notna()
+    _fechas_date = pd.Series(_fechas_ts.dt.date, index=_fechas_ts.index)
 
-    hoy_df = entregadas[_valid & (_fechas_ts.dt.date == hoy)]
+    hoy_df = entregadas[_valid & (_fechas_date == hoy)]
     prev = hoy.replace(day=1) - timedelta(days=1)
     mes_df = entregadas[
         _valid & (_fechas_ts.dt.year == hoy.year) & (_fechas_ts.dt.month == hoy.month)
@@ -59,7 +60,7 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
     semanal = []
     for i in range(7):
         dia = inicio_semana + timedelta(days=i)
-        dia_df = entregadas[_valid & (_fechas_ts.dt.date == dia)]
+        dia_df = entregadas[_valid & (_fechas_date == dia)]
         semanal.append({
             "fecha": dia.isoformat(),
             "ordenes": int(dia_df["ID_Compra"].nunique()) if "ID_Compra" in dia_df.columns else 0,
@@ -71,7 +72,7 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
     inicio_ant = inicio_semana - timedelta(days=7)
     fin_ant = inicio_semana - timedelta(days=1)
     sem_ant_df = entregadas[
-        _valid & (_fechas_ts.dt.date >= inicio_ant) & (_fechas_ts.dt.date <= fin_ant)
+        _valid & (_fechas_date >= inicio_ant) & (_fechas_date <= fin_ant)
     ]
 
     # Tamaños del mes (no de todo el tiempo)

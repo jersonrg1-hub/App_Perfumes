@@ -8,12 +8,12 @@ double _round10(double p) => (p * 10).round() / 10.0;
 
 class NuevaCotizacionState {
   const NuevaCotizacionState({
-    this.paso         = 1,
-    this.celular      = '',
-    this.cesta        = const [],
-    this.conDelivery  = false,
-    this.conDescuento = false,
-    this.registrando  = false,
+    this.paso                = 1,
+    this.celular             = '',
+    this.cesta               = const [],
+    this.conDelivery         = false,
+    this.indicesConDescuento = const {},
+    this.registrando         = false,
     this.registrada,
     this.error,
   });
@@ -22,23 +22,32 @@ class NuevaCotizacionState {
   final String                celular;
   final List<ItemCesta>       cesta;
   final bool                  conDelivery;
-  final bool                  conDescuento;
+  final Set<int>               indicesConDescuento;
   final bool                  registrando;
   final CotizacionRegistrada? registrada;
   final String?               error;
 
   static const double costoDelivery = 10.0;
 
-  // Precio efectivo de un item según descuento
-  double precioEfectivo(double precio) =>
-      conDescuento ? _round10(precio * 0.90) : precio;
+  // True solo si TODOS los items de la cesta tienen descuento — estado del switch "seleccionar todos"
+  bool get conDescuento =>
+      cesta.isNotEmpty && indicesConDescuento.length == cesta.length;
+
+  // True si AL MENOS un item tiene descuento (parcial o total)
+  bool get algunDescuento => indicesConDescuento.isNotEmpty;
+
+  bool itemConDescuento(int index) => indicesConDescuento.contains(index);
+
+  // Precio efectivo de un item según si ESE item tiene descuento
+  double precioEfectivoIndex(int index, double precio) =>
+      itemConDescuento(index) ? _round10(precio * 0.90) : precio;
 
   // Subtotal SIN descuento (precios originales)
   double get subtotalOriginal => cesta.fold(0.0, (s, i) => s + i.precio);
 
-  // Subtotal CON descuento aplicado por item
-  double get subtotalDescuento =>
-      cesta.fold(0.0, (s, i) => s + precioEfectivo(i.precio));
+  // Subtotal CON descuento aplicado solo a los items seleccionados
+  double get subtotalDescuento => cesta.asMap().entries.fold(
+      0.0, (s, e) => s + precioEfectivoIndex(e.key, e.value.precio));
 
   // Ahorro total = diferencia entre subtotales
   double get ahorro => subtotalOriginal - subtotalDescuento;
@@ -60,21 +69,21 @@ class NuevaCotizacionState {
     String?               celular,
     List<ItemCesta>?      cesta,
     bool?                 conDelivery,
-    bool?                 conDescuento,
+    Set<int>?             indicesConDescuento,
     bool?                 registrando,
     CotizacionRegistrada? registrada,
     String?               error,
     bool                  clearError      = false,
     bool                  clearRegistrada = false,
   }) => NuevaCotizacionState(
-    paso:         paso         ?? this.paso,
-    celular:      celular      ?? this.celular,
-    cesta:        cesta        ?? this.cesta,
-    conDelivery:  conDelivery  ?? this.conDelivery,
-    conDescuento: conDescuento ?? this.conDescuento,
-    registrando:  registrando  ?? this.registrando,
-    registrada:   clearRegistrada ? null : (registrada ?? this.registrada),
-    error:        clearError   ? null : (error        ?? this.error),
+    paso:                paso                ?? this.paso,
+    celular:             celular             ?? this.celular,
+    cesta:               cesta               ?? this.cesta,
+    conDelivery:         conDelivery         ?? this.conDelivery,
+    indicesConDescuento: indicesConDescuento ?? this.indicesConDescuento,
+    registrando:         registrando         ?? this.registrando,
+    registrada:          clearRegistrada ? null : (registrada ?? this.registrada),
+    error:               clearError   ? null : (error        ?? this.error),
   );
 }
 
@@ -88,7 +97,27 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
   void setCelular(String v)    => state = state.copyWith(celular: v);
   void irPaso(int p)           => state = state.copyWith(paso: p, clearError: true);
   void toggleDelivery()        => state = state.copyWith(conDelivery: !state.conDelivery);
-  void toggleDescuento()       => state = state.copyWith(conDescuento: !state.conDescuento);
+
+  // Shortcut "seleccionar todos": si ya estan todos seleccionados, limpia; si no, selecciona todos
+  void toggleDescuento() {
+    if (state.conDescuento) {
+      state = state.copyWith(indicesConDescuento: {});
+    } else {
+      state = state.copyWith(
+        indicesConDescuento: {for (var i = 0; i < state.cesta.length; i++) i},
+      );
+    }
+  }
+
+  void toggleItemDescuento(int index) {
+    final nuevos = Set<int>.from(state.indicesConDescuento);
+    if (nuevos.contains(index)) {
+      nuevos.remove(index);
+    } else {
+      nuevos.add(index);
+    }
+    state = state.copyWith(indicesConDescuento: nuevos);
+  }
 
   void agregarItem(Perfume perfume, int ml) {
     final precio = switch (ml) {
@@ -109,8 +138,12 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
   }
 
   void quitarItem(int index) {
-    final nueva = List<ItemCesta>.from(state.cesta)..removeAt(index);
-    state = state.copyWith(cesta: nueva);
+    final nuevaCesta = List<ItemCesta>.from(state.cesta)..removeAt(index);
+    final nuevosIndices = state.indicesConDescuento
+        .where((i) => i != index)
+        .map((i) => i > index ? i - 1 : i)
+        .toSet();
+    state = state.copyWith(cesta: nuevaCesta, indicesConDescuento: nuevosIndices);
   }
 
   Future<void> guardar() async {
@@ -118,9 +151,9 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     try {
       final registrada = await _repo.guardarCotizacion(
         celular: state.celular,
-        items:   state.cesta.map((i) => {
-          ...i.toApiMap(),
-          'precio': state.precioEfectivo(i.precio),
+        items:   state.cesta.asMap().entries.map((e) => {
+          ...e.value.toApiMap(),
+          'precio': state.precioEfectivoIndex(e.key, e.value.precio),
         }).toList(),
         total:   state.subtotalDescuento,
       );

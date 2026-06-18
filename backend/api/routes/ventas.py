@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.api.dependencies import (
     get_repo,
     get_ventas_cached,
+    get_catalogo_cached,
     invalidar_cache_catalogo,
     invalidar_cache_ventas,
     verify_api_key,
@@ -245,8 +246,10 @@ def actualizar_estado_venta(
 
     if fila_para_restock:
         try:
+            df_cat = get_catalogo_cached(repo)
             repo.restore_stock_single(
-                fila_para_restock["ID_Perfume"], fila_para_restock["Ml_Vendido"], MERMA_PCT
+                fila_para_restock["ID_Perfume"], fila_para_restock["Ml_Vendido"], MERMA_PCT,
+                df_catalogo=df_cat,
             )
             invalidar_cache_catalogo()
         except Exception as e:

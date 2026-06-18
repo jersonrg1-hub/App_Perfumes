@@ -369,13 +369,11 @@ class SheetsRepository:
         padded = list(valores) + [''] * max(0, len(COLUMNAS_VENTAS) - len(valores))
         return dict(zip(COLUMNAS_VENTAS, padded))
 
-    def restore_stock_single(self, id_perfume: str, ml_vendido, merma_pct: float) -> None:
-        """
-        Repone el stock de un perfume al anular una venta — inverso de update_stock_batch.
-        Aplica la misma lógica de merma/ml_base (via _ml_con_merma) para que el stock
-        vuelva al valor previo exacto.
-        """
-        df_cat = self.fetch_catalog()
+    def restore_stock_single(
+        self, id_perfume: str, ml_vendido, merma_pct: float, df_catalogo: pd.DataFrame
+    ) -> None:
+        """Repone stock al anular una venta — inverso de update_stock_batch. Caller provee df_catalogo."""
+        df_cat = df_catalogo
         if df_cat.empty or "fila_sheet" not in df_cat.columns:
             raise ValueError("Catálogo vacío o sin fila_sheet")
         if not {"Stock_ml", "ID_Perfume"}.issubset(df_cat.columns):

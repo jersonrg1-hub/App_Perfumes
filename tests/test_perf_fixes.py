@@ -1,6 +1,6 @@
 """Tests de los fixes de performance — sin red, sin gspread."""
 from datetime import date, timedelta
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
@@ -95,12 +95,13 @@ def test_compute_resumen_hoy_correcto():
 def test_compute_resumen_mes_correcto():
     """_compute_resumen incluye ventas de ayer en el total del mes."""
     from backend.api.routes.estadisticas import _compute_resumen
-    from backend.core.config import hoy_peru
+    from unittest.mock import patch
+    from datetime import date
 
-    hoy = hoy_peru()
-    df = _make_df_ventas(hoy)
+    # Fix mid-month so hoy and ayer are always in same month
+    fixed_hoy = date(2026, 6, 15)
+    with patch("backend.api.routes.estadisticas.hoy_peru", return_value=fixed_hoy):
+        df = _make_df_ventas(fixed_hoy)
+        result = _compute_resumen(df, pendientes_count=0)
 
-    result = _compute_resumen(df, pendientes_count=0)
-
-    # ayer también está en este mes (ambas fechas son del mismo mes)
-    assert result["mes"]["total"] >= 25.0
+    assert result["mes"]["total"] == pytest.approx(45.0)  # 25.0 hoy + 20.0 ayer

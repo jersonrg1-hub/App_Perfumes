@@ -1292,25 +1292,27 @@ class _TicketExitoState extends State<_TicketExito>
 
   Future<void> _abrirWhatsApp() async {
     const sep = '────────────────────';
+    const numeros = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
     final bloques = <String>[];
+    var ahorroTotal = 0.0;
     for (var idx = 0; idx < widget.cesta.length; idx++) {
       final i = widget.cesta[idx];
       final nombreCompleto = '${i.perfume.marca} ${i.perfume.nombre}'.trim();
       final tieneDescuento = widget.indicesConDescuento.contains(idx);
       final precioMostrado =
           tieneDescuento ? _round10(i.precio * 0.90) : i.precio;
+      if (tieneDescuento) ahorroTotal += i.precio - precioMostrado;
       final precioLine = tieneDescuento
           ? '~S/ ${i.precio.toStringAsFixed(2)}~  ➡️ *S/ ${precioMostrado.toStringAsFixed(2)}*'
           : '*S/ ${precioMostrado.toStringAsFixed(2)}*';
+      final numero = idx < numeros.length ? numeros[idx] : '*${idx + 1}.*';
       bloques.add(
-        '*${idx + 1}.* 🌸 *$nombreCompleto*\n'
+        '$numero 🌸 *$nombreCompleto*\n'
         '     📏 ${i.ml}ml  ·  💰 $precioLine',
       );
     }
-    final subtotalOriginal =
-        widget.cesta.fold(0.0, (s, i) => s + i.precio);
     final descuentoLine = widget.indicesConDescuento.isNotEmpty
-        ? '🎉 *Descuento 10%* (precio regular S/ ${subtotalOriginal.toStringAsFixed(2)})\n'
+        ? '🎉 *Descuento 10%* — ahorras S/ ${ahorroTotal.toStringAsFixed(2)}\n'
         : '';
     final deliveryLine = widget.conDelivery ? '🛵 Delivery: +S/ 10.00\n' : '';
     final texto =

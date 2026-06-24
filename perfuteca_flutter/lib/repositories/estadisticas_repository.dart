@@ -31,6 +31,20 @@ class EstadisticasRepository {
     }
   }
 
+  Future<Map<String, dynamic>> getHistorico() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        ApiConstants.estadisticasHistorico,
+        options: _cache.cacheFor(const Duration(minutes: 2)),
+      );
+      return res.data!;
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    } catch (_) {
+      throw const ParseException();
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getClientes({
     int limit = 500,
     int offset = 0,

@@ -10,7 +10,7 @@ final resumenBackendProvider = FutureProvider<Map<String, dynamic>>((ref) async 
   return ref.watch(estadisticasRepositoryProvider).getResumen();
 });
 
-// Ventas crudas: usadas por historial, clientes y comparación de meses.
+// Ventas crudas: usadas por VentasTab/banner de aviso y tamaniosStatsProvider.
 // Con caché normal (5 min) — ya no se bypasea.
 final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async {
   ref.keepAlive();
@@ -19,24 +19,12 @@ final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async 
   return page.items;
 });
 
-// ── Helpers normalización de distritos ───────────────────────────────────────
-
-String _normalizarDistrito(String s) {
-  const from = 'áàäâãéèëêíìïîóòöôõúùüûÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛñÑ';
-  const to   = 'aaaaaeeeeiiiiooooouuuuAAAAAEEEEIIIIOOOOOUUUUnn';
-  final buf = StringBuffer();
-  for (final c in s.toLowerCase().runes) {
-    final ch = String.fromCharCode(c);
-    final idx = from.indexOf(ch);
-    buf.write(idx >= 0 ? to[idx] : ch);
-  }
-  return buf.toString();
-}
-
-String _titleCase(String s) => s
-    .split(' ')
-    .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
-    .join(' ');
+// Históricos pre-agregados del backend (sin tope de 500) — alimenta
+// historialGlobalProvider, mesesDisponiblesProvider y mesStatsMapProvider.
+final historicoBackendProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+  ref.keepAlive();
+  return ref.watch(estadisticasRepositoryProvider).getHistorico();
+});
 
 // ── Resumen (hoy + mes + top perfumes) ───────────────────────────────────────
 
@@ -299,17 +287,12 @@ final semanaStatsProvider = FutureProvider<SemanaStat>((ref) async {
 
 final mesesDisponiblesProvider = FutureProvider<List<String>>((ref) async {
   ref.keepAlive();
-  final ventas = await ref.watch(ventasParaStatsProvider.future);
-  final set    = <String>{};
-
-  for (final v in ventas.where((v) => v.estado?.toLowerCase() != 'anulado')) {
-    if (v.fecha == null) continue;
-    try {
-      final d = DateTime.parse(v.fecha!);
-      set.add('${d.year}-${d.month.toString().padLeft(2, '0')}');
-    } catch (_) {}
-  }
-  return set.toList()..sort();
+  final data   = await ref.watch(historicoBackendProvider.future);
+  final porMes = data['por_mes'] as List<dynamic>? ?? [];
+  return porMes
+      .map((e) => (e as Map<String, dynamic>)['clave'] as String)
+      .toList()
+    ..sort();
 });
 
 // ── Mapa de stats por mes ─────────────────────────────────────────────────────
@@ -322,25 +305,14 @@ class MesStat {
 
 final mesStatsMapProvider = FutureProvider<Map<String, MesStat>>((ref) async {
   ref.keepAlive();
-  final ventas     = await ref.watch(ventasParaStatsProvider.future);
-  // Incluye Pendiente — cobros por adelantado. Excluye solo Anulado.
-  final entregadas = ventas.where((v) => v.estado?.toLowerCase() != 'anulado');
-
-  final map = <String, List<VentaResponse>>{};
-  for (final v in entregadas) {
-    if (v.fecha == null) continue;
-    try {
-      final d   = DateTime.parse(v.fecha!);
-      final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
-      (map[key] ??= []).add(v);
-    } catch (_) {}
-  }
+  final data   = await ref.watch(historicoBackendProvider.future);
+  final porMes = data['por_mes'] as List<dynamic>? ?? [];
 
   return {
-    for (final e in map.entries)
-      e.key: MesStat(
-        numOrdenes: e.value.map((v) => v.idCompra).toSet().length,
-        total:      e.value.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0)),
+    for (final e in porMes)
+      (e as Map<String, dynamic>)['clave'] as String: MesStat(
+        numOrdenes: (e['num_ordenes'] as num?)?.toInt() ?? 0,
+        total:      (e['total'] as num?)?.toDouble() ?? 0,
       ),
   };
 });
@@ -443,140 +415,75 @@ class HistorialGlobalStats {
   final List<DistritoStat>     distritoRanking;
 }
 
+TopPerfume _topPerfumeFromJson(Map<String, dynamic> e, Map<String, dynamic> perfumesMap) {
+  final id     = e['id_perfume']?.toString() ?? '';
+  final normId = double.tryParse(id)?.toInt().toString() ?? id;
+  final p      = perfumesMap[normId];
+  return TopPerfume(
+    nombre:     p?.nombre ?? 'Perfume #$id',
+    marca:      p?.marca  ?? '',
+    totalMl:    (e['total_ml']    as num?)?.toInt()    ?? 0,
+    totalSoles: (e['total_soles'] as num?)?.toDouble() ?? 0,
+  );
+}
+
 final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async {
   ref.keepAlive();
-  final ventas      = await ref.watch(ventasParaStatsProvider.future);
+  final data        = await ref.watch(historicoBackendProvider.future);
   final perfumesMap = await ref.watch(perfumesMapProvider.future);
-  // Incluye Pendiente — cobros por adelantado. Excluye solo Anulado.
-  final entregadas = ventas
-      .where((v) => v.estado?.toLowerCase() != 'anulado')
-      .toList();
 
-  final totalVentas    = entregadas.map((v) => v.idCompra).toSet().length;
-  final totalIngresos  = entregadas.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
-  final totalMl        = entregadas.fold(0, (s, v) => s + (v.mlVendido ?? 0));
-  final ticketProm     = totalVentas > 0 ? totalIngresos / totalVentas : 0.0;
-  final clientesUnicos = entregadas
-      .map((v) => v.celular ?? '')
-      .where((c) => c.isNotEmpty)
-      .toSet()
-      .length;
-
-  final fechas = entregadas
-      .where((v) => v.fecha != null)
-      .map((v) => v.fecha!)
-      .toList()
-    ..sort();
-  final primeraVenta = fechas.isEmpty ? null : fechas.first;
+  final totalVentas   = (data['total_ventas']    as num?)?.toInt()    ?? 0;
+  final totalIngresos = (data['total_ingresos']  as num?)?.toDouble() ?? 0;
+  final totalMl       = (data['total_ml']        as num?)?.toInt()    ?? 0;
+  final clientesUnicos = (data['clientes_unicos'] as num?)?.toInt()   ?? 0;
+  final primeraVenta  = data['primera_venta'] as String?;
 
   int diasActivo = 0;
   if (primeraVenta != null) {
     try {
-      final primera = DateTime.parse(primeraVenta);
-      diasActivo = DateTime.now().difference(primera).inDays + 1;
+      diasActivo = DateTime.now().difference(DateTime.parse(primeraVenta)).inDays + 1;
     } catch (_) {}
   }
 
-  const mesesCortos = ['', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-                       'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-
-  final mesMap = <String, List<VentaResponse>>{};
-  for (final v in entregadas) {
-    if (v.fecha == null) continue;
-    try {
-      final d   = DateTime.parse(v.fecha!);
-      final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
-      (mesMap[key] ??= []).add(v);
-    } catch (_) {}
-  }
-
-  final porMes = mesMap.entries.map((e) {
-    final parts   = e.key.split('-');
-    final month   = int.tryParse(parts[1]) ?? 0;
-    final year    = parts[0];
-    final total   = e.value.fold(0.0, (s, v) => s + (v.precioCobrado ?? 0));
-    final mlMes   = e.value.fold(0, (s, v) => s + (v.mlVendido ?? 0));
-    final ordenes = e.value.map((v) => v.idCompra).toSet().length;
-
-    final perfMesMap = <String, ({int ml, double soles})>{};
-    for (final v in e.value) {
-      if (v.idPerfume == null) continue;
-      final normId = double.tryParse(v.idPerfume!)?.toInt().toString() ?? v.idPerfume!;
-      final prev = perfMesMap[normId] ?? (ml: 0, soles: 0.0);
-      perfMesMap[normId] = (ml: prev.ml + (v.mlVendido ?? 0), soles: prev.soles + (v.precioCobrado ?? 0));
-    }
-    final topMes = (perfMesMap.entries.map((pe) {
-      final p = perfumesMap[pe.key];
-      return TopPerfume(nombre: p?.nombre ?? 'Perfume #${pe.key}', marca: p?.marca ?? '', totalMl: pe.value.ml, totalSoles: pe.value.soles);
-    }).toList()..sort((a, b) => b.totalMl.compareTo(a.totalMl))).take(10).toList();
-
+  final porMesRaw = data['por_mes'] as List<dynamic>? ?? [];
+  final porMes = porMesRaw.map((e) {
+    final m = e as Map<String, dynamic>;
+    final topRaw = m['top_perfumes'] as List<dynamic>? ?? [];
     return MesStatHistorico(
-      clave:       e.key,
-      label:       '${mesesCortos[month]} $year',
-      numOrdenes:  ordenes,
-      total:       total,
-      totalMl:     mlMes,
-      topPerfumes: topMes,
+      clave:       m['clave'] as String,
+      label:       m['label'] as String,
+      numOrdenes:  (m['num_ordenes'] as num?)?.toInt() ?? 0,
+      total:       (m['total']      as num?)?.toDouble() ?? 0,
+      totalMl:     (m['total_ml']   as num?)?.toInt() ?? 0,
+      topPerfumes: topRaw
+          .map((pe) => _topPerfumeFromJson(pe as Map<String, dynamic>, perfumesMap))
+          .toList(),
     );
-  }).toList()
-    ..sort((a, b) => a.clave.compareTo(b.clave));
+  }).toList();
 
-  final mejorMesClave = porMes.isEmpty
-      ? null
-      : porMes.reduce((a, b) => a.total > b.total ? a : b).clave;
+  final mejorMesClave   = data['mejor_mes_clave']  as String?;
+  final promedioMensual = (data['promedio_mensual'] as num?)?.toDouble() ?? 0;
 
-  final promedioMensual =
-      porMes.isNotEmpty ? totalIngresos / porMes.length : 0.0;
+  final topPerfumesRaw = data['top_perfumes'] as List<dynamic>? ?? [];
+  final masVendidosHistorico = topPerfumesRaw
+      .map((e) => _topPerfumeFromJson(e as Map<String, dynamic>, perfumesMap))
+      .toList();
 
-  // Top perfumes histórico: agrupar por idPerfume, sumar ml y soles
-  final perfMap = <String, ({int ml, double soles})>{};
-  for (final v in entregadas) {
-    if (v.idPerfume == null) continue;
-    final normId = double.tryParse(v.idPerfume!)?.toInt().toString()
-        ?? v.idPerfume!;
-    final prev = perfMap[normId] ?? (ml: 0, soles: 0.0);
-    perfMap[normId] = (
-      ml:    prev.ml    + (v.mlVendido     ?? 0),
-      soles: prev.soles + (v.precioCobrado ?? 0),
+  final distritosRaw = data['ranking_distritos'] as List<dynamic>? ?? [];
+  final distritoRanking = distritosRaw.map((e) {
+    final m = e as Map<String, dynamic>;
+    return DistritoStat(
+      nombre:     m['nombre'] as String,
+      pedidos:    (m['pedidos']     as num?)?.toInt()    ?? 0,
+      totalSoles: (m['total_soles'] as num?)?.toDouble() ?? 0,
     );
-  }
-  final masVendidosHistorico = perfMap.entries
-      .map((e) {
-        final p = perfumesMap[e.key];
-        return TopPerfume(
-          nombre:     p?.nombre ?? 'Perfume #${e.key}',
-          marca:      p?.marca  ?? '',
-          totalMl:    e.value.ml,
-          totalSoles: e.value.soles,
-        );
-      })
-      .toList()
-    ..sort((a, b) => b.totalMl.compareTo(a.totalMl));
-
-  // Ranking de distritos
-  final distSoles  = <String, double>{};
-  final distOrders = <String, Set<String>>{};
-  for (final v in entregadas) {
-    final dist = (v.distrito ?? '').trim();
-    if (dist.isEmpty) continue;
-    final key = _normalizarDistrito(dist);
-    (distOrders[key] ??= {}).add(v.idCompra);
-    distSoles[key] = (distSoles[key] ?? 0.0) + (v.precioCobrado ?? 0);
-  }
-  final distritoRanking = distOrders.entries.map((e) => DistritoStat(
-    nombre:     _titleCase(e.key),
-    pedidos:    e.value.length,
-    totalSoles: distSoles[e.key] ?? 0,
-  )).toList()
-    ..sort((a, b) => b.pedidos != a.pedidos
-        ? b.pedidos.compareTo(a.pedidos)
-        : b.totalSoles.compareTo(a.totalSoles));
+  }).toList();
 
   return HistorialGlobalStats(
     totalVentas:          totalVentas,
     totalIngresos:        totalIngresos,
     totalMl:              totalMl,
-    ticketPromedio:       ticketProm,
+    ticketPromedio:       totalVentas > 0 ? totalIngresos / totalVentas : 0.0,
     clientesUnicos:       clientesUnicos,
     diasActivo:           diasActivo,
     primeraVenta:         primeraVenta,

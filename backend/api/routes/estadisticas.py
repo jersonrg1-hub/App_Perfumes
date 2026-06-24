@@ -28,6 +28,7 @@ def _invalidar_cache_stats() -> None:
     with _stats_lock:
         _cache_stats = None
         _cache_ts = 0.0
+    _invalidar_cache_historico()
 
 
 def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
@@ -304,3 +305,158 @@ def get_clientes(
         ]
 
     return paginate(resultado, limit, offset)
+
+
+# ── Cache separado para histórico ────────────────────────────────────────────
+# Reemplaza ventasParaStatsProvider (getVentas(limit:500)) para historialGlobalProvider,
+# mesesDisponiblesProvider y mesStatsMapProvider en Flutter. Agrega sobre el DataFrame
+# completo de ventas — escala con 10k-100k registros, a diferencia del tope de 500.
+
+_cache_historico:    Optional[dict] = None
+_cache_historico_ts: float = 0.0
+_historico_lock = threading.Lock()
+
+_MESES_CORTOS = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                 "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+_DISTRITO_ACENTOS = str.maketrans(
+    "áàäâãéèëêíìïîóòöôõúùüûÁÀÄÂÃÉÈËÊÍÌÏÎÓÒÖÔÕÚÙÜÛñÑ",
+    "aaaaaeeeeiiiiooooouuuuAAAAAEEEEIIIIOOOOOUUUUnn",
+)
+
+
+def _invalidar_cache_historico() -> None:
+    global _cache_historico, _cache_historico_ts
+    with _historico_lock:
+        _cache_historico = None
+        _cache_historico_ts = 0.0
+
+
+def _normalizar_distrito(s: str) -> str:
+    return s.strip().lower().translate(_DISTRITO_ACENTOS)
+
+
+def _titlecase_distrito(s: str) -> str:
+    return " ".join(w[:1].upper() + w[1:] for w in s.split(" ") if w)
+
+
+def _top_perfumes(df: pd.DataFrame, n: Optional[int] = None) -> List[dict]:
+    if df.empty or "ID_Perfume" not in df.columns:
+        return []
+    g = (
+        df.groupby("ID_Perfume")
+        .agg(total_ml=("Ml_Vendido", "sum"), total_soles=("Precio_Cobrado", "sum"))
+        .sort_values("total_ml", ascending=False)
+    )
+    if n is not None:
+        g = g.head(n)
+    g = g.reset_index()
+    return [
+        {"id_perfume": str(r.ID_Perfume), "total_ml": int(r.total_ml), "total_soles": float(r.total_soles)}
+        for r in g.itertuples(index=False)
+    ]
+
+
+def _empty_historico() -> dict:
+    return {
+        "total_ventas":      0,
+        "total_ingresos":    0.0,
+        "total_ml":          0,
+        "clientes_unicos":   0,
+        "primera_venta":     None,
+        "por_mes":           [],
+        "mejor_mes_clave":   None,
+        "promedio_mensual":  0.0,
+        "top_perfumes":      [],
+        "ranking_distritos": [],
+    }
+
+
+def _compute_historico(df: pd.DataFrame) -> dict:
+    if df.empty:
+        return _empty_historico()
+
+    entregadas = df[df["Estado"] != "Anulado"].copy()
+    if entregadas.empty:
+        return _empty_historico()
+
+    entregadas["_fecha"] = pd.to_datetime(entregadas["Fecha"], errors="coerce")
+    entregadas["_mes"]   = entregadas["_fecha"].dt.strftime("%Y-%m")
+
+    fechas_validas = entregadas["_fecha"].dropna()
+
+    por_mes = []
+    for clave, grupo in entregadas.dropna(subset=["_mes"]).groupby("_mes"):
+        year, month = clave.split("-")
+        por_mes.append({
+            "clave":        clave,
+            "label":        f"{_MESES_CORTOS[int(month)]} {year}",
+            "num_ordenes":  int(grupo["ID_Compra"].nunique()),
+            "total":        float(grupo["Precio_Cobrado"].sum()),
+            "total_ml":     int(grupo["Ml_Vendido"].sum()),
+            "top_perfumes": _top_perfumes(grupo, n=10),
+        })
+    por_mes.sort(key=lambda m: m["clave"])
+
+    ranking_distritos = []
+    if "Distrito" in entregadas.columns:
+        dist_rows = entregadas[
+            entregadas["Distrito"].notna() & (entregadas["Distrito"].astype(str).str.strip() != "")
+        ].copy()
+        if not dist_rows.empty:
+            dist_rows["distrito_norm"] = dist_rows["Distrito"].astype(str).map(_normalizar_distrito)
+            g = (
+                dist_rows.groupby("distrito_norm")
+                .agg(pedidos=("ID_Compra", "nunique"), total_soles=("Precio_Cobrado", "sum"))
+                .reset_index()
+            )
+            ranking_distritos = sorted(
+                (
+                    {
+                        "nombre":      _titlecase_distrito(r.distrito_norm),
+                        "pedidos":     int(r.pedidos),
+                        "total_soles": float(r.total_soles),
+                    }
+                    for r in g.itertuples(index=False)
+                ),
+                key=lambda d: (-d["pedidos"], -d["total_soles"]),
+            )
+
+    return {
+        "total_ventas":      int(entregadas["ID_Compra"].nunique()),
+        "total_ingresos":    float(entregadas["Precio_Cobrado"].sum()),
+        "total_ml":          int(entregadas["Ml_Vendido"].sum()),
+        "clientes_unicos":   int(entregadas["Celular"].nunique()),
+        "primera_venta":     fechas_validas.min().date().isoformat() if not fechas_validas.empty else None,
+        "por_mes":           por_mes,
+        "mejor_mes_clave":   max(por_mes, key=lambda m: m["total"])["clave"] if por_mes else None,
+        "promedio_mensual":  (float(entregadas["Precio_Cobrado"].sum()) / len(por_mes)) if por_mes else 0.0,
+        "top_perfumes":      _top_perfumes(entregadas),
+        "ranking_distritos": ranking_distritos,
+    }
+
+
+@router.get("/historico", summary="Históricos completos pre-agregados (sin tope de 500 ventas)")
+def get_historico(repo: SheetsRepository = Depends(get_repo)):
+    """
+    Reemplaza ventasParaStatsProvider para historialGlobalProvider, mesesDisponiblesProvider
+    y mesStatsMapProvider. Agrega sobre TODO el DataFrame de ventas (sin limit:500) —
+    escala con 10k-100k registros. Cache interno 5 min, invalida junto con /resumen
+    al registrar/actualizar una venta.
+    """
+    global _cache_historico, _cache_historico_ts
+    now = time.monotonic()
+    with _historico_lock:
+        if _cache_historico is not None and (now - _cache_historico_ts) < _STATS_TTL:
+            return _cache_historico
+
+    try:
+        df = get_ventas_cached(repo)
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Error al cargar ventas: {e}")
+
+    result = _compute_historico(df)
+    with _historico_lock:
+        _cache_historico    = result
+        _cache_historico_ts = time.monotonic()
+    return result

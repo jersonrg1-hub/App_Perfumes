@@ -1296,12 +1296,15 @@ class _TicketExitoState extends State<_TicketExito>
     for (var idx = 0; idx < widget.cesta.length; idx++) {
       final i = widget.cesta[idx];
       final nombreCompleto = '${i.perfume.marca} ${i.perfume.nombre}'.trim();
-      final precioMostrado = widget.indicesConDescuento.contains(idx)
-          ? _round10(i.precio * 0.90)
-          : i.precio;
+      final tieneDescuento = widget.indicesConDescuento.contains(idx);
+      final precioMostrado =
+          tieneDescuento ? _round10(i.precio * 0.90) : i.precio;
+      final precioLine = tieneDescuento
+          ? '~S/ ${i.precio.toStringAsFixed(2)}~  ➡️ *S/ ${precioMostrado.toStringAsFixed(2)}*'
+          : '*S/ ${precioMostrado.toStringAsFixed(2)}*';
       bloques.add(
         '*${idx + 1}.* 🌸 *$nombreCompleto*\n'
-        '     📏 ${i.ml}ml  ·  💰 *S/ ${precioMostrado.toStringAsFixed(2)}*',
+        '     📏 ${i.ml}ml  ·  💰 $precioLine',
       );
     }
     final subtotalOriginal =

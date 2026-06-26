@@ -522,15 +522,10 @@ class _CotizacionConvertirCardState
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
                                   Expanded(
-                                    child: FilledButton.icon(
-                                      onPressed: (!formValido || _registrando)
-                                          ? null
-                                          : () => setState(
-                                              () => _confirmando = true),
-                                      icon: const Icon(
-                                          Icons.arrow_forward_rounded,
-                                          size: 16),
-                                      label: const Text('Revisar pedido'),
+                                    child: BotonRevisarPedido(
+                                      habilitado: formValido && !_registrando,
+                                      onPressed: () =>
+                                          setState(() => _confirmando = true),
                                     ),
                                   ),
                                 ]),
@@ -809,6 +804,53 @@ class _CartaExito extends StatelessWidget {
 }
 
 // ── Widgets de formulario ─────────────────────────────────────────────────────
+
+// ── Botón "Revisar pedido" con micro-shift de ícono en press ─────────────────
+
+class BotonRevisarPedido extends StatefulWidget {
+  const BotonRevisarPedido({
+    super.key,
+    required this.habilitado,
+    required this.onPressed,
+  });
+  final bool         habilitado;
+  final VoidCallback onPressed;
+
+  @override
+  State<BotonRevisarPedido> createState() => _BotonRevisarPedidoState();
+}
+
+class _BotonRevisarPedidoState extends State<BotonRevisarPedido> {
+  bool _presionando = false;
+
+  @override
+  Widget build(BuildContext context) => FilledButton(
+        onPressed: widget.habilitado ? widget.onPressed : null,
+        style: FilledButton.styleFrom(padding: EdgeInsets.zero),
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _presionando = true),
+          onTapUp: (_) => setState(() => _presionando = false),
+          onTapCancel: () => setState(() => _presionando = false),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Revisar pedido'),
+                const SizedBox(width: 6),
+                AnimatedSlide(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOutCubic,
+                  offset: _presionando ? const Offset(0.3, 0) : Offset.zero,
+                  child: const Icon(Icons.arrow_forward_rounded, size: 16),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
 
 // ── Pill de estado (esperando / aceptada) ─────────────────────────────────────
 

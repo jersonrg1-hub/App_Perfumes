@@ -482,7 +482,7 @@ class _CotizacionConvertirCardState
                               const _FieldLabel(
                                   'Tipo de envío',
                                   Icons.local_shipping_outlined),
-                              _Chips(
+                              Chips(
                                 opciones: const ['Shalom', 'Motorizado'],
                                 valor: _tipoEnvio,
                                 onSelect: (v) {
@@ -492,7 +492,7 @@ class _CotizacionConvertirCardState
                               ),
                               const _FieldLabel(
                                   'Método de pago', Icons.payment_outlined),
-                              _Chips(
+                              Chips(
                                 opciones: const [
                                   'Yape', 'Plin', 'Transferencia', 'Tarjeta'
                                 ],
@@ -918,8 +918,9 @@ class _Field extends StatelessWidget {
       );
 }
 
-class _Chips extends StatelessWidget {
-  const _Chips({
+class Chips extends StatefulWidget {
+  const Chips({
+    super.key,
     required this.opciones,
     required this.valor,
     required this.onSelect,
@@ -929,48 +930,71 @@ class _Chips extends StatelessWidget {
   final ValueChanged<String> onSelect;
 
   @override
+  State<Chips> createState() => _ChipsState();
+}
+
+class _ChipsState extends State<Chips> {
+  String? _pulsando;
+
+  void _onTap(String op) {
+    setState(() => _pulsando = op);
+    widget.onSelect(op);
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) setState(() => _pulsando = null);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Wrap(
           spacing: 6,
           runSpacing: 6,
-          children: opciones.map((op) {
-            final sel    = valor == op;
+          children: widget.opciones.map((op) {
+            final sel    = widget.valor == op;
             final radius = BorderRadius.circular(AppSpacing.radiusSm);
             return Semantics(
               button: true,
               label: op,
               selected: sel,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(
+                    begin: 1.0, end: _pulsando == op ? 1.08 : 1.0),
+                duration: const Duration(milliseconds: 150),
                 curve: Curves.easeOutCubic,
-                decoration: BoxDecoration(
-                  color: sel ? AppColors.primary : AppColors.surface,
-                  borderRadius: radius,
-                  border: Border.all(
-                    color: sel ? AppColors.primary : AppColors.primaryLight,
-                    width: sel ? 1.5 : 1,
+                builder: (context, scale, child) =>
+                    Transform.scale(scale: scale, child: child),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  curve: Curves.easeOutCubic,
+                  decoration: BoxDecoration(
+                    color: sel ? AppColors.primary : AppColors.surface,
+                    borderRadius: radius,
+                    border: Border.all(
+                      color: sel ? AppColors.primary : AppColors.primaryLight,
+                      width: sel ? 1.5 : 1,
+                    ),
                   ),
-                ),
-                child: InkWell(
-                  onTap: () => onSelect(op),
-                  borderRadius: radius,
-                  splashColor: sel
-                      ? AppColors.primaryDark.withValues(alpha: 0.25)
-                      : AppColors.primaryLight,
-                  highlightColor: Colors.transparent,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 10),
-                    child: Text(op,
-                        style: TextStyle(
-                            fontSize:   12,
-                            fontWeight: sel
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                            color: sel
-                                ? AppColors.background
-                                : AppColors.textSecondary)),
+                  child: InkWell(
+                    onTap: () => _onTap(op),
+                    borderRadius: radius,
+                    splashColor: sel
+                        ? AppColors.primaryDark.withValues(alpha: 0.25)
+                        : AppColors.primaryLight,
+                    highlightColor: Colors.transparent,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 10),
+                      child: Text(op,
+                          style: TextStyle(
+                              fontSize:   12,
+                              fontWeight: sel
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: sel
+                                  ? AppColors.background
+                                  : AppColors.textSecondary)),
+                    ),
                   ),
                 ),
               ),

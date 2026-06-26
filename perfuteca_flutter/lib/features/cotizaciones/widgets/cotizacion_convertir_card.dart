@@ -588,12 +588,12 @@ class _ConfirmacionInline extends StatelessWidget {
                       .copyWith(color: AppColors.primary, fontSize: 12)),
             ]),
             const SizedBox(height: AppSpacing.md),
-            _ResumenFila('Cliente',   comprador),
-            _ResumenFila('Celular',   celular),
-            _ResumenFila('Envío',     tipoEnvio),
-            _ResumenFila('Dirección', direccion),
-            if (distrito.isNotEmpty) _ResumenFila('Distrito', distrito),
-            _ResumenFila('Pago',      metodoPago),
+            ResumenFila('Cliente',   comprador),
+            ResumenFila('Celular',   celular),
+            ResumenFila('Envío',     tipoEnvio),
+            ResumenFila('Dirección', direccion),
+            if (distrito.isNotEmpty) ResumenFila('Distrito', distrito),
+            ResumenFila('Pago',      metodoPago),
             if (total != null) ...[
               const Divider(height: 20, color: AppColors.primaryLight),
               Row(
@@ -1098,28 +1098,35 @@ class _MiniResumen extends StatelessWidget {
       );
 }
 
-class _ResumenFila extends StatelessWidget {
-  const _ResumenFila(this.label, this.valor);
+class ResumenFila extends StatelessWidget {
+  const ResumenFila(this.label, this.valor, {super.key});
   final String label;
   final String valor;
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.only(bottom: AppSpacing.sm),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 72,
-              child: Text(label,
-                  style: AppTextStyles.bodySmall
-                      .copyWith(color: AppColors.textMuted)),
+              width: 76,
+              child: Text(
+                label.toUpperCase(),
+                style: AppTextStyles.notasLabel.copyWith(
+                  color: AppColors.textFaint,
+                  letterSpacing: 0.6,
+                  fontSize: 10,
+                ),
+              ),
             ),
             Expanded(
               child: Text(
                 valor.isNotEmpty ? valor : '—',
-                style: AppTextStyles.bodySmall
-                    .copyWith(fontWeight: FontWeight.w600),
+                style: AppTextStyles.body.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
           ],

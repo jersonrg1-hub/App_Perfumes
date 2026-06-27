@@ -7,9 +7,9 @@ por FastAPI. Contiene solo valores de configuración y funciones helpers puras.
 Fuente de verdad: todo lo que estaba en el config.py raíz ahora vive aquí.
 El config.py raíz es un shim de compatibilidad que re-exporta desde aquí.
 """
-import pytz
 import pandas as pd
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 # ── Google Sheets ─────────────────────────────────────────────────────────────
 
@@ -62,7 +62,7 @@ ML_BASE_DISPENSACION: dict[int, float] = {2: 2.2, 5: 5.1}
 
 # ── Zona horaria ──────────────────────────────────────────────────────────────
 
-TZ_PERU = pytz.timezone("America/Lima")
+TZ_PERU = ZoneInfo("America/Lima")
 
 
 def hoy_peru():

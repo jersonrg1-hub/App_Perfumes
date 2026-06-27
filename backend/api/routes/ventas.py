@@ -200,7 +200,8 @@ def actualizar_estado_venta(
     repo: SheetsRepository = Depends(get_repo),
 ):
     """
-    Cambia el estado de una venta (Entregado / Anulado).
+    Cambia el estado de una venta (Entregado / Anulado) — todas sus filas/items en 1 sola
+    escritura batch a Sheets (en vez de 1 PUT + 1 escritura por fila).
     Al anular: actualiza Estado primero (operación primaria), luego repone stock
     (best-effort — si falla, Estado queda correcto y stock se puede corregir manualmente).
     Lock serializa anulaciones concurrentes para evitar doble-restock.
@@ -211,18 +212,19 @@ def actualizar_estado_venta(
             detail=f"Estado invalido. Validos: {sorted(_ESTADOS_VALIDOS)}",
         )
 
-    fila_para_restock: Optional[dict] = None
+    filas_para_restock: list[dict] = []
 
     if body.nuevo_estado == "Anulado":
         with _anulacion_lock:
-            fila_actual = repo.get_sale_row(body.fila_sheet)
-            if fila_actual.get("Estado") == "Anulado":
+            filas_actuales = [repo.get_sale_row(f) for f in body.filas_sheet]
+            if any(f.get("Estado") == "Anulado" for f in filas_actuales):
                 raise HTTPException(status_code=409, detail="La venta ya está anulada")
 
             try:
-                repo.update_sales_multi_batch(
-                    [(body.fila_sheet, {COL_ESTADO_NUM: body.nuevo_estado})]
-                )
+                repo.update_sales_multi_batch([
+                    (fila, {COL_ESTADO_NUM: body.nuevo_estado})
+                    for fila in body.filas_sheet
+                ])
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Error al actualizar estado: {e}")
 
@@ -230,13 +232,15 @@ def actualizar_estado_venta(
             _estadisticas_mod._invalidar_cache_stats()
             _estadisticas_mod._invalidar_cache_clientes()
 
-            if fila_actual.get("ID_Perfume") and fila_actual.get("Ml_Vendido"):
-                fila_para_restock = fila_actual
+            filas_para_restock = [
+                f for f in filas_actuales if f.get("ID_Perfume") and f.get("Ml_Vendido")
+            ]
     else:
         try:
-            repo.update_sales_multi_batch(
-                [(body.fila_sheet, {COL_ESTADO_NUM: body.nuevo_estado})]
-            )
+            repo.update_sales_multi_batch([
+                (fila, {COL_ESTADO_NUM: body.nuevo_estado})
+                for fila in body.filas_sheet
+            ])
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error al actualizar estado: {e}")
 
@@ -244,13 +248,14 @@ def actualizar_estado_venta(
         _estadisticas_mod._invalidar_cache_stats()
         _estadisticas_mod._invalidar_cache_clientes()
 
-    if fila_para_restock:
+    if filas_para_restock:
         try:
             df_cat = get_catalogo_cached(repo)
-            repo.restore_stock_single(
-                fila_para_restock["ID_Perfume"], fila_para_restock["Ml_Vendido"], MERMA_PCT,
-                df_catalogo=df_cat,
-            )
+            for fila in filas_para_restock:
+                repo.restore_stock_single(
+                    fila["ID_Perfume"], fila["Ml_Vendido"], MERMA_PCT,
+                    df_catalogo=df_cat,
+                )
             invalidar_cache_catalogo()
         except Exception as e:
             logger.error(f"[anular_venta/restock] {type(e).__name__}: {e}")

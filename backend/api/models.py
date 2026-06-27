@@ -170,7 +170,9 @@ class VentaRegistrada(BaseModel):
 class EstadoVentaUpdate(BaseModel):
     """Body para PUT /ventas/{id}/estado."""
     nuevo_estado: str = Field(..., description="Pendiente | Entregado | Anulado")
-    fila_sheet: int = Field(..., ge=2, description="Campo fila_sheet del objeto venta")
+    filas_sheet: list[int] = Field(
+        ..., min_length=1, description="Filas fila_sheet de todos los items de la orden"
+    )
 
 
 # ── Cotizaciones — Requests ───────────────────────────────────────────────────

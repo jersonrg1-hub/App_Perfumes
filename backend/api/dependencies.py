@@ -3,7 +3,7 @@ backend/api/dependencies.py — Repositorio, cache, auth y serialización para F
 
 Responsabilidades:
   1. SheetsRepository singleton  — una conexión a Google Sheets por proceso
-  2. TTLCache                    — catálogo 30 min / ventas 2 min
+  2. TTLCache                    — catálogo 30 min / ventas 5 min
   3. Credenciales con fallback   — GCP_SERVICE_ACCOUNT env var > credenciales.json local
   4. verify_api_key              — autenticación X-API-Key para endpoints sensibles
   5. df_to_json_list             — serialización segura DataFrame → JSON con snake_case

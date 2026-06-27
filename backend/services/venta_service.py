@@ -5,7 +5,6 @@ Sin imports de Streamlit ni de Google Sheets. Todas las funciones son puras:
 reciben datos, retornan resultados, no modifican estado global.
 """
 import pandas as pd
-from backend.core.config import METODOS_PAGO, TIPOS_ENVIO
 
 
 def filtrar_catalogo(

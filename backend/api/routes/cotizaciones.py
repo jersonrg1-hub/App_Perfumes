@@ -45,6 +45,9 @@ def listar_cotizaciones(
     limit: int = Query(50, ge=1, le=500, description="Items por pagina"),
     offset: int = Query(0, ge=0, description="Items a omitir"),
     estado: Optional[str] = Query(None, description="Filtrar por estado"),
+    fecha_desde: Optional[str] = Query(
+        None, description="Filtrar Fecha >= valor (ISO yyyy-mm-dd)"
+    ),
     repo: SheetsRepository = Depends(get_repo),
 ):
     """
@@ -53,6 +56,7 @@ def listar_cotizaciones(
 
     Para Flutter: pantalla de historial de cotizaciones.
     Ejemplo: GET /api/v1/cotizaciones/?limit=20&offset=0&estado=Enviado
+    Ejemplo: GET /api/v1/cotizaciones/?limit=100&fecha_desde=2026-06-26
     """
     try:
         df = get_cotizaciones_cached(repo)
@@ -61,6 +65,9 @@ def listar_cotizaciones(
 
     if not df.empty and estado and "Estado" in df.columns:
         df = df[df["Estado"] == estado]
+
+    if not df.empty and fecha_desde and "Fecha" in df.columns:
+        df = df[df["Fecha"].astype(str) >= fecha_desde]
 
     if not df.empty and "Fecha" in df.columns:
         df = df.sort_values("Fecha", ascending=False, na_position="last")

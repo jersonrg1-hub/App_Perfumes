@@ -108,7 +108,7 @@ final perfumeDetalleProvider = FutureProvider.family<Perfume, String>((ref, id) 
 // ── Mapa completo id → Perfume (para lookup en ventas/historial) ──────────────
 // Normaliza el id a entero ("10.0" → "10") para que coincida con el id de ventas.
 
-String _normalizeId(String id) {
+String normalizeId(String id) {
   final n = double.tryParse(id);
   return n != null ? n.toInt().toString() : id;
 }
@@ -117,6 +117,6 @@ final perfumesMapProvider = FutureProvider<Map<String, Perfume>>((ref) async {
   final repo = ref.watch(catalogoRepositoryProvider);
   final page = await repo.getCatalogo(limit: 500);
   return {
-    for (final p in page.items) _normalizeId(p.idPerfume): p,
+    for (final p in page.items) normalizeId(p.idPerfume): p,
   };
 });

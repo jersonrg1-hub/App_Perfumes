@@ -151,11 +151,8 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     try {
       final registrada = await _repo.guardarCotizacion(
         celular: state.celular,
-        items:   state.cesta.asMap().entries.map((e) => {
-          ...e.value.toApiMap(),
-          'precio': state.precioEfectivoIndex(e.key, e.value.precio),
-        }).toList(),
-        total:   state.subtotalDescuento,
+        items:   state.cesta.asMap().entries.map((e) =>
+            e.value.toApiMap(conDescuento: state.itemConDescuento(e.key))).toList(),
       );
       state = state.copyWith(
         registrando: false,

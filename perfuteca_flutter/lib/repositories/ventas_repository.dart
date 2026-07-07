@@ -19,8 +19,8 @@ class VentasRepository {
   final Dio         _dio;
   final CacheHelper _cache;
 
-  // Historial: 5 min de caché para stats; bypassCache=true para vistas que
-  // deben reflejar cambios de estado de inmediato (ej: tab historial).
+  // bypassCache=true para vistas que deben reflejar cambios de estado de
+  // inmediato (ej: tab historial). Paginado — no cambiar a fetch único grande.
   Future<Paginated<VentaResponse>> getVentas({
     int limit = 50,
     int offset = 0,
@@ -135,11 +135,9 @@ class VentasRepository {
     required List<int> filasSheet,
   }) async {
     try {
-      await Future.wait(
-        filasSheet.map((fila) => _dio.put<dynamic>(
-          ApiConstants.ventaEstado(idVenta),
-          data: {'nuevo_estado': nuevoEstado, 'fila_sheet': fila},
-        )),
+      await _dio.put<dynamic>(
+        ApiConstants.ventaEstado(idVenta),
+        data: {'nuevo_estado': nuevoEstado, 'filas_sheet': filasSheet},
       );
     } on DioException catch (e) {
       throw mapDioError(e);

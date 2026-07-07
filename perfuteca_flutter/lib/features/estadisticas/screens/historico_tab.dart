@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
+import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
@@ -23,35 +24,20 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
     super.build(context);
     return ref.watch(historialGlobalProvider).when(
       loading: () => const _HistoricoSkeleton(),
-      error:   (e, _) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off_rounded,
-                  size: 48, color: AppColors.textFaint),
-              const SizedBox(height: 12),
-              Text(e.toString(),
-                  style: AppTextStyles.bodySmall,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () {
-                  ref.invalidate(ventasParaStatsProvider);
-                  ref.invalidate(historialGlobalProvider);
-                },
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
+      error:   (e, _) => EstadisticasErrorView(
+        title: 'Error al cargar historial',
+        subtitle: e.toString(),
+        onRetry: () {
+          ref.invalidate(ventasParaStatsProvider);
+          ref.invalidate(historicoBackendProvider);
+          ref.invalidate(historialGlobalProvider);
+        },
       ),
       data: (stats) => RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
           ref.invalidate(ventasParaStatsProvider);
+          ref.invalidate(historicoBackendProvider);
           ref.invalidate(historialGlobalProvider);
           await ref.read(historialGlobalProvider.future);
         },
@@ -106,7 +92,7 @@ class _HistoricoBody extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'S/ ${_fmt(s.totalIngresos)}',
+                'S/ ${formatMonto(s.totalIngresos)}',
                 style: const TextStyle(
                   color:         Color(0xFFF5E6D8),
                   fontSize:      34,
@@ -150,7 +136,7 @@ class _HistoricoBody extends StatelessWidget {
               child: _MiniCard(
                 icono:  Icons.calendar_month_rounded,
                 titulo: 'Promedio mensual',
-                valor:  'S/ ${_fmt(s.promedioMensual)}',
+                valor:  'S/ ${formatMonto(s.promedioMensual)}',
               ),
             ),
           ],
@@ -315,7 +301,7 @@ class _TimelineMesesState extends State<_TimelineMeses> {
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         Text(
-                          'S/ ${_fmt(m.total)}',
+                          'S/ ${formatMonto(m.total)}',
                           style: TextStyle(
                             fontSize:   12,
                             fontWeight: FontWeight.w700,
@@ -663,14 +649,6 @@ class _DistritoRow extends StatelessWidget {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-String _fmt(double v) {
-  if (v >= 1000) {
-    return v.toStringAsFixed(2).replaceAllMapped(
-        RegExp(r'(\d)(?=(\d{3})+\.)'), (m) => '${m[1]},');
-  }
-  return v.toStringAsFixed(2);
-}
 
 String _fmtFecha(String fecha) {
   try {
@@ -1081,16 +1059,6 @@ class _DiferenciaBanner extends StatelessWidget {
 class _HistoricoSkeleton extends StatelessWidget {
   const _HistoricoSkeleton();
 
-  static Widget _box({double? w, required double h, double r = 8}) =>
-      Container(
-        width: w,
-        height: h,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(r),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
@@ -1100,23 +1068,23 @@ class _HistoricoSkeleton extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.md),
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          _box(h: 130, r: AppSpacing.radiusLg),
+          skeletonBox(height: 130, radius: AppSpacing.radiusLg),
           const SizedBox(height: AppSpacing.md),
           Row(children: [
-            Expanded(child: _box(h: 72, r: AppSpacing.radiusMd)),
+            Expanded(child: skeletonBox(height: 72, radius: AppSpacing.radiusMd)),
             const SizedBox(width: AppSpacing.sm),
-            Expanded(child: _box(h: 72, r: AppSpacing.radiusMd)),
+            Expanded(child: skeletonBox(height: 72, radius: AppSpacing.radiusMd)),
           ]),
           const SizedBox(height: AppSpacing.lg),
-          _box(w: 140, h: 14),
+          skeletonBox(width: 140, height: 14),
           const SizedBox(height: AppSpacing.sm),
-          _box(h: 60, r: AppSpacing.radiusMd),
+          skeletonBox(height: 60, radius: AppSpacing.radiusMd),
           const SizedBox(height: AppSpacing.xs),
-          _box(h: 60, r: AppSpacing.radiusMd),
+          skeletonBox(height: 60, radius: AppSpacing.radiusMd),
           const SizedBox(height: AppSpacing.xs),
-          _box(h: 60, r: AppSpacing.radiusMd),
+          skeletonBox(height: 60, radius: AppSpacing.radiusMd),
           const SizedBox(height: AppSpacing.xs),
-          _box(h: 60, r: AppSpacing.radiusMd),
+          skeletonBox(height: 60, radius: AppSpacing.radiusMd),
         ],
       ),
     );

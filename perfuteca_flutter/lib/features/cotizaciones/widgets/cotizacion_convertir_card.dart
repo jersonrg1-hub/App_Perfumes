@@ -47,8 +47,9 @@ class _CotizacionConvertirCardState
   bool    _confirmando     = false;
   bool    _sincronizando   = false;
   bool    _estadoSincOk    = true;
-  String? _error;
-  String? _idVenta;
+  String?          _error;
+  String?          _idVenta;
+  List<ItemCesta>  _cestaRegistrada = [];
 
   final _compradorCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
@@ -153,9 +154,10 @@ class _CotizacionConvertirCardState
       );
       ref.read(catalogoProvider.notifier).load();
       setState(() {
-        _registrando = false;
-        _exito       = true;
-        _idVenta     = registrada.idCompra;
+        _registrando     = false;
+        _exito           = true;
+        _idVenta         = registrada.idCompra;
+        _cestaRegistrada = cesta;
       });
       // Marcar 'Aceptada' ANTES de invalidar las listas de cotizaciones — si
       // se invalida primero, el refetch puede llegar antes que este PUT
@@ -217,6 +219,7 @@ class _CotizacionConvertirCardState
           distrito:     _distritoCtrl.text.trim(),
           metodoPago:   _metodoPago,
           itemsStr:     widget.cotizacion.items ?? '',
+          cesta:        _cestaRegistrada,
           total:        widget.cotizacion.total ?? 0,
           sincronizando: _sincronizando,
           estadoSincOk:  _estadoSincOk,
@@ -667,44 +670,44 @@ class _CartaExito extends StatelessWidget {
     required this.distrito,
     required this.metodoPago,
     required this.itemsStr,
+    required this.cesta,
     required this.total,
     required this.sincronizando,
     required this.estadoSincOk,
     required this.onReintentarSinc,
   });
-  final String idVenta;
-  final String idCotizacion;
-  final String comprador;
-  final String celular;
-  final String tipoEnvio;
-  final String direccion;
-  final String distrito;
-  final String metodoPago;
-  final String itemsStr;
-  final double total;
-  final bool   sincronizando;
-  final bool   estadoSincOk;
+  final String         idVenta;
+  final String         idCotizacion;
+  final String         comprador;
+  final String         celular;
+  final String         tipoEnvio;
+  final String         direccion;
+  final String         distrito;
+  final String         metodoPago;
+  final String         itemsStr;
+  final List<ItemCesta> cesta;
+  final double         total;
+  final bool           sincronizando;
+  final bool           estadoSincOk;
   final Future<void> Function() onReintentarSinc;
 
   Future<void> _enviarComunidad() async {
     const sep = '────────────────────';
-    final lineas = itemsStr
-        .split(' | ')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .map((s) => '  🌸 $s')
-        .join('\n');
+    final itemsLineas = cesta.asMap().entries.map((entry) {
+      final idx  = entry.key + 1;
+      final item = entry.value;
+      return '  *$idx.* *${item.perfume.marca} — ${item.perfume.nombre}* ${item.ml}ml — S/ ${item.precio.toStringAsFixed(2)}';
+    }).join('\n');
     final dirLinea  = direccion.isNotEmpty ? '\n📍 *Dirección:* $direccion' : '';
     final distLinea = distrito.isNotEmpty  ? '\n🗺️ *Distrito:* $distrito'  : '';
     final texto =
         '📦 *Perfuteca — Pedido $idVenta*\n$sep\n'
         '👤 *Cliente:* $comprador\n📱 *Celular:* $celular\n'
         '🚚 *Envío:* $tipoEnvio$dirLinea$distLinea\n$sep\n'
-        '🌸 *Perfumes:*\n$lineas\n$sep\n'
+        '🌸 *Perfumes:*\n$itemsLineas\n$sep\n'
         '💰 *Total: S/ ${total.toStringAsFixed(2)}*\n'
         '💳 *Pago:* $metodoPago';
-    final url =
-        Uri.parse('https://wa.me/?text=${Uri.encodeComponent(texto)}');
+    final url = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(texto)}');
     if (await canLaunchUrl(url)) await launchUrl(url);
   }
 
@@ -827,10 +830,10 @@ class _BotonRevisarPedidoState extends State<BotonRevisarPedido> {
   Widget build(BuildContext context) => FilledButton(
         onPressed: widget.habilitado ? widget.onPressed : null,
         style: FilledButton.styleFrom(padding: EdgeInsets.zero),
-        child: GestureDetector(
-          onTapDown: (_) => setState(() => _presionando = true),
-          onTapUp: (_) => setState(() => _presionando = false),
-          onTapCancel: () => setState(() => _presionando = false),
+        child: Listener(
+          onPointerDown: (_) => setState(() => _presionando = true),
+          onPointerUp: (_) => setState(() => _presionando = false),
+          onPointerCancel: (_) => setState(() => _presionando = false),
           child: Padding(
             padding: const EdgeInsets.symmetric(
                 horizontal: AppSpacing.md, vertical: AppSpacing.sm),

@@ -79,11 +79,15 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
                     ref.invalidate(historialProvider);
                     ref.invalidate(pendientesProvider);
                     ref.invalidate(ventasParaStatsProvider);
+                    ref.invalidate(historicoBackendProvider);
                     ref.invalidate(historialGlobalProvider);
                     ref.invalidate(clientesStatsProvider);
                     ref.invalidate(cotizaciones14dProvider);
                     try {
-                      await ref.read(ventasParaStatsProvider.future);
+                      await Future.wait([
+                        ref.read(ventasParaStatsProvider.future),
+                        ref.read(resumenBackendProvider.future),
+                      ]);
                     } catch (_) {}
                     if (mounted) setState(() => _refrescando = false);
                   },

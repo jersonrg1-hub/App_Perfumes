@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
+import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
+    show perfumesMapProvider, normalizeId;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
@@ -20,10 +21,18 @@ class _Orden {
   _Orden({
     required this.idCompra,
     required this.items,
-  });
+  }) : itemsConNormId = items
+            .map((i) => (
+                  item: i,
+                  normId: i.idPerfume != null ? normalizeId(i.idPerfume!) : null,
+                ))
+            .toList();
 
-  final String            idCompra;
+  final String              idCompra;
   final List<VentaResponse> items;
+  // Normaliza el id de perfume una sola vez al agrupar — evita re-parsear en
+  // cada rebuild de _OrdenCard.
+  final List<({VentaResponse item, String? normId})> itemsConNormId;
 
   String? get comprador  => items.first.comprador;
   String? get celular    => items.first.celular;
@@ -104,7 +113,7 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
         .update((s) => {...s, ...seleccionados});
 
     try {
-      await Future.wait(
+      final resultados = await Future.wait(
         ordenes.map(
           (orden) => ref.read(estadoVentaProvider.notifier).actualizar(
                 idVenta:     orden.idCompra,
@@ -114,14 +123,31 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
         ),
       );
 
+      final fallidos = <String>{
+        for (var i = 0; i < ordenes.length; i++)
+          if (!resultados[i]) ordenes[i].idCompra,
+      };
+      final exitosos = seleccionados.length - fallidos.length;
+
+      if (fallidos.isNotEmpty) {
+        // Restaurar solo los que fallaron — los exitosos quedan ocultos
+        ref
+            .read(_pendientesRemovidosProvider.notifier)
+            .update((s) => s.difference(fallidos));
+      }
+
       if (mounted) {
+        final ok = exitosos > 0;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${seleccionados.length} pedido${seleccionados.length != 1 ? "s" : ""} '
-              'marcado${seleccionados.length != 1 ? "s" : ""} como entregado${seleccionados.length != 1 ? "s" : ""}',
+              fallidos.isEmpty
+                  ? '$exitosos pedido${exitosos != 1 ? "s" : ""} '
+                      'marcado${exitosos != 1 ? "s" : ""} como entregado${exitosos != 1 ? "s" : ""}'
+                  : '$exitosos de ${seleccionados.length} marcados. '
+                      '${fallidos.length} fallaron, intenta de nuevo.',
             ),
-            backgroundColor: AppColors.success,
+            backgroundColor: ok ? AppColors.success : AppColors.error,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -354,13 +380,10 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final orden = widget.orden;
     const sep = '────────────────────';
 
-    final itemsLineas = orden.items.asMap().entries.map((entry) {
-      final idx  = entry.key + 1;
-      final item = entry.value;
-      final normId = item.idPerfume != null
-          ? (double.tryParse(item.idPerfume!)?.toInt().toString()
-              ?? item.idPerfume!)
-          : null;
+    final itemsLineas = orden.itemsConNormId.asMap().entries.map((entry) {
+      final idx     = entry.key + 1;
+      final item    = entry.value.item;
+      final normId  = entry.value.normId;
       final perfume = normId != null ? widget.perfumesMap[normId] : null;
       final nombre = perfume != null
           ? '${perfume.marca} — ${perfume.nombre}'
@@ -562,11 +585,9 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                   padding: const EdgeInsets.fromLTRB(
                       AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
                   child: Column(
-                    children: orden.items.map((item) {
-                      final normId = item.idPerfume != null
-                          ? (double.tryParse(item.idPerfume!)?.toInt().toString()
-                              ?? item.idPerfume!)
-                          : null;
+                    children: orden.itemsConNormId.map((entry) {
+                      final item   = entry.item;
+                      final normId = entry.normId;
                       final perfume = normId != null
                           ? widget.perfumesMap[normId]
                           : null;

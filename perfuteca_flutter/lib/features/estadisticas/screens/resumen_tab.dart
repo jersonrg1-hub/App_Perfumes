@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
+import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/features/ventas/screens/pendientes_screen.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
@@ -30,11 +31,13 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
     super.build(context);
     return ref.watch(resumenStatsProvider).when(
       loading: () => const _ResumenSkeleton(),
-      error:   (e, _) => _ErrorView(
-        mensaje: e.toString(),
+      error:   (e, _) => EstadisticasErrorView(
+        title: 'Error al cargar estadísticas',
+        subtitle: e.toString(),
         onRetry: () {
           ref.invalidate(resumenBackendProvider);
           ref.invalidate(resumenStatsProvider);
+          ref.invalidate(ventasParaStatsProvider);
         },
       ),
       data: (stats) => RefreshIndicator(
@@ -42,6 +45,7 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
         onRefresh: () async {
           ref.invalidate(resumenBackendProvider);
           ref.invalidate(resumenStatsProvider);
+          ref.invalidate(ventasParaStatsProvider);
           await ref.read(resumenStatsProvider.future);
         },
         child: _ResumenBody(stats: stats),
@@ -239,7 +243,7 @@ class _HeroMesCard extends StatelessWidget {
 
           // Total — tipografía limpia, sin gradiente
           Text(
-            'S/ ${_fmt(s.totalMes)}',
+            'S/ ${formatMonto(s.totalMes)}',
             style: const TextStyle(
               fontSize:      30,
               fontWeight:    FontWeight.w800,
@@ -290,7 +294,7 @@ class _HeroMesCard extends StatelessWidget {
                       .copyWith(color: AppColors.textMuted),
                 ),
                 Text(
-                  'S/ ${_fmt(s.totalMesPasado)}  ·  ${s.ventasMesPasado} venta${s.ventasMesPasado != 1 ? 's' : ''}',
+                  'S/ ${formatMonto(s.totalMesPasado)}  ·  ${s.ventasMesPasado} venta${s.ventasMesPasado != 1 ? 's' : ''}',
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.textMuted),
                 ),
@@ -445,7 +449,7 @@ class _SeccionHoy extends StatelessWidget {
                 Expanded(
                   child: _ColStat(
                     label: 'Ingresos',
-                    valor: 'S/ ${_fmt(totalHoy)}',
+                    valor: 'S/ ${formatMonto(totalHoy)}',
                     sub: mlHoy > 0 ? '$mlHoy ml' : null,
                   ),
                 ),
@@ -623,50 +627,7 @@ class _SeccionLabel extends StatelessWidget {
   }
 }
 
-// ── Error ─────────────────────────────────────────────────────────────────────
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.mensaje, required this.onRetry});
-  final String       mensaje;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.wifi_off_rounded,
-              size: 48, color: AppColors.textFaint),
-          const SizedBox(height: 12),
-          const Text('Error al cargar estadísticas',
-              style: AppTextStyles.body),
-          const SizedBox(height: 4),
-          Text(mensaje,
-              style: AppTextStyles.bodySmall,
-              textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Reintentar'),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-String _fmt(double v) {
-  if (v >= 1000) {
-    return v.toStringAsFixed(2)
-        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+\.)'), (m) => '${m[1]},');
-  }
-  return v.toStringAsFixed(2);
-}
 
 String _diaLabel(DateTime d) {
   const dias = ['', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
@@ -702,7 +663,7 @@ class _MiniSemanalCard extends ConsumerWidget {
           Row(
             children: [
               Text(
-                'S/ ${_fmt(s.total)}',
+                'S/ ${formatMonto(s.total)}',
                 style: AppTextStyles.body.copyWith(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -1241,16 +1202,6 @@ class _TamaniosChips extends StatelessWidget {
 class _ResumenSkeleton extends StatelessWidget {
   const _ResumenSkeleton();
 
-  static Widget _box({double? w, required double h, double r = 8}) =>
-      Container(
-        width: w,
-        height: h,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(r),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
@@ -1260,11 +1211,11 @@ class _ResumenSkeleton extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.md),
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          _box(h: 148, r: AppSpacing.radiusLg),
+          skeletonBox(height: 148, radius: AppSpacing.radiusLg),
           const SizedBox(height: AppSpacing.md),
-          _box(w: 90, h: 11),
+          skeletonBox(width: 90, height: 11),
           const SizedBox(height: AppSpacing.sm),
-          _box(h: 108, r: AppSpacing.radiusMd),
+          skeletonBox(height: 108, radius: AppSpacing.radiusMd),
         ],
       ),
     );

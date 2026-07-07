@@ -6,15 +6,84 @@ import 'package:perfuteca/repositories/ventas_repository.dart';
 // Permite que widgets hijos cambien el tab activo de VentasScreen
 final ventasTabProvider = StateProvider<int>((ref) => 0);
 
-// ── Historial de ventas ───────────────────────────────────────────────────────
+// ── Historial de ventas (paginado, siempre fresco) ────────────────────────────
 
-final historialProvider = FutureProvider<List<VentaResponse>>((ref) async {
-  final page = await ref.watch(ventasRepositoryProvider).getVentas(
-    limit: 500,
-    bypassCache: true,
+class HistorialState {
+  const HistorialState({
+    this.ventas = const [],
+    this.isLoading = false,
+    this.isLoadingMore = false,
+    this.error,
+    this.hasMore = true,
+  });
+
+  final List<VentaResponse> ventas;
+  final bool                isLoading;
+  final bool                isLoadingMore;
+  final Object?             error;
+  final bool                hasMore;
+
+  HistorialState copyWith({
+    List<VentaResponse>? ventas,
+    bool? isLoading,
+    bool? isLoadingMore,
+    Object? error,
+    bool clearError = false,
+    bool? hasMore,
+  }) => HistorialState(
+    ventas:        ventas        ?? this.ventas,
+    isLoading:     isLoading     ?? this.isLoading,
+    isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    error:         clearError ? null : (error ?? this.error),
+    hasMore:       hasMore       ?? this.hasMore,
   );
-  return page.items;
-});
+}
+
+class HistorialNotifier extends Notifier<HistorialState> {
+  static const _pageSize = 100;
+
+  @override
+  HistorialState build() {
+    Future.microtask(load);
+    return const HistorialState(isLoading: true);
+  }
+
+  VentasRepository get _repo => ref.read(ventasRepositoryProvider);
+
+  Future<void> load() async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final page = await _repo.getVentas(
+        limit: _pageSize, offset: 0, bypassCache: true,
+      );
+      state = HistorialState(ventas: page.items, hasMore: page.hasMore);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e);
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (!state.hasMore || state.isLoadingMore || state.isLoading) return;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final page = await _repo.getVentas(
+        limit: _pageSize, offset: state.ventas.length, bypassCache: true,
+      );
+      state = state.copyWith(
+        ventas:        [...state.ventas, ...page.items],
+        hasMore:       page.hasMore,
+        isLoadingMore: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoadingMore: false, error: e);
+    }
+  }
+
+  Future<void> refresh() => load();
+}
+
+final historialProvider =
+    NotifierProvider<HistorialNotifier, HistorialState>(HistorialNotifier.new);
 
 // ── Ventas pendientes ─────────────────────────────────────────────────────────
 

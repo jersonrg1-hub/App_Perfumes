@@ -145,6 +145,9 @@ class ItemCestaAPI(BaseModel):
     ml: Literal[2, 5, 10] = Field(..., description="Tamaño en ml: 2, 5 o 10")
     precio: float = Field(..., ge=0)
     metodo: str = Field(..., description="Yape | Plin | Transferencia | Tarjeta")
+    con_descuento: bool = Field(
+        False, description="Si aplica, el back recalcula 'precio' con el descuento de cotización"
+    )
 
 
 class VentaRequest(BaseModel):
@@ -178,9 +181,9 @@ class EstadoVentaUpdate(BaseModel):
 # ── Cotizaciones — Requests ───────────────────────────────────────────────────
 
 class CotizacionRequest(BaseModel):
+    """total se calcula en el backend a partir de items + con_descuento; no se recibe del cliente."""
     celular: str = Field(..., min_length=9, max_length=9, pattern=r"^\d{9}$")
     items: list[ItemCestaAPI] = Field(..., min_length=1)
-    total: float = Field(..., ge=0)
 
 
 class CotizacionRegistrada(BaseModel):

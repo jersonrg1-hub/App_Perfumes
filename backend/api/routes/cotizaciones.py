@@ -7,6 +7,8 @@ La columna Estado en la hoja Cotizaciones ocupa la posicion 6
 Flujo de POST /cotizaciones/:
   CotizacionRequest (Pydantic valida)
     -> items = [item.model_dump() for item in body.items]
+    -> items = aplicar_descuentos(items)        # precio efectivo por item.con_descuento
+    -> total = calcular_total_cotizacion(items)  # el back es la fuente de verdad del total
     -> repo.save_quote(celular, items, total)
        -> genera ID correlativo (C001, C002...)
        -> guarda fila con estado "Enviado"
@@ -29,6 +31,7 @@ from backend.api.models import (
     Paginated,
 )
 from backend.repositories.sheets_repository import SheetsRepository
+from backend.services.cotizacion_service import aplicar_descuentos, calcular_total_cotizacion
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
@@ -112,11 +115,14 @@ def guardar_cotizacion(
 ):
     """
     Guarda cotizacion y retorna el ID asignado (ej. 'C015').
+    El descuento por item y el total se calculan en el backend, nunca se confia
+    en un total enviado por el cliente.
     Para Flutter: boton "Enviar cotizacion" en la pantalla de busqueda.
     """
-    items = [item.model_dump() for item in body.items]
+    items = aplicar_descuentos([item.model_dump() for item in body.items])
+    total = calcular_total_cotizacion(items)
     try:
-        id_cot = repo.save_quote(body.celular, items, body.total)
+        id_cot = repo.save_quote(body.celular, items, total)
         invalidar_cache_cotizaciones()
         return CotizacionRegistrada(id_cotizacion=id_cot)
     except Exception as e:

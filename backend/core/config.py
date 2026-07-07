@@ -39,6 +39,10 @@ METODOS_PAGO: list[str] = ["Yape", "Plin", "Transferencia", "Tarjeta"]
 
 TIPOS_ENVIO: list[str] = ["Shalom", "Motorizado"]
 
+# ── Descuentos ────────────────────────────────────────────────────────────────
+
+DESCUENTO_COTIZACION_PCT: float = 0.10  # 10% descuento por item en cotizaciones
+
 # ── Columnas de hojas de cálculo ──────────────────────────────────────────────
 
 COLUMNAS_REQUERIDAS: list[str] = ["Marca", "Nombre"] + list(PRECIOS_COLUMNAS.values())

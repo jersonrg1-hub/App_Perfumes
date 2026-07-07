@@ -20,7 +20,8 @@ final cotizacionesHoyProvider =
         bypassCache: true,
       );
   // La API serializa fecha como ISO "2026-05-16T00:00:00", no como "2026-05-16"
-  return page.items.where((c) => c.fecha?.startsWith(today) == true).toList();
+  final items = page.items.where((c) => c.fecha?.startsWith(today) == true).toList();
+  return items.reversed.toList();
 });
 
 // ── Pantalla ──────────────────────────────────────────────────────────────────

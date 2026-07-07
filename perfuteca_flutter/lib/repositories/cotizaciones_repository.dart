@@ -23,6 +23,7 @@ class CotizacionesRepository {
     int limit = 100,
     int offset = 0,
     String? estado,
+    String? fechaDesde,
     bool bypassCache = false,
   }) async {
     try {
@@ -32,6 +33,7 @@ class CotizacionesRepository {
           'limit':  limit,
           'offset': offset,
           if (estado != null) 'estado': estado,
+          if (fechaDesde != null) 'fecha_desde': fechaDesde,
         },
         options: bypassCache
             ? _cache.noCache
@@ -67,7 +69,6 @@ class CotizacionesRepository {
   Future<CotizacionRegistrada> guardarCotizacion({
     required String celular,
     required List<Map<String, dynamic>> items,
-    required double total,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -75,7 +76,6 @@ class CotizacionesRepository {
         data: {
           'celular': celular,
           'items':   items,
-          'total':   total,
         },
       );
       return CotizacionRegistrada.fromJson(res.data!);

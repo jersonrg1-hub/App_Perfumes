@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
+import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
+    show perfumesMapProvider, normalizeId;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
@@ -14,10 +15,19 @@ import 'package:perfuteca/theme/app_text_styles.dart';
 // ── Modelo de orden agrupada ──────────────────────────────────────────────────
 
 class _Orden {
-  _Orden({required this.idCompra, required this.items});
+  _Orden({required this.idCompra, required this.items})
+      : itemsConNormId = items
+            .map((i) => (
+                  item: i,
+                  normId: i.idPerfume != null ? normalizeId(i.idPerfume!) : null,
+                ))
+            .toList();
 
   final String              idCompra;
   final List<VentaResponse> items;
+  // Normaliza el id de perfume una sola vez al agrupar — evita re-parsear en
+  // cada rebuild de _OrdenCard (ej: al expandir/colapsar).
+  final List<({VentaResponse item, String? normId})> itemsConNormId;
 
   String? get comprador  => items.first.comprador;
   String? get metodoPago => items.first.metodoPago;
@@ -66,6 +76,26 @@ class HistorialScreen extends ConsumerStatefulWidget {
 
 class _HistorialScreenState extends ConsumerState<HistorialScreen> {
   _FiltroFecha _filtro = _FiltroFecha.todo;
+  final _scroll = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
+      ref.read(historialProvider.notifier).loadMore();
+    }
+  }
 
   List<VentaResponse> _aplicarFiltro(List<VentaResponse> ventas) {
     if (_filtro == _FiltroFecha.todo) return ventas;
@@ -91,7 +121,7 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final async       = ref.watch(historialProvider);
+    final state       = ref.watch(historialProvider);
     final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
 
     const opciones = [
@@ -147,53 +177,66 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
           ),
         ),
         Expanded(
-          child: async.when(
-            loading: () => const _HistorialSkeleton(),
-            error: (e, _) => _ErrorView(
-              mensaje: e.toString(),
-              onRetry: () => ref.invalidate(historialProvider),
-            ),
-            data: (ventas) {
-              final filtradas = _aplicarFiltro(ventas);
-              Future<void> onRefresh() async {
-                ref.invalidate(perfumesMapProvider);
-                await ref.refresh(historialProvider.future);
-              }
-              if (filtradas.isEmpty) {
-                return ventas.isEmpty
-                    ? RefreshIndicator(
-                        onRefresh: onRefresh,
-                        child: _EmptyView(onRefresh: onRefresh),
-                      )
-                    : Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.search_off_rounded,
-                                size: 48, color: AppColors.textFaint),
-                            const SizedBox(height: AppSpacing.md),
-                            Text(
-                              'Sin ventas en este período',
-                              style: AppTextStyles.body
-                                  .copyWith(color: AppColors.textMuted),
-                            ),
-                          ],
-                        ),
-                      );
-              }
-              final porFecha = _agruparPorFecha(filtradas);
-              final fechas   = porFecha.keys.toList()
-                ..sort((a, b) => b.compareTo(a));
-              return _ListaHistorial(
-                porFecha:    porFecha,
-                fechas:      fechas,
-                perfumesMap: perfumesMap,
-                onRefresh:   onRefresh,
-              );
-            },
-          ),
+          child: _buildBody(state, perfumesMap),
         ),
       ],
+    );
+  }
+
+  Widget _buildBody(
+    HistorialState state,
+    Map<String, Perfume> perfumesMap,
+  ) {
+    if (state.isLoading) return const _HistorialSkeleton();
+
+    if (state.error != null && state.ventas.isEmpty) {
+      return _ErrorView(
+        mensaje: state.error.toString(),
+        onRetry: () => ref.read(historialProvider.notifier).refresh(),
+      );
+    }
+
+    final filtradas = _aplicarFiltro(state.ventas);
+
+    Future<void> onRefresh() async {
+      ref.invalidate(perfumesMapProvider);
+      await ref.read(historialProvider.notifier).refresh();
+    }
+
+    if (filtradas.isEmpty) {
+      return state.ventas.isEmpty
+          ? RefreshIndicator(
+              onRefresh: onRefresh,
+              child: _EmptyView(onRefresh: onRefresh),
+            )
+          : Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.search_off_rounded,
+                      size: 48, color: AppColors.textFaint),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Sin ventas en este período',
+                    style: AppTextStyles.body
+                        .copyWith(color: AppColors.textMuted),
+                  ),
+                ],
+              ),
+            );
+    }
+
+    final porFecha = _agruparPorFecha(filtradas);
+    final fechas   = porFecha.keys.toList()
+      ..sort((a, b) => b.compareTo(a));
+    return _ListaHistorial(
+      scrollController: _scroll,
+      porFecha:         porFecha,
+      fechas:           fechas,
+      perfumesMap:      perfumesMap,
+      onRefresh:        onRefresh,
+      isLoadingMore:    state.isLoadingMore,
+      hasMore:          state.hasMore,
     );
   }
 }
@@ -202,15 +245,21 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
 
 class _ListaHistorial extends StatelessWidget {
   const _ListaHistorial({
+    required this.scrollController,
     required this.porFecha,
     required this.fechas,
     required this.perfumesMap,
     required this.onRefresh,
+    required this.isLoadingMore,
+    required this.hasMore,
   });
+  final ScrollController           scrollController;
   final Map<String, List<_Orden>>  porFecha;
   final List<String>               fechas;
   final Map<String, Perfume>       perfumesMap;
   final Future<void> Function()    onRefresh;
+  final bool                       isLoadingMore;
+  final bool                       hasMore;
 
   String _formatFecha(String raw) {
     try {
@@ -226,27 +275,41 @@ class _ListaHistorial extends StatelessWidget {
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView.builder(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-      itemCount: fechas.length,
-      itemBuilder: (_, i) {
-        final fecha   = fechas[i];
-        final ordenes = porFecha[fecha]!;
-        final totalDia = ordenes.fold(0.0, (s, o) => s + o.total);
+        controller: scrollController,
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+        itemCount: fechas.length + (hasMore ? 1 : 0),
+        itemBuilder: (_, i) {
+          if (i == fechas.length) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+              child: Center(
+                child: isLoadingMore
+                    ? const SizedBox(
+                        width: 22, height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            );
+          }
+          final fecha    = fechas[i];
+          final ordenes  = porFecha[fecha]!;
+          final totalDia = ordenes.fold(0.0, (s, o) => s + o.total);
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _FechaHeader(
-              label:    _formatFecha(fecha),
-              cantidad: ordenes.length,
-              total:    totalDia,
-            ),
-            ...ordenes.map((o) => _OrdenCard(orden: o, perfumesMap: perfumesMap)),
-            const SizedBox(height: AppSpacing.sm),
-          ],
-        );
-      },
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _FechaHeader(
+                label:    _formatFecha(fecha),
+                cantidad: ordenes.length,
+                total:    totalDia,
+              ),
+              ...ordenes.map((o) => _OrdenCard(orden: o, perfumesMap: perfumesMap)),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+          );
+        },
       ),
     );
   }
@@ -495,13 +558,9 @@ class _OrdenCardState extends State<_OrdenCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Divider(height: AppSpacing.md),
-                    ...orden.items.map((item) {
-                      final normId = item.idPerfume != null
-                          ? (double.tryParse(item.idPerfume!)
-                                  ?.toInt()
-                                  .toString() ??
-                              item.idPerfume!)
-                          : null;
+                    ...orden.itemsConNormId.map((entry) {
+                      final item   = entry.item;
+                      final normId = entry.normId;
                       final perfume = normId != null
                           ? widget.perfumesMap[normId]
                           : null;

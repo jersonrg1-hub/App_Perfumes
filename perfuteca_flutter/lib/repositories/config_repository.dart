@@ -9,6 +9,18 @@ final configRepositoryProvider = Provider<ConfigRepository>((ref) {
   return ConfigRepository(ref.watch(dioProvider));
 });
 
+// Config del backend (umbrales de stock, métodos de pago, etc.) — una sola
+// llamada por sesión. Si falla (sin red al arrancar), cae a defaults locales
+// para no romper la UI.
+final appConfigProvider = FutureProvider<AppConfigModel>((ref) async {
+  ref.keepAlive();
+  try {
+    return await ref.watch(configRepositoryProvider).getConfig();
+  } catch (_) {
+    return AppConfigModel.defaults();
+  }
+});
+
 class ConfigRepository {
   ConfigRepository(this._dio);
 

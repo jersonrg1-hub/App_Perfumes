@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
+import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/models/perfume.dart';
+import 'package:perfuteca/repositories/config_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 import 'package:shimmer/shimmer.dart';
 
-const double _kCritico = 5;
-const double _kBajo    = 15;
+// Defaults usados solo mientras appConfigProvider carga o si falla (sin red).
+const double _kCriticoDefault = 10;
+const double _kBajoDefault    = 20;
 
 enum _FiltroStock { todos, critico, bajo, ok }
 enum _OrdenStock  { menorPrimero, mayorPrimero, nombreAZ }
@@ -40,50 +43,36 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
   Widget build(BuildContext context) {
     super.build(context);
     final estado = ref.watch(catalogoProvider);
+    final config = ref.watch(appConfigProvider).valueOrNull;
+    final critico = (config?.stockCriticoMl ?? _kCriticoDefault).toDouble();
+    final bajo    = (config?.stockBajoMl    ?? _kBajoDefault).toDouble();
 
     if (estado.isLoading) {
       return const _StockSkeleton();
     }
     if (estado.error != null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off_rounded,
-                  size: 48, color: AppColors.textFaint),
-              const SizedBox(height: 12),
-              Text('Error al cargar catálogo',
-                  style: AppTextStyles.body),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () => ref.read(catalogoProvider.notifier).refresh(),
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
+      return EstadisticasErrorView(
+        title: 'Error al cargar catálogo',
+        onRetry: () => ref.read(catalogoProvider.notifier).refresh(),
       );
     }
 
     final todos   = estado.perfumes
         .where((p) => p.stockMl != null)
         .toList();
-    final criticos = todos.where((p) => p.stockMl! <= _kCritico).length;
+    final criticos = todos.where((p) => p.stockMl! <= critico).length;
     final bajos    = todos
-        .where((p) => p.stockMl! > _kCritico && p.stockMl! <= _kBajo)
+        .where((p) => p.stockMl! > critico && p.stockMl! <= bajo)
         .length;
-    final ok       = todos.where((p) => p.stockMl! > _kBajo).length;
+    final ok       = todos.where((p) => p.stockMl! > bajo).length;
 
     var lista = switch (_filtro) {
       _FiltroStock.todos   => todos,
-      _FiltroStock.critico => todos.where((p) => p.stockMl! <= _kCritico).toList(),
+      _FiltroStock.critico => todos.where((p) => p.stockMl! <= critico).toList(),
       _FiltroStock.bajo    => todos
-          .where((p) => p.stockMl! > _kCritico && p.stockMl! <= _kBajo)
+          .where((p) => p.stockMl! > critico && p.stockMl! <= bajo)
           .toList(),
-      _FiltroStock.ok => todos.where((p) => p.stockMl! > _kBajo).toList(),
+      _FiltroStock.ok => todos.where((p) => p.stockMl! > bajo).toList(),
     };
 
     lista = switch (_orden) {
@@ -268,8 +257,12 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
               AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
           sliver: SliverList.builder(
             itemCount: lista.length,
-            itemBuilder: (_, i) =>
-                _StockRow(perfume: lista[i], maxStock: maxStock),
+            itemBuilder: (_, i) => _StockRow(
+              perfume: lista[i],
+              maxStock: maxStock,
+              critico: critico,
+              bajo: bajo,
+            ),
           ),
         ),
       ],
@@ -329,14 +322,21 @@ class _StockChip extends StatelessWidget {
 // ── Fila de stock ─────────────────────────────────────────────────────────────
 
 class _StockRow extends StatelessWidget {
-  const _StockRow({required this.perfume, required this.maxStock});
+  const _StockRow({
+    required this.perfume,
+    required this.maxStock,
+    required this.critico,
+    required this.bajo,
+  });
   final Perfume perfume;
   final double  maxStock;
+  final double  critico;
+  final double  bajo;
 
   Color get _barColor {
     final s = perfume.stockMl ?? 0;
-    if (s <= _kCritico) return AppColors.stockCritical;
-    if (s <= _kBajo)    return AppColors.stockLow;
+    if (s <= critico) return AppColors.stockCritical;
+    if (s <= bajo)     return AppColors.stockLow;
     return AppColors.stockOk;
   }
 
@@ -383,7 +383,7 @@ class _StockRow extends StatelessWidget {
                   ],
                 ),
               ),
-              _StockBadge(stock: stock),
+              _StockBadge(stock: stock, critico: critico, bajo: bajo),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
@@ -474,18 +474,20 @@ class _StockSkeleton extends StatelessWidget {
 // ── Badge de stock ────────────────────────────────────────────────────────────
 
 class _StockBadge extends StatelessWidget {
-  const _StockBadge({required this.stock});
+  const _StockBadge({required this.stock, required this.critico, required this.bajo});
   final double stock;
+  final double critico;
+  final double bajo;
 
   @override
   Widget build(BuildContext context) {
     final Color bg;
     final Color fg;
 
-    if (stock <= _kCritico) {
+    if (stock <= critico) {
       bg    = AppColors.errorSurface;
       fg    = AppColors.stockCritical;
-    } else if (stock <= _kBajo) {
+    } else if (stock <= bajo) {
       bg    = AppColors.warningSurface;
       fg    = AppColors.stockLow;
     } else {

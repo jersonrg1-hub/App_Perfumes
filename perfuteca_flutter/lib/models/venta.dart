@@ -75,13 +75,14 @@ class ItemCesta {
 
   double get subtotal => precio;
 
-  Map<String, dynamic> toApiMap() => {
-    'perfume':    perfume.nombre,
-    'marca':      perfume.marca,
-    'id_perfume': perfume.idPerfume,
-    'ml':         ml,
-    'precio':     precio,
-    'metodo':     metodo,
+  Map<String, dynamic> toApiMap({bool conDescuento = false}) => {
+    'perfume':       perfume.nombre,
+    'marca':         perfume.marca,
+    'id_perfume':    perfume.idPerfume,
+    'ml':            ml,
+    'precio':        precio,
+    'metodo':        metodo,
+    'con_descuento': conDescuento,
   };
 }
 

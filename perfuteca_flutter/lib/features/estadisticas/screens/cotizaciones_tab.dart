@@ -10,11 +10,15 @@ import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 import 'package:shimmer/shimmer.dart';
 
-// ── Provider: cotizaciones últimos 14 días ────────────────────────────────────
+// ── Provider: cotizaciones últimos 14 días, sin las de hoy ────────────────────
+// Las de hoy ya se ven en Ventas > Cotizaciones de Hoy — este tab muestra el
+// resto del historial reciente para no duplicar la misma cotización en dos
+// pantallas a la vez.
 
 final cotizaciones14dProvider =
     FutureProvider<List<CotizacionResponse>>((ref) async {
   final ahora      = DateTime.now();
+  final hoy        = DateTime(ahora.year, ahora.month, ahora.day);
   final limite     = ahora.subtract(const Duration(days: 14));
   final fechaDesde = DateFormat('yyyy-MM-dd').format(limite);
   final page       = await ref.read(cotizacionesRepositoryProvider)
@@ -23,7 +27,8 @@ final cotizaciones14dProvider =
     if (c.fecha == null) return false;
     try {
       final fecha = DateTime.parse(c.fecha!);
-      return fecha.isAfter(limite.subtract(const Duration(days: 1)));
+      return fecha.isAfter(limite.subtract(const Duration(days: 1))) &&
+          fecha.isBefore(hoy);
     } catch (_) {
       return false;
     }

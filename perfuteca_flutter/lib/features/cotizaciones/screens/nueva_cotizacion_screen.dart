@@ -381,6 +381,16 @@ class _Paso2State extends ConsumerState<_Paso2> {
   final _searchCtrl = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // El buscador filtra sobre lo ya cargado; sin esto solo se ve
+    // la primera página (50 perfumes) del catálogo paginado.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(catalogoProvider.notifier).loadAll(),
+    );
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();

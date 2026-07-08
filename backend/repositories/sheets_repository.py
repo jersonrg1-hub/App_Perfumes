@@ -28,6 +28,7 @@ from backend.core.config import (
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
     hoy_peru, fmt_precio, ML_BASE_DISPENSACION, COLUMNAS_VENTAS,
 )
+from backend.services.cotizacion_service import construir_items_txt
 logger = logging.getLogger(__name__)
 
 
@@ -295,10 +296,7 @@ class SheetsRepository:
     def save_quote(self, celular: str, items: list[dict], total: float) -> str:
         """Guarda una cotización y retorna el ID asignado."""
         id_cotizacion = self.get_next_quote_id()
-        items_txt = " | ".join(
-            f"{i.get('marca', '')} {i['perfume']} {i['ml']}ml S/{fmt_precio(i['precio'])}".strip()
-            for i in items
-        )
+        items_txt = construir_items_txt(items)
         fila = [
             id_cotizacion,
             str(hoy_peru()),

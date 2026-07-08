@@ -65,7 +65,7 @@ class _CotizacionConvertirCardState
     super.initState();
     _lineas = (widget.cotizacion.items ?? '')
         .split(' | ')
-        .map((s) => s.trim())
+        .map((s) => _quitarIdTag(s.trim()))
         .where((s) => s.isNotEmpty)
         .toList();
     _formValidoNotifier = ValueNotifier<bool>(false);
@@ -131,16 +131,37 @@ class _CotizacionConvertirCardState
   }
 
   Future<void> _registrar() async {
-    final catalogo = ref.read(catalogoProvider).perfumes;
-    final cesta    = _parsearCesta(widget.cotizacion.items ?? '', catalogo, _metodoPago);
+    setState(() { _registrando = true; _error = null; });
+    // catalogoProvider pagina de a 50 — leer su estado actual sin más no
+    // garantiza tener el catálogo completo (ej. si el usuario entró directo
+    // a esta pantalla sin pasar antes por "Nueva cotización", que es quien
+    // normalmente dispara loadAll()). Forzamos carga completa aquí para que
+    // el matching de perfumes no falle silenciosamente por catálogo a medias.
+    await ref.read(catalogoProvider.notifier).loadAll();
+    final catalogo  = ref.read(catalogoProvider).perfumes;
+    final parseada  = _parsearCesta(widget.cotizacion.items ?? '', catalogo, _metodoPago);
+    final cesta     = parseada.items;
 
     if (cesta.isEmpty) {
-      setState(() =>
-          _error = 'No se pudieron reconocer los perfumes de esta cotización');
+      setState(() {
+        _registrando = false;
+        _error = 'No se pudieron reconocer los perfumes de esta cotización';
+      });
+      return;
+    }
+    // No registrar una venta incompleta en silencio: si algún ítem del texto
+    // original no matcheó a un perfume del catálogo, es mejor bloquear y
+    // avisar que descontar stock solo de una parte del pedido.
+    if (!parseada.completa) {
+      setState(() {
+        _registrando = false;
+        _error = 'No se pudieron reconocer todos los perfumes de esta cotización '
+            '(${parseada.fallos} de ${cesta.length + parseada.fallos}). '
+            'Revisa que el catálogo tenga esos perfumes antes de registrar la venta.';
+      });
       return;
     }
 
-    setState(() { _registrando = true; _error = null; });
     try {
       final registrada =
           await ref.read(ventasRepositoryProvider).registrarVenta(
@@ -173,6 +194,8 @@ class _CotizacionConvertirCardState
       ref.invalidate(ventasParaStatsProvider);
       ref.invalidate(tamaniosStatsProvider);
       ref.invalidate(clientesStatsProvider);
+      ref.invalidate(historicoBackendProvider);
+      ref.invalidate(historialGlobalProvider);
     } catch (e) {
       setState(
           () { _registrando = false; _error = e.toString(); _confirmando = false; });
@@ -1138,38 +1161,85 @@ class ResumenFila extends StatelessWidget {
 }
 
 // ── Parser: items string → List<ItemCesta> ────────────────────────────────────
-// Formato en Sheets: "Perfume A 2ml S/10.00 | Perfume B 5ml S/25.00"
+// Formato en Sheets: "Perfume A 2ml S/10.00 [#P001] | Perfume B 5ml S/25.00 [#P002]"
+// El sufijo "[#ID]" es el ID_Perfume real — permite ubicar el perfume exacto
+// sin adivinar por nombre. Cotizaciones guardadas antes de este fix no lo
+// traen; para esas se cae al matching por nombre como antes (mejor esfuerzo).
+final _rxIdTag = RegExp(r'\s*\[#(.+?)\]$');
+final _rxItem  = RegExp(r'^(.+?)\s+(\d+)ml\s+S/(\d+\.?\d*)(?:\s*\[#(.+?)\])?$');
 
-List<ItemCesta> _parsearCesta(
+String _quitarIdTag(String linea) => linea.replaceFirst(_rxIdTag, '');
+
+/// Resultado de parsear una cotización a carrito: la cesta reconocida y
+/// cuántas líneas del texto original NO se pudieron matchear a un perfume.
+/// [fallos] > 0 es señal de que la cesta está incompleta y NO debe usarse
+/// para registrar una venta silenciosamente.
+class CestaParseada {
+  const CestaParseada(this.items, this.fallos);
+  final List<ItemCesta> items;
+  final int fallos;
+  bool get completa => fallos == 0;
+}
+
+CestaParseada _parsearCesta(
     String itemsStr, List<Perfume> catalogo, String metodoPago) {
-  if (itemsStr.isEmpty) return [];
-  final result  = <ItemCesta>[];
-  final rx      = RegExp(r'^(.+?)\s+(\d+)ml\s+S/(\d+\.?\d*)$');
-  final byExact = <String, Perfume>{
-    for (final p in catalogo) p.nombre.toLowerCase(): p
+  if (itemsStr.isEmpty) return const CestaParseada([], 0);
+  final result = <ItemCesta>[];
+  var fallos   = 0;
+
+  final byId = <String, Perfume>{
+    for (final p in catalogo) p.idPerfume: p
   };
+  // El texto guardado combina "{marca} {nombre}" — la clave exacta debe
+  // reflejar eso, no solo el nombre solo (si no, el match exacto nunca
+  // sucede y todo cae al fallback por substring).
+  final byMarcaNombre = <String, Perfume>{
+    for (final p in catalogo) '${p.marca} ${p.nombre}'.toLowerCase(): p
+  };
+  final byNombre = <String, List<Perfume>>{};
+  for (final p in catalogo) {
+    byNombre.putIfAbsent(p.nombre.toLowerCase(), () => []).add(p);
+  }
 
   for (final part in itemsStr.split(' | ')) {
-    final m = rx.firstMatch(part.trim());
-    if (m == null) continue;
+    final m = _rxItem.firstMatch(part.trim());
+    if (m == null) { fallos++; continue; }
 
     final nombre = m.group(1)!;
     final ml     = int.tryParse(m.group(2)!) ?? 0;
     final precio = double.tryParse(m.group(3)!) ?? 0.0;
-    if (ml == 0) continue;
+    final idTag  = m.group(4);
+    if (ml == 0) { fallos++; continue; }
 
-    final key = nombre.toLowerCase();
-    Perfume? perfume = byExact[key];
+    // 1) ID embebido — exacto, no ambiguo, no importa el tamaño del catálogo.
+    Perfume? perfume = idTag != null ? byId[idTag] : null;
+
+    // 2) Legado sin ID: exacto por "marca nombre" completo.
+    perfume ??= byMarcaNombre[nombre.toLowerCase()];
+
+    // 3) Exacto por nombre solo, pero SOLO si es único en el catálogo —
+    //    si dos perfumes comparten nombre (distinta marca), es ambiguo:
+    //    mejor fallar que adivinar y descontar stock del que no es.
     if (perfume == null) {
-      for (final p in catalogo) {
-        final pn = p.nombre.toLowerCase();
-        if (pn.contains(key) || key.contains(pn)) { perfume = p; break; }
-      }
+      final candidatos = byNombre[nombre.toLowerCase()];
+      if (candidatos != null && candidatos.length == 1) perfume = candidatos.first;
     }
-    if (perfume == null) continue;
+
+    // 4) Último recurso, substring — solo si hay EXACTAMENTE un candidato
+    //    ambiguo; con más de uno, no se adivina.
+    if (perfume == null) {
+      final key = nombre.toLowerCase();
+      final candidatos = catalogo.where((p) {
+        final pn = p.nombre.toLowerCase();
+        return pn.contains(key) || key.contains(pn);
+      }).toList();
+      if (candidatos.length == 1) perfume = candidatos.first;
+    }
+
+    if (perfume == null) { fallos++; continue; }
 
     result.add(ItemCesta(
         perfume: perfume, ml: ml, precio: precio, metodo: metodoPago));
   }
-  return result;
+  return CestaParseada(result, fallos);
 }

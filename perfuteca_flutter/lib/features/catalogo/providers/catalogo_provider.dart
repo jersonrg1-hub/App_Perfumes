@@ -71,9 +71,14 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
     if (!state.hasMore || state.isLoadingMore || state.isLoading) return;
     state = state.copyWith(isLoadingMore: true);
     try {
+      // bypassCache: true — igual que load(). Sin esto, páginas 2+ quedaban
+      // cacheadas 6h (cache_config.dart), así que precio/stock editados en
+      // un perfume fuera de la primera página podían tardar hasta 6h en
+      // reflejarse al armar o convertir una cotización.
       final page = await _repo.getCatalogo(
         limit:  _pageSize,
         offset: state.perfumes.length,
+        bypassCache: true,
       );
       state = state.copyWith(
         perfumes:      [...state.perfumes, ...page.items],
@@ -87,6 +92,17 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
   }
 
   Future<void> refresh() => load();
+
+  /// Carga todas las páginas restantes (usado por selectores que necesitan
+  /// el catálogo completo para buscar/filtrar, ej. nueva cotización).
+  Future<void> loadAll() async {
+    while (state.isLoading || state.isLoadingMore) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    while (state.hasMore) {
+      await loadMore();
+    }
+  }
 }
 
 final catalogoProvider = NotifierProvider<CatalogoNotifier, CatalogoState>(

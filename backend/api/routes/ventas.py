@@ -76,6 +76,11 @@ def listar_ventas(
     if not df.empty and estado and "Estado" in df.columns:
         df = df[df["Estado"] == estado]
 
+    if not df.empty and "Fecha" in df.columns:
+        df = df.sort_values(
+            ["Fecha", "fila_sheet"], ascending=[False, False], na_position="last"
+        )
+
     return paginate_df(df, lambda p: df_to_json_list(p, snake=True), limit, offset)
 
 

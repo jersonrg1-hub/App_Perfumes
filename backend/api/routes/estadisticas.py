@@ -340,6 +340,20 @@ def _titlecase_distrito(s: str) -> str:
     return " ".join(w[:1].upper() + w[1:] for w in s.split(" ") if w)
 
 
+def _tamanios_por_ml(df: pd.DataFrame) -> List[dict]:
+    if df.empty or "Ml_Vendido" not in df.columns:
+        return []
+    g = (
+        df.groupby("Ml_Vendido")
+        .agg(cantidad=("Precio_Cobrado", "count"), total=("Precio_Cobrado", "sum"))
+        .reset_index()
+    )
+    return [
+        {"ml": int(r.Ml_Vendido), "cantidad": int(r.cantidad), "total": float(r.total)}
+        for r in g.itertuples(index=False)
+    ]
+
+
 def _top_perfumes(df: pd.DataFrame, n: Optional[int] = None) -> List[dict]:
     if df.empty or "ID_Perfume" not in df.columns:
         return []
@@ -369,6 +383,7 @@ def _empty_historico() -> dict:
         "promedio_mensual":  0.0,
         "top_perfumes":      [],
         "ranking_distritos": [],
+        "tamanios_total":    [],
     }
 
 
@@ -395,6 +410,7 @@ def _compute_historico(df: pd.DataFrame) -> dict:
             "total":        float(grupo["Precio_Cobrado"].sum()),
             "total_ml":     int(grupo["Ml_Vendido"].sum()),
             "top_perfumes": _top_perfumes(grupo, n=10),
+            "tamanios":     _tamanios_por_ml(grupo),
         })
     por_mes.sort(key=lambda m: m["clave"])
 
@@ -433,6 +449,7 @@ def _compute_historico(df: pd.DataFrame) -> dict:
         "promedio_mensual":  (float(entregadas["Precio_Cobrado"].sum()) / len(por_mes)) if por_mes else 0.0,
         "top_perfumes":      _top_perfumes(entregadas),
         "ranking_distritos": ranking_distritos,
+        "tamanios_total":    _tamanios_por_ml(entregadas),
     }
 
 

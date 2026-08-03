@@ -69,6 +69,7 @@ class CotizacionesRepository {
   Future<CotizacionRegistrada> guardarCotizacion({
     required String celular,
     required List<Map<String, dynamic>> items,
+    String? alias,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -76,6 +77,7 @@ class CotizacionesRepository {
         data: {
           'celular': celular,
           'items':   items,
+          if (alias != null && alias.trim().isNotEmpty) 'alias': alias.trim(),
         },
       );
       return CotizacionRegistrada.fromJson(res.data!);

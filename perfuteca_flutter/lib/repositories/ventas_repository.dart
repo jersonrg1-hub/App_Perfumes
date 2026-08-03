@@ -90,6 +90,7 @@ class VentasRepository {
     required String fecha,
     required List<Map<String, dynamic>> items,
     String distrito = '',
+    String? alias,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -102,6 +103,7 @@ class VentasRepository {
           'tipo_envio': tipoEnvio,
           'fecha':      fecha,
           'items':      items,
+          if (alias != null && alias.trim().isNotEmpty) 'alias': alias.trim(),
         },
       );
       return VentaRegistrada.fromJson(res.data!);

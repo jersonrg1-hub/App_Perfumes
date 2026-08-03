@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
     show perfumesMapProvider, normalizeId;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
@@ -36,6 +36,7 @@ class _Orden {
 
   String? get comprador  => items.first.comprador;
   String? get celular    => items.first.celular;
+  String? get alias      => items.first.alias;
   String? get direccion  => items.first.direccion;
   String? get tipoEnvio  => items.first.tipoEnvio;
   String? get metodoPago => items.first.metodoPago;
@@ -398,21 +399,17 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
         ? '\n🗺️ *Distrito:* ${orden.distrito}'
         : '';
 
-    final msg = Uri.encodeComponent(
+    final msg =
       '📦 *Perfuteca — Pedido ${orden.idCompra}*\n$sep\n'
       '👤 *Cliente:* ${orden.comprador ?? '—'}\n'
-      '📱 *Celular:* ${orden.celular ?? '—'}\n'
+      '📱 *Celular:* ${orden.celular != null ? lineaContacto(orden.celular!, orden.alias) : '—'}\n'
       '🚚 *Envío:* ${orden.tipoEnvio ?? '—'}$dirLinea$distLinea\n'
       '$sep\n'
       '🌸 *Perfumes:*\n$itemsLineas\n'
       '$sep\n'
       '💰 *Total: S/ ${orden.total.toStringAsFixed(2)}*\n'
-      '💳 *Pago:* ${orden.metodoPago ?? '—'}',
-    );
-    final url = Uri.parse('https://wa.me/?text=$msg');
-    try {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+      '💳 *Pago:* ${orden.metodoPago ?? '—'}';
+    await abrirWhatsAppBusiness(mensaje: msg);
   }
 
   Future<void> _confirmarEntregado() async {

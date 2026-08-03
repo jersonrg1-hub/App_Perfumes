@@ -85,6 +85,7 @@ class VentaResponse(BaseModel):
     distrito: Optional[str] = None
     estado: Optional[str] = None
     fila_sheet: Optional[int] = None
+    alias: Optional[str] = None
 
     @field_validator("id_compra", "celular", "id_perfume", "comprador", mode="before")
     @classmethod
@@ -104,6 +105,7 @@ class ClientePrevioResponse(BaseModel):
     tipo_envio: str
     metodo_pago: str
     total_compras: int
+    alias: Optional[str] = None
 
 
 # ── Cotizaciones — Responses ──────────────────────────────────────────────────
@@ -117,6 +119,7 @@ class CotizacionResponse(BaseModel):
     total: Optional[float] = None
     estado: Optional[str] = None
     fila_sheet: Optional[int] = None
+    alias: Optional[str] = None
 
 
 # ── Config de la app ──────────────────────────────────────────────────────────
@@ -162,6 +165,7 @@ class VentaRequest(BaseModel):
     tipo_envio: str = Field(..., description="Shalom | Motorizado")
     fecha: str = Field(..., description="Fecha ISO: YYYY-MM-DD")
     items: list[ItemCestaAPI] = Field(..., min_length=1)
+    alias: Optional[str] = None
 
 
 class VentaRegistrada(BaseModel):
@@ -184,6 +188,7 @@ class CotizacionRequest(BaseModel):
     """total se calcula en el backend a partir de items + con_descuento; no se recibe del cliente."""
     celular: str = Field(..., min_length=9, max_length=9, pattern=r"^\d{9}$")
     items: list[ItemCestaAPI] = Field(..., min_length=1)
+    alias: Optional[str] = None
 
 
 class CotizacionRegistrada(BaseModel):

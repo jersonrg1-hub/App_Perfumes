@@ -51,6 +51,7 @@ COLUMNAS_VENTAS: list[str] = [
     "ID_Compra", "Fecha", "Comprador", "Celular",
     "ID_Perfume", "Ml_Vendido", "Precio_Cobrado",
     "Metodo_Pago", "Tipo_Envio", "Direccion", "Distrito", "Estado",
+    "alias",
 ]
 
 # Posición 1-indexed de la columna "Estado" en COLUMNAS_VENTAS (para batch_update)

@@ -24,4 +24,37 @@ void main() {
     notifier.reset();
     expect(container.read(nuevaCotizacionProvider).alias, '');
   });
+
+  test('setModo a alias limpia el celular ya escrito', () {
+    final notifier = container.read(nuevaCotizacionProvider.notifier);
+    notifier.setCelular('987654321');
+    notifier.setModo('alias');
+
+    final state = container.read(nuevaCotizacionProvider);
+    expect(state.modo, 'alias');
+    expect(state.celular, '');
+  });
+
+  test('setModo a celular limpia el alias ya escrito', () {
+    final notifier = container.read(nuevaCotizacionProvider.notifier);
+    notifier.setModo('alias');
+    notifier.setAlias('perfutecalima');
+    notifier.setModo('celular');
+
+    final state = container.read(nuevaCotizacionProvider);
+    expect(state.modo, 'celular');
+    expect(state.alias, '');
+  });
+
+  test('paso1Valido en modo alias requiere alias no vacio, celular no importa', () {
+    final notifier = container.read(nuevaCotizacionProvider.notifier);
+    notifier.setModo('alias');
+    expect(container.read(nuevaCotizacionProvider).paso1Valido, isFalse);
+    notifier.setAlias('perfutecalima');
+    expect(container.read(nuevaCotizacionProvider).paso1Valido, isTrue);
+  });
+
+  test('modo por defecto es celular', () {
+    expect(container.read(nuevaCotizacionProvider).modo, 'celular');
+  });
 }

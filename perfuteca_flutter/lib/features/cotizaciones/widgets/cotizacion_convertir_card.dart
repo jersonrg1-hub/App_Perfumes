@@ -4,6 +4,7 @@
 // que arreglarlo dos veces. Vive aquí para que ambas pantallas compartan
 // exactamente la misma lógica de registro.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
@@ -51,14 +52,31 @@ class _CotizacionConvertirCardState
   String?          _idVenta;
   List<ItemCesta>  _cestaRegistrada = [];
 
-  final _compradorCtrl = TextEditingController();
-  final _direccionCtrl = TextEditingController();
-  final _distritoCtrl  = TextEditingController();
+  final _compradorCtrl     = TextEditingController();
+  final _direccionCtrl     = TextEditingController();
+  final _distritoCtrl      = TextEditingController();
+  // Solo se usa cuando la cotización se guardó con alias y sin celular —
+  // la venta requiere celular, así que se pide aquí antes de registrar.
+  final _celularNuevoCtrl  = TextEditingController();
   final _botonKey      = GlobalKey();
   late final ValueNotifier<bool> _formValidoNotifier;
   late final List<String> _lineas;
   String _tipoEnvio  = '';
   String _metodoPago = 'Yape';
+
+  // Si la cotización ya tenía celular, se usa tal cual. Si no (se guardó
+  // solo con alias), se usa el que el usuario llena en el campo nuevo.
+  bool get _requiereCelularNuevo => widget.cotizacion.celular.isEmpty;
+  String get _celularResuelto => widget.cotizacion.celular.isNotEmpty
+      ? widget.cotizacion.celular
+      : _celularNuevoCtrl.text.trim();
+
+  // Para mostrar en el header: celular si existe, si no el alias, si no vacío.
+  String get _identificadorMostrado => widget.cotizacion.celular.isNotEmpty
+      ? widget.cotizacion.celular
+      : ((widget.cotizacion.alias ?? '').isNotEmpty
+          ? '@${widget.cotizacion.alias}'
+          : '');
 
   @override
   void initState() {
@@ -72,13 +90,18 @@ class _CotizacionConvertirCardState
     _compradorCtrl.addListener(_checkForm);
     _direccionCtrl.addListener(_checkForm);
     _distritoCtrl.addListener(_checkForm);
+    _celularNuevoCtrl.addListener(_checkForm);
   }
 
   void _checkForm() {
+    final celularOk = !_requiereCelularNuevo ||
+        (_celularNuevoCtrl.text.length == 9 &&
+            _celularNuevoCtrl.text.startsWith('9'));
     _formValidoNotifier.value =
         _compradorCtrl.text.trim().isNotEmpty &&
         _direccionCtrl.text.trim().isNotEmpty &&
-        _tipoEnvio.isNotEmpty;
+        _tipoEnvio.isNotEmpty &&
+        celularOk;
   }
 
   @override
@@ -86,6 +109,7 @@ class _CotizacionConvertirCardState
     _compradorCtrl.dispose();
     _direccionCtrl.dispose();
     _distritoCtrl.dispose();
+    _celularNuevoCtrl.dispose();
     _formValidoNotifier.dispose();
     super.dispose();
   }
@@ -166,7 +190,7 @@ class _CotizacionConvertirCardState
       final registrada =
           await ref.read(ventasRepositoryProvider).registrarVenta(
         comprador: _compradorCtrl.text.trim(),
-        celular:   widget.cotizacion.celular,
+        celular:   _celularResuelto,
         alias:     widget.cotizacion.alias,
         direccion: _direccionCtrl.text.trim(),
         distrito:  _distritoCtrl.text.trim(),
@@ -237,8 +261,7 @@ class _CotizacionConvertirCardState
           idVenta:      _idVenta ?? '',
           idCotizacion: widget.cotizacion.idCotizacion,
           comprador:    _compradorCtrl.text.trim(),
-          celular:      widget.cotizacion.celular,
-          alias:        widget.cotizacion.alias,
+          celular:      _celularResuelto,
           tipoEnvio:    _tipoEnvio,
           direccion:    _direccionCtrl.text.trim(),
           distrito:     _distritoCtrl.text.trim(),
@@ -284,7 +307,7 @@ class _CotizacionConvertirCardState
               button: true,
               label: esAceptada
                   ? 'Cotización ${widget.cotizacion.idCotizacion}, aceptada'
-                  : 'Cotización ${widget.cotizacion.idCotizacion} · ${widget.cotizacion.celular} · S/${widget.cotizacion.total?.toStringAsFixed(2) ?? '0'}. Toca para convertir a venta.',
+                  : 'Cotización ${widget.cotizacion.idCotizacion} · $_identificadorMostrado · S/${widget.cotizacion.total?.toStringAsFixed(2) ?? '0'}. Toca para convertir a venta.',
               child: InkWell(
                 onTap: esAceptada
                     ? null
@@ -325,12 +348,19 @@ class _CotizacionConvertirCardState
                           ),
                         ),
                         const SizedBox(width: AppSpacing.sm),
-                        // Celular
+                        // Celular o alias — lo que se haya guardado
                         if (widget.cotizacion.celular.isNotEmpty) ...[
                           const Icon(Icons.phone_outlined,
                               size: 12, color: AppColors.textMuted),
                           const SizedBox(width: AppSpacing.xs),
                           Text(widget.cotizacion.celular,
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textSecondary)),
+                        ] else if ((widget.cotizacion.alias ?? '').isNotEmpty) ...[
+                          const Icon(Icons.alternate_email_rounded,
+                              size: 12, color: AppColors.textMuted),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(widget.cotizacion.alias!,
                               style: AppTextStyles.bodySmall
                                   .copyWith(color: AppColors.textSecondary)),
                         ],
@@ -457,7 +487,7 @@ class _CotizacionConvertirCardState
                       ? _ConfirmacionInline(
                           key: const ValueKey('confirm'),
                           comprador:   _compradorCtrl.text.trim(),
-                          celular:     widget.cotizacion.celular,
+                          celular:     _celularResuelto,
                           tipoEnvio:   _tipoEnvio,
                           direccion:   _direccionCtrl.text.trim(),
                           distrito:    _distritoCtrl.text.trim(),
@@ -484,6 +514,20 @@ class _CotizacionConvertirCardState
                                         color: AppColors.primary, fontSize: 12)),
                               ]),
                               const SizedBox(height: AppSpacing.md),
+                              if (_requiereCelularNuevo) ...[
+                                const _FieldLabel(
+                                    'Celular del cliente',
+                                    Icons.phone_outlined),
+                                _Field(
+                                  controller: _celularNuevoCtrl,
+                                  hint: '987654321',
+                                  keyboardType: TextInputType.phone,
+                                  maxLength: 9,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                ),
+                              ],
                               const _FieldLabel(
                                   'Nombre del comprador',
                                   Icons.person_outline_rounded),
@@ -690,7 +734,6 @@ class _CartaExito extends StatelessWidget {
     required this.idCotizacion,
     required this.comprador,
     required this.celular,
-    this.alias,
     required this.tipoEnvio,
     required this.direccion,
     required this.distrito,
@@ -706,7 +749,6 @@ class _CartaExito extends StatelessWidget {
   final String         idCotizacion;
   final String         comprador;
   final String         celular;
-  final String?        alias;
   final String         tipoEnvio;
   final String         direccion;
   final String         distrito;
@@ -729,7 +771,7 @@ class _CartaExito extends StatelessWidget {
     final distLinea = distrito.isNotEmpty  ? '\n🗺️ *Distrito:* $distrito'  : '';
     final texto =
         '📦 *Perfuteca — Pedido $idVenta*\n$sep\n'
-        '👤 *Cliente:* $comprador\n📱 *Celular:* ${lineaContacto(celular, alias)}\n'
+        '👤 *Cliente:* $comprador\n📱 *Celular:* $celular\n'
         '🚚 *Envío:* $tipoEnvio$dirLinea$distLinea\n$sep\n'
         '🌸 *Perfumes:*\n$itemsLineas\n$sep\n'
         '💰 *Total: S/ ${total.toStringAsFixed(2)}*\n'
@@ -950,10 +992,16 @@ class _Field extends StatelessWidget {
     required this.controller,
     required this.hint,
     this.capitalization = TextCapitalization.none,
+    this.keyboardType,
+    this.maxLength,
+    this.inputFormatters,
   });
   final TextEditingController controller;
   final String                hint;
   final TextCapitalization    capitalization;
+  final TextInputType?              keyboardType;
+  final int?                        maxLength;
+  final List<TextInputFormatter>?   inputFormatters;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -962,7 +1010,11 @@ class _Field extends StatelessWidget {
         child: TextField(
           controller:         controller,
           textCapitalization: capitalization,
+          keyboardType:       keyboardType,
+          maxLength:          maxLength,
+          inputFormatters:    inputFormatters,
           decoration: InputDecoration(
+            counterText: maxLength != null ? '' : null,
             hintText:  hint,
             hintStyle: AppTextStyles.bodySmall,
             filled:    true,

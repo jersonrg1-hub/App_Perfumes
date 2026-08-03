@@ -9,6 +9,7 @@ double _round10(double p) => (p * 10).round() / 10.0;
 class NuevaCotizacionState {
   const NuevaCotizacionState({
     this.paso                = 1,
+    this.modo                = 'celular',
     this.celular             = '',
     this.alias               = '',
     this.cesta               = const [],
@@ -20,6 +21,8 @@ class NuevaCotizacionState {
   });
 
   final int                   paso;
+  // 'celular' | 'alias' — mutuamente excluyentes, solo uno se envía al backend
+  final String                modo;
   final String                celular;
   final String                alias;
   final List<ItemCesta>       cesta;
@@ -63,11 +66,13 @@ class NuevaCotizacionState {
   // Backward-compat: totalConDelivery uses discounted base
   double get totalConDelivery => subtotalDescuento + (conDelivery ? costoDelivery : 0);
 
-  bool get paso1Valido => celular.length == 9;
+  bool get paso1Valido =>
+      modo == 'celular' ? celular.length == 9 : alias.trim().isNotEmpty;
   bool get cestaValida => cesta.isNotEmpty;
 
   NuevaCotizacionState copyWith({
     int?                  paso,
+    String?               modo,
     String?               celular,
     String?               alias,
     List<ItemCesta>?      cesta,
@@ -80,6 +85,7 @@ class NuevaCotizacionState {
     bool                  clearRegistrada = false,
   }) => NuevaCotizacionState(
     paso:                paso                ?? this.paso,
+    modo:                modo                ?? this.modo,
     celular:             celular             ?? this.celular,
     alias:               alias               ?? this.alias,
     cesta:               cesta               ?? this.cesta,
@@ -100,6 +106,18 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
 
   void setCelular(String v)    => state = state.copyWith(celular: v);
   void setAlias(String v)      => state = state.copyWith(alias: v);
+
+  // Alterna entre modo celular/alias — mutuamente excluyentes: cambiar de
+  // modo limpia el campo del modo anterior para que solo uno llegue al backend.
+  void setModo(String m) {
+    if (m == state.modo) return;
+    state = state.copyWith(
+      modo:    m,
+      celular: m == 'celular' ? state.celular : '',
+      alias:   m == 'alias'   ? state.alias   : '',
+    );
+  }
+
   void irPaso(int p)           => state = state.copyWith(paso: p, clearError: true);
   void toggleDelivery()        => state = state.copyWith(conDelivery: !state.conDelivery);
 
@@ -155,8 +173,8 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     state = state.copyWith(registrando: true, clearError: true);
     try {
       final registrada = await _repo.guardarCotizacion(
-        celular: state.celular,
-        alias:   state.alias,
+        celular: state.celular.isEmpty ? null : state.celular,
+        alias:   state.alias.isEmpty ? null : state.alias,
         items:   state.cesta.asMap().entries.map((e) =>
             e.value.toApiMap(conDescuento: state.itemConDescuento(e.key))).toList(),
       );

@@ -1622,7 +1622,7 @@ class _TicketExito extends StatelessWidget {
     final msg =
       '📦 *Perfuteca — Pedido Nuevo $id*\n$sep\n'
       '👤 *Cliente:* $comprador\n'
-      '📱 *Celular:* ${lineaContacto(celular, alias)}\n'
+      '📱 *Celular:* $celular\n'
       '🚚 *Envío:* $tipoEnvio$dirLinea\n'
       '$sep\n'
       '🌸 *Perfumes:*\n$itemsLineas\n'

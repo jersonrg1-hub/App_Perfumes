@@ -68,7 +68,7 @@ class _NuevaCotizacionScreenState
         _StepIndicator(
           paso:       state.paso,
           onTapPaso:  _irA,
-          celular:    state.celular,
+          identificador: state.celular.isNotEmpty ? state.celular : state.alias,
           cestaCount: state.cesta.length,
         ),
         Expanded(
@@ -110,18 +110,21 @@ class _StepIndicator extends StatelessWidget {
   const _StepIndicator({
     required this.paso,
     required this.onTapPaso,
-    required this.celular,
+    required this.identificador,
     required this.cestaCount,
   });
   final int                paso;
   final void Function(int) onTapPaso;
-  final String             celular;
+  final String             identificador; // celular o alias, lo que se haya llenado
   final int                cestaCount;
 
   @override
   Widget build(BuildContext context) {
-    final step1Sub = paso > 1 && celular.length >= 4
-        ? '···${celular.substring(celular.length - 4)}'
+    final esNumerico = RegExp(r'^\d+$').hasMatch(identificador);
+    final step1Sub = paso > 1 && identificador.length >= 4
+        ? (esNumerico
+            ? '···${identificador.substring(identificador.length - 4)}'
+            : '@$identificador')
         : null;
     final step2Sub = paso > 2 && cestaCount > 0
         ? '$cestaCount ítem${cestaCount != 1 ? 's' : ''}'
@@ -243,6 +246,80 @@ class _Linea extends StatelessWidget {
       );
 }
 
+// ── Toggle celular / alias (mutuamente excluyentes) ───────────────────────────
+
+class _ModoIdentificadorToggle extends StatelessWidget {
+  const _ModoIdentificadorToggle({required this.modo, required this.onChanged});
+  final String modo;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.primaryPale,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: _ModoBoton(
+              label: 'Celular',
+              icon:  Icons.phone_outlined,
+              activo: modo == 'celular',
+              onTap:  () => onChanged('celular'),
+            )),
+            Expanded(child: _ModoBoton(
+              label: 'Alias',
+              icon:  Icons.alternate_email_rounded,
+              activo: modo == 'alias',
+              onTap:  () => onChanged('alias'),
+            )),
+          ],
+        ),
+      );
+}
+
+class _ModoBoton extends StatelessWidget {
+  const _ModoBoton({
+    required this.label,
+    required this.icon,
+    required this.activo,
+    required this.onTap,
+  });
+  final String       label;
+  final IconData     icon;
+  final bool         activo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: AnimatedContainer(
+          duration: _kFast,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: activo ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 15,
+                  color: activo ? Colors.white : AppColors.textMuted),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: TextStyle(
+                    fontSize:   13,
+                    fontWeight: FontWeight.w700,
+                    color: activo ? Colors.white : AppColors.textMuted,
+                  )),
+            ],
+          ),
+        ),
+      );
+}
+
 // ── Paso 1: Celular ───────────────────────────────────────────────────────────
 
 class _Paso1 extends ConsumerStatefulWidget {
@@ -304,6 +381,12 @@ class _Paso1State extends ConsumerState<_Paso1> {
     final state    = ref.watch(nuevaCotizacionProvider);
     final notifier = ref.read(nuevaCotizacionProvider.notifier);
 
+    // Mantiene los controllers sincronizados con el estado — necesario para
+    // que al cambiar de modo (celular <-> alias) el campo oculto se vacíe
+    // visualmente, ya que setModo() limpia el campo del modo anterior.
+    if (_celCtrl.text != state.celular) _celCtrl.text = state.celular;
+    if (_aliasCtrl.text != state.alias) _aliasCtrl.text = state.alias;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -320,70 +403,77 @@ class _Paso1State extends ConsumerState<_Paso1> {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          Text(
-            'Celular del cliente',
-            style: AppTextStyles.body.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextFormField(
-            controller: _celCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.phone_outlined, size: 18),
-              hintText: '+51 987654321 o 987654321',
-              helperText: 'Acepta formato WhatsApp, con o sin código de país',
-              counterText: '',
-              filled: true,
-              fillColor: AppColors.primaryPale,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: const BorderSide(color: AppColors.primaryLight),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-              ),
-            ),
-            onChanged: (v) => _onCelularChanged(v, notifier),
+          _ModoIdentificadorToggle(
+            modo: state.modo,
+            onChanged: notifier.setModo,
           ),
           const SizedBox(height: AppSpacing.lg),
-          Text(
-            'Alias WhatsApp (opcional)',
-            style: AppTextStyles.body.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          TextFormField(
-            controller: _aliasCtrl,
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
-              hintText: '@perfutecalima',
-              filled: true,
-              fillColor: AppColors.primaryPale,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: const BorderSide(color: AppColors.primaryLight),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          if (state.modo == 'celular') ...[
+            Text(
+              'Celular del cliente',
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
               ),
             ),
-            onChanged: notifier.setAlias,
-          ),
+            const SizedBox(height: AppSpacing.sm),
+            TextFormField(
+              controller: _celCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+                hintText: '+51 987654321 o 987654321',
+                helperText: 'Acepta formato WhatsApp, con o sin código de país',
+                counterText: '',
+                filled: true,
+                fillColor: AppColors.primaryPale,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.primaryLight),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+              onChanged: (v) => _onCelularChanged(v, notifier),
+            ),
+          ] else ...[
+            Text(
+              'Alias de WhatsApp del cliente',
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextFormField(
+              controller: _aliasCtrl,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
+                hintText: '@perfutecalima',
+                filled: true,
+                fillColor: AppColors.primaryPale,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.primaryLight),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+              onChanged: notifier.setAlias,
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,

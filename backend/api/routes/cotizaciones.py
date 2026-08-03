@@ -122,7 +122,7 @@ def guardar_cotizacion(
     items = aplicar_descuentos([item.model_dump() for item in body.items])
     total = calcular_total_cotizacion(items)
     try:
-        id_cot = repo.save_quote(body.celular, items, total)
+        id_cot = repo.save_quote(body.celular, items, total, alias=body.alias)
         invalidar_cache_cotizaciones()
         return CotizacionRegistrada(id_cotizacion=id_cot)
     except Exception as e:
@@ -169,7 +169,7 @@ def actualizar_estado_cotizacion(
 # ── Serialización ─────────────────────────────────────────────────────────────
 
 # Columnas fijas; la columna de perfumes se detecta dinámicamente
-_COLS_FIJAS = ["ID_Cotizacion", "Fecha", "Celular", "Total", "Estado"]
+_COLS_FIJAS = ["ID_Cotizacion", "Fecha", "Celular", "Total", "Estado", "alias"]
 # Posibles nombres de la columna de perfumes en distintas versiones de la hoja
 _POSIBLES_COL_PERFUMES = ["Perfumes", "Items", "Perfume", "items"]
 

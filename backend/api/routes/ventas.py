@@ -149,6 +149,7 @@ def ventas_por_cliente(
         tipo_envio=str(ultimo.get("Tipo_Envio", "") or ""),
         metodo_pago=str(ultimo.get("Metodo_Pago", "") or ""),
         total_compras=len(historial),
+        alias=str(ultimo.get("alias", "") or "") or None,
     )
 
     return {

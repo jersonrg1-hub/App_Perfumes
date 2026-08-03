@@ -44,6 +44,13 @@ void main() {
         '',
       );
     });
+
+    test('alias que es solo @ se trata como ausente (cae a celular)', () {
+      expect(
+        resolverDestinoWhatsApp(celular: '987654321', alias: '@'),
+        '51987654321',
+      );
+    });
   });
 
   group('lineaContacto', () {
@@ -67,6 +74,10 @@ void main() {
 
     test('solo celular cuando alias es string vacio', () {
       expect(lineaContacto('987654321', ''), '987654321');
+    });
+
+    test('alias que es solo @ se trata como ausente (solo celular)', () {
+      expect(lineaContacto('987654321', '@'), '987654321');
     });
   });
 }

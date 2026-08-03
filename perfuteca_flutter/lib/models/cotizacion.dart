@@ -32,6 +32,7 @@ class CotizacionResponse with _$CotizacionResponse {
     @JsonKey(fromJson: _toDoubleNullable) double? total,
     String? estado,
     @JsonKey(name: 'fila_sheet', fromJson: _toInt) @Default(0) int filaSheet,
+    String? alias,
   }) = _CotizacionResponse;
 
   factory CotizacionResponse.fromJson(Map<String, dynamic> json) =>

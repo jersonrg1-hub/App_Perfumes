@@ -22,6 +22,11 @@ String _fmtPrecio(double p) =>
 
 double _round10(double p) => (p * 10).round() / 10.0;
 
+// Quita un '@' inicial si el usuario lo tipeó al guardar el alias — evita
+// mostrar '@@alias' cuando se le antepone el ícono/prefijo '@' en UI.
+String _sinArroba(String alias) =>
+    alias.startsWith('@') ? alias.substring(1) : alias;
+
 class NuevaCotizacionScreen extends ConsumerStatefulWidget {
   const NuevaCotizacionScreen({super.key});
 
@@ -124,7 +129,7 @@ class _StepIndicator extends StatelessWidget {
     final step1Sub = paso > 1 && identificador.length >= 4
         ? (esNumerico
             ? '···${identificador.substring(identificador.length - 4)}'
-            : '@$identificador')
+            : '@${_sinArroba(identificador)}')
         : null;
     final step2Sub = paso > 2 && cestaCount > 0
         ? '$cestaCount ítem${cestaCount != 1 ? 's' : ''}'
@@ -933,7 +938,9 @@ class _Paso3State extends ConsumerState<_Paso3> {
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  state.celular.isNotEmpty ? state.celular : '@${state.alias}',
+                  state.celular.isNotEmpty
+                      ? state.celular
+                      : '@${_sinArroba(state.alias)}',
                   style: AppTextStyles.body.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -1767,7 +1774,9 @@ class _ReceiptCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 5),
                     Text(
-                      celular.isNotEmpty ? celular : '@${alias ?? ''}',
+                      celular.isNotEmpty
+                          ? celular
+                          : '@${_sinArroba(alias ?? '')}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

@@ -293,7 +293,9 @@ class SheetsRepository:
             self._get_worksheet(WORKSHEET_COTIZACIONES).update(celda, [[nuevo_estado]])
         self._ejecutar_con_reintento(_write, "update_quote_status")
 
-    def save_quote(self, celular: str, items: list[dict], total: float) -> str:
+    def save_quote(
+        self, celular: str, items: list[dict], total: float, alias: str | None = None,
+    ) -> str:
         """Guarda una cotización y retorna el ID asignado."""
         id_cotizacion = self.get_next_quote_id()
         items_txt = construir_items_txt(items)
@@ -304,6 +306,7 @@ class SheetsRepository:
             items_txt,
             round(float(total), 2),
             "Enviado",
+            alias or "",
         ]
         def _write():
             self._get_worksheet(WORKSHEET_COTIZACIONES).append_rows(

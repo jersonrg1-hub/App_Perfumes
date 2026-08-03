@@ -10,6 +10,7 @@ class NuevaCotizacionState {
   const NuevaCotizacionState({
     this.paso                = 1,
     this.celular             = '',
+    this.alias               = '',
     this.cesta               = const [],
     this.conDelivery         = false,
     this.indicesConDescuento = const {},
@@ -20,6 +21,7 @@ class NuevaCotizacionState {
 
   final int                   paso;
   final String                celular;
+  final String                alias;
   final List<ItemCesta>       cesta;
   final bool                  conDelivery;
   final Set<int>               indicesConDescuento;
@@ -67,6 +69,7 @@ class NuevaCotizacionState {
   NuevaCotizacionState copyWith({
     int?                  paso,
     String?               celular,
+    String?               alias,
     List<ItemCesta>?      cesta,
     bool?                 conDelivery,
     Set<int>?             indicesConDescuento,
@@ -78,6 +81,7 @@ class NuevaCotizacionState {
   }) => NuevaCotizacionState(
     paso:                paso                ?? this.paso,
     celular:             celular             ?? this.celular,
+    alias:               alias               ?? this.alias,
     cesta:               cesta               ?? this.cesta,
     conDelivery:         conDelivery         ?? this.conDelivery,
     indicesConDescuento: indicesConDescuento ?? this.indicesConDescuento,
@@ -95,6 +99,7 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
       ref.read(cotizacionesRepositoryProvider);
 
   void setCelular(String v)    => state = state.copyWith(celular: v);
+  void setAlias(String v)      => state = state.copyWith(alias: v);
   void irPaso(int p)           => state = state.copyWith(paso: p, clearError: true);
   void toggleDelivery()        => state = state.copyWith(conDelivery: !state.conDelivery);
 
@@ -151,6 +156,7 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     try {
       final registrada = await _repo.guardarCotizacion(
         celular: state.celular,
+        alias:   state.alias,
         items:   state.cesta.asMap().entries.map((e) =>
             e.value.toApiMap(conDescuento: state.itemConDescuento(e.key))).toList(),
       );

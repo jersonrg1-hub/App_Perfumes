@@ -195,6 +195,7 @@ mixin _$CotizacionResponse {
   String? get estado => throw _privateConstructorUsedError;
   @JsonKey(name: 'fila_sheet', fromJson: _toInt)
   int get filaSheet => throw _privateConstructorUsedError;
+  String? get alias => throw _privateConstructorUsedError;
 
   /// Serializes this CotizacionResponse to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -220,7 +221,8 @@ abstract class $CotizacionResponseCopyWith<$Res> {
       String? items,
       @JsonKey(fromJson: _toDoubleNullable) double? total,
       String? estado,
-      @JsonKey(name: 'fila_sheet', fromJson: _toInt) int filaSheet});
+      @JsonKey(name: 'fila_sheet', fromJson: _toInt) int filaSheet,
+      String? alias});
 }
 
 /// @nodoc
@@ -245,6 +247,7 @@ class _$CotizacionResponseCopyWithImpl<$Res, $Val extends CotizacionResponse>
     Object? total = freezed,
     Object? estado = freezed,
     Object? filaSheet = null,
+    Object? alias = freezed,
   }) {
     return _then(_value.copyWith(
       idCotizacion: null == idCotizacion
@@ -275,6 +278,10 @@ class _$CotizacionResponseCopyWithImpl<$Res, $Val extends CotizacionResponse>
           ? _value.filaSheet
           : filaSheet // ignore: cast_nullable_to_non_nullable
               as int,
+      alias: freezed == alias
+          ? _value.alias
+          : alias // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -295,7 +302,8 @@ abstract class _$$CotizacionResponseImplCopyWith<$Res>
       String? items,
       @JsonKey(fromJson: _toDoubleNullable) double? total,
       String? estado,
-      @JsonKey(name: 'fila_sheet', fromJson: _toInt) int filaSheet});
+      @JsonKey(name: 'fila_sheet', fromJson: _toInt) int filaSheet,
+      String? alias});
 }
 
 /// @nodoc
@@ -318,6 +326,7 @@ class __$$CotizacionResponseImplCopyWithImpl<$Res>
     Object? total = freezed,
     Object? estado = freezed,
     Object? filaSheet = null,
+    Object? alias = freezed,
   }) {
     return _then(_$CotizacionResponseImpl(
       idCotizacion: null == idCotizacion
@@ -348,6 +357,10 @@ class __$$CotizacionResponseImplCopyWithImpl<$Res>
           ? _value.filaSheet
           : filaSheet // ignore: cast_nullable_to_non_nullable
               as int,
+      alias: freezed == alias
+          ? _value.alias
+          : alias // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -363,7 +376,8 @@ class _$CotizacionResponseImpl implements _CotizacionResponse {
       this.items,
       @JsonKey(fromJson: _toDoubleNullable) this.total,
       this.estado,
-      @JsonKey(name: 'fila_sheet', fromJson: _toInt) this.filaSheet = 0});
+      @JsonKey(name: 'fila_sheet', fromJson: _toInt) this.filaSheet = 0,
+      this.alias});
 
   factory _$CotizacionResponseImpl.fromJson(Map<String, dynamic> json) =>
       _$$CotizacionResponseImplFromJson(json);
@@ -386,10 +400,12 @@ class _$CotizacionResponseImpl implements _CotizacionResponse {
   @override
   @JsonKey(name: 'fila_sheet', fromJson: _toInt)
   final int filaSheet;
+  @override
+  final String? alias;
 
   @override
   String toString() {
-    return 'CotizacionResponse(idCotizacion: $idCotizacion, celular: $celular, fecha: $fecha, items: $items, total: $total, estado: $estado, filaSheet: $filaSheet)';
+    return 'CotizacionResponse(idCotizacion: $idCotizacion, celular: $celular, fecha: $fecha, items: $items, total: $total, estado: $estado, filaSheet: $filaSheet, alias: $alias)';
   }
 
   @override
@@ -405,13 +421,14 @@ class _$CotizacionResponseImpl implements _CotizacionResponse {
             (identical(other.total, total) || other.total == total) &&
             (identical(other.estado, estado) || other.estado == estado) &&
             (identical(other.filaSheet, filaSheet) ||
-                other.filaSheet == filaSheet));
+                other.filaSheet == filaSheet) &&
+            (identical(other.alias, alias) || other.alias == alias));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
   int get hashCode => Object.hash(runtimeType, idCotizacion, celular, fecha,
-      items, total, estado, filaSheet);
+      items, total, estado, filaSheet, alias);
 
   /// Create a copy of CotizacionResponse
   /// with the given fields replaced by the non-null parameter values.
@@ -432,15 +449,15 @@ class _$CotizacionResponseImpl implements _CotizacionResponse {
 
 abstract class _CotizacionResponse implements CotizacionResponse {
   const factory _CotizacionResponse(
-          {@JsonKey(name: 'id_cotizacion', fromJson: _strOrEmpty)
-          final String idCotizacion,
-          @JsonKey(fromJson: _strOrEmpty) final String celular,
-          final String? fecha,
-          final String? items,
-          @JsonKey(fromJson: _toDoubleNullable) final double? total,
-          final String? estado,
-          @JsonKey(name: 'fila_sheet', fromJson: _toInt) final int filaSheet}) =
-      _$CotizacionResponseImpl;
+      {@JsonKey(name: 'id_cotizacion', fromJson: _strOrEmpty)
+      final String idCotizacion,
+      @JsonKey(fromJson: _strOrEmpty) final String celular,
+      final String? fecha,
+      final String? items,
+      @JsonKey(fromJson: _toDoubleNullable) final double? total,
+      final String? estado,
+      @JsonKey(name: 'fila_sheet', fromJson: _toInt) final int filaSheet,
+      final String? alias}) = _$CotizacionResponseImpl;
 
   factory _CotizacionResponse.fromJson(Map<String, dynamic> json) =
       _$CotizacionResponseImpl.fromJson;
@@ -463,6 +480,8 @@ abstract class _CotizacionResponse implements CotizacionResponse {
   @override
   @JsonKey(name: 'fila_sheet', fromJson: _toInt)
   int get filaSheet;
+  @override
+  String? get alias;
 
   /// Create a copy of CotizacionResponse
   /// with the given fields replaced by the non-null parameter values.

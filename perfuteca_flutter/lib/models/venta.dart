@@ -35,6 +35,7 @@ class VentaResponse with _$VentaResponse {
     @JsonKey(                        fromJson: _toStrNullable)                 String? direccion,
     @JsonKey(                        fromJson: _toStrNullable)                 String? distrito,
     @JsonKey(                        fromJson: _toStrNullable)                 String? estado,
+    @JsonKey(                        fromJson: _toStrNullable)                 String? alias,
   }) = _VentaResponse;
 
   factory VentaResponse.fromJson(Map<String, dynamic> json) =>
@@ -52,6 +53,7 @@ class ClientePrevio with _$ClientePrevio {
     @JsonKey(name: 'tipo_envio')                        required String tipoEnvio,
     @JsonKey(name: 'metodo_pago')                       required String metodoPago,
     @JsonKey(name: 'total_compras', fromJson: _toInt)   @Default(0) int totalCompras,
+    @JsonKey(                       fromJson: _toStrNullable)       String? alias,
   }) = _ClientePrevio;
 
   factory ClientePrevio.fromJson(Map<String, dynamic> json) =>

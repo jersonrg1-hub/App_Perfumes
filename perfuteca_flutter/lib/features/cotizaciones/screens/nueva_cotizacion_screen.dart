@@ -925,11 +925,15 @@ class _Paso3State extends ConsumerState<_Paso3> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.phone_outlined,
-                    size: 18, color: AppColors.primary),
+                Icon(
+                  state.celular.isNotEmpty
+                      ? Icons.phone_outlined
+                      : Icons.alternate_email_rounded,
+                  size: 18, color: AppColors.primary,
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  state.celular,
+                  state.celular.isNotEmpty ? state.celular : '@${state.alias}',
                   style: AppTextStyles.body.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -1504,6 +1508,7 @@ class _TicketExitoState extends State<_TicketExito>
             _ReceiptCard(
               idCotizacion: widget.idCotizacion,
               celular:      widget.celular,
+              alias:        widget.alias,
               cesta:        widget.cesta,
               conDelivery:  widget.conDelivery,
               total:        widget.total,
@@ -1680,12 +1685,14 @@ class _ReceiptCard extends StatelessWidget {
   const _ReceiptCard({
     required this.idCotizacion,
     required this.celular,
+    this.alias,
     required this.cesta,
     required this.conDelivery,
     required this.total,
   });
   final String          idCotizacion;
   final String          celular;
+  final String?         alias;
   final List<ItemCesta> cesta;
   final bool            conDelivery;
   final double          total;
@@ -1749,14 +1756,18 @@ class _ReceiptCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                // Celular
+                // Celular o alias — lo que se haya guardado
                 Row(
                   children: [
-                    const Icon(Icons.phone_outlined,
-                        size: 12, color: AppColors.textMuted),
+                    Icon(
+                      celular.isNotEmpty
+                          ? Icons.phone_outlined
+                          : Icons.alternate_email_rounded,
+                      size: 12, color: AppColors.textMuted,
+                    ),
                     const SizedBox(width: 5),
                     Text(
-                      celular,
+                      celular.isNotEmpty ? celular : '@${alias ?? ''}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

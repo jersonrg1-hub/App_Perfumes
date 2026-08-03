@@ -75,8 +75,8 @@ void main() {
   });
 
   test(
-      'irPaso tras una cotizacion ya registrada limpia cesta/descuento/delivery '
-      'pero conserva celular y alias', () {
+      'irPaso tras una cotizacion ya registrada limpia todo (celular, alias, '
+      'cesta, descuento, delivery) — es una cotizacion nueva', () {
     final notifier = container.read(nuevaCotizacionProvider.notifier);
     notifier.setCelular('987654321');
     notifier.agregarItem(_perfume('1', 'A', 25.0), 5);
@@ -84,8 +84,8 @@ void main() {
     notifier.toggleDelivery();
     // Simula que la cotizacion ya se guardo (como despues de "Confirmar
     // cotizacion" sin tocar "Nueva cotizacion") — es el escenario del bug:
-    // volver a navegar debe empezar una cotizacion nueva, no arrastrar
-    // los perfumes/descuento de la anterior.
+    // volver a navegar debe empezar una cotizacion nueva de cero, sin
+    // arrastrar ni siquiera el celular/alias del cliente anterior.
     notifier.state = notifier.state.copyWith(
       registrada: const CotizacionRegistrada(idCotizacion: 'C001'),
     );
@@ -97,7 +97,9 @@ void main() {
     expect(state.cesta, isEmpty);
     expect(state.conDelivery, isFalse);
     expect(state.indicesConDescuento, isEmpty);
-    expect(state.celular, '987654321');
+    expect(state.celular, '');
+    expect(state.alias, '');
+    expect(state.modo, 'celular');
     expect(state.paso, 2);
   });
 }

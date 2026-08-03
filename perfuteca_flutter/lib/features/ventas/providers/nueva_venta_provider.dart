@@ -12,6 +12,7 @@ class NuevaVentaState {
     this.paso           = 1,
     this.comprador      = '',
     this.celular        = '',
+    this.alias          = '',
     this.direccion      = '',
     this.distrito       = '',
     this.tipoEnvio      = '',
@@ -30,6 +31,7 @@ class NuevaVentaState {
   final int               paso;
   final String            comprador;
   final String            celular;
+  final String            alias;
   final String            direccion;
   final String            distrito;
   final String            tipoEnvio;
@@ -59,6 +61,7 @@ class NuevaVentaState {
     int?              paso,
     String?           comprador,
     String?           celular,
+    String?           alias,
     String?           direccion,
     String?           distrito,
     String?           tipoEnvio,
@@ -80,6 +83,7 @@ class NuevaVentaState {
     paso:             paso            ?? this.paso,
     comprador:        comprador       ?? this.comprador,
     celular:          celular         ?? this.celular,
+    alias:            alias           ?? this.alias,
     direccion:        direccion       ?? this.direccion,
     distrito:         distrito        ?? this.distrito,
     tipoEnvio:        tipoEnvio       ?? this.tipoEnvio,
@@ -113,6 +117,8 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
     if (v.length == 9) _buscarCliente(v);
   }
 
+  void setAlias(String v) => state = state.copyWith(alias: v);
+
   Future<void> _buscarCliente(String celular) async {
     state = state.copyWith(buscandoCliente: true);
     try {
@@ -127,6 +133,7 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
           distrito:   state.distrito.trim().isEmpty   ? cliente.distrito   : state.distrito,
           tipoEnvio:  state.tipoEnvio.isEmpty         ? cliente.tipoEnvio  : state.tipoEnvio,
           metodoPago: cliente.metodoPago,
+          alias:      state.alias.trim().isEmpty ? (cliente.alias ?? '') : state.alias,
         );
       } else {
         state = state.copyWith(buscandoCliente: false);
@@ -211,6 +218,7 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
         tipoEnvio: state.tipoEnvio,
         fecha:     state.fecha,
         items:     state.cesta.map((i) => i.toApiMap()).toList(),
+        alias:     state.alias,
       );
       state = state.copyWith(
         registrando:     false,

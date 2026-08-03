@@ -122,7 +122,7 @@ def guardar_cotizacion(
     items = aplicar_descuentos([item.model_dump() for item in body.items])
     total = calcular_total_cotizacion(items)
     try:
-        id_cot = repo.save_quote(body.celular, items, total, alias=body.alias)
+        id_cot = repo.save_quote(body.celular or "", items, total, alias=body.alias)
         invalidar_cache_cotizaciones()
         return CotizacionRegistrada(id_cotizacion=id_cot)
     except Exception as e:

@@ -14,7 +14,7 @@ Modelo de paginación:
   Flutter puede implementar infinite scroll con has_more + offset.
 """
 from typing import Generic, Literal, Optional, TypeVar
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 T = TypeVar("T")
 
@@ -185,10 +185,17 @@ class EstadoVentaUpdate(BaseModel):
 # ── Cotizaciones — Requests ───────────────────────────────────────────────────
 
 class CotizacionRequest(BaseModel):
-    """total se calcula en el backend a partir de items + con_descuento; no se recibe del cliente."""
-    celular: str = Field(..., min_length=9, max_length=9, pattern=r"^\d{9}$")
+    """total se calcula en el backend a partir de items + con_descuento; no se recibe del cliente.
+    Requiere celular o alias (al menos uno) — no ambos son obligatorios."""
+    celular: Optional[str] = Field(None, min_length=9, max_length=9, pattern=r"^\d{9}$")
     items: list[ItemCestaAPI] = Field(..., min_length=1)
     alias: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _requiere_celular_o_alias(self):
+        if not self.celular and not (self.alias and self.alias.strip()):
+            raise ValueError("Debe proporcionar celular o alias")
+        return self
 
 
 class CotizacionRegistrada(BaseModel):

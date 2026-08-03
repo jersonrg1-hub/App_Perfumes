@@ -38,6 +38,35 @@ def test_cotizacion_request_alias_es_opcional():
     assert req.alias is None
 
 
+def _items_cotizacion():
+    return [{
+        "perfume": "Sauvage", "marca": "Dior", "id_perfume": "P001",
+        "ml": 5, "precio": 25.0, "metodo": "Yape",
+    }]
+
+
+def test_cotizacion_request_acepta_solo_alias_sin_celular():
+    req = CotizacionRequest(alias="perfutecalima", items=_items_cotizacion())
+    assert req.celular is None
+    assert req.alias == "perfutecalima"
+
+
+def test_cotizacion_request_falla_sin_celular_ni_alias():
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        CotizacionRequest(items=_items_cotizacion())
+
+
+def test_cotizacion_request_falla_con_alias_vacio_y_sin_celular():
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        CotizacionRequest(alias="   ", items=_items_cotizacion())
+
+
 def test_venta_response_alias_es_opcional():
     resp = VentaResponse(id_compra="V001", comprador="Juan",
                           celular="987654321", id_perfume="P001")

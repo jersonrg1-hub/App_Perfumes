@@ -37,7 +37,18 @@ class NuevaCotizacionScreen extends ConsumerStatefulWidget {
 
 class _NuevaCotizacionScreenState
     extends ConsumerState<NuevaCotizacionScreen> {
-  final _pageCtrl = PageController();
+  late final PageController _pageCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    // Si el tab se recrea (ej. usuario cambia de tab y vuelve) el estado del
+    // provider sobrevive pero un PageController nuevo arranca en página 0
+    // por defecto — lo sincronizamos con el paso guardado para no mostrar
+    // "Paso 1" en pantalla mientras el estado interno sigue en otro paso.
+    final pasoInicial = ref.read(nuevaCotizacionProvider).paso;
+    _pageCtrl = PageController(initialPage: pasoInicial - 1);
+  }
 
   @override
   void dispose() {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/cotizaciones/providers/nueva_cotizacion_provider.dart';
 import 'package:perfuteca/features/ventas/screens/cotizaciones_hoy_screen.dart';
@@ -82,6 +82,7 @@ class _NuevaCotizacionScreenState
                   ? _TicketExito(
                       idCotizacion: state.registrada!.idCotizacion,
                       celular:      state.celular,
+                      alias:        state.alias,
                       total:        state.totalConDelivery,
                       cesta:        state.cesta,
                       conDelivery:         state.conDelivery,
@@ -267,6 +268,7 @@ String _normalizarCelular(String input) {
 
 class _Paso1State extends ConsumerState<_Paso1> {
   late final TextEditingController _celCtrl;
+  late final TextEditingController _aliasCtrl;
 
   @override
   void initState() {
@@ -274,11 +276,15 @@ class _Paso1State extends ConsumerState<_Paso1> {
     _celCtrl = TextEditingController(
       text: ref.read(nuevaCotizacionProvider).celular,
     );
+    _aliasCtrl = TextEditingController(
+      text: ref.read(nuevaCotizacionProvider).alias,
+    );
   }
 
   @override
   void dispose() {
     _celCtrl.dispose();
+    _aliasCtrl.dispose();
     super.dispose();
   }
 
@@ -346,6 +352,37 @@ class _Paso1State extends ConsumerState<_Paso1> {
               ),
             ),
             onChanged: (v) => _onCelularChanged(v, notifier),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+            'Alias WhatsApp (opcional)',
+            style: AppTextStyles.body.copyWith(
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextFormField(
+            controller: _aliasCtrl,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
+              hintText: '@perfutecalima',
+              filled: true,
+              fillColor: AppColors.primaryPale,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: const BorderSide(color: AppColors.primaryLight),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+              ),
+            ),
+            onChanged: notifier.setAlias,
           ),
           const SizedBox(height: AppSpacing.xl),
           SizedBox(
@@ -1261,6 +1298,7 @@ class _TicketExito extends StatefulWidget {
   const _TicketExito({
     required this.idCotizacion,
     required this.celular,
+    required this.alias,
     required this.total,
     required this.cesta,
     required this.conDelivery,
@@ -1269,6 +1307,7 @@ class _TicketExito extends StatefulWidget {
   });
   final String          idCotizacion;
   final String          celular;
+  final String?         alias;
   final double          total;
   final List<ItemCesta> cesta;
   final bool            conDelivery;
@@ -1332,11 +1371,8 @@ class _TicketExitoState extends State<_TicketExito>
         '💰 *Total: S/ ${widget.total.toStringAsFixed(2)}*\n$sep\n\n'
         '_Si confirmas, te envío los datos de Yape para que puedas apartar 💛_';
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
-    final prefijo = numero.startsWith('51') ? numero : '51$numero';
-    final uri = Uri.parse(
-        'https://wa.me/$prefijo?text=${Uri.encodeComponent(texto)}');
     try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await abrirWhatsAppBusiness(celular: numero, alias: widget.alias, mensaje: texto);
     } catch (_) {}
   }
 

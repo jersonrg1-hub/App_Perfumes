@@ -3,9 +3,15 @@ import 'package:url_launcher/url_launcher.dart';
 
 const _paqueteWhatsappBusiness = 'com.whatsapp.w4b';
 
-/// Quita un '@' inicial si el usuario lo tipeó al guardar el alias.
-String _normalizarAlias(String alias) =>
-    alias.startsWith('@') ? alias.substring(1) : alias;
+/// Normaliza un alias de WhatsApp: quita espacios y un '@' inicial.
+/// Retorna null si el resultado queda vacío (alias ausente o solo '@'/espacios).
+String? _aliasNormalizadoOrNull(String? alias) {
+  final sinEspacios = alias?.trim() ?? '';
+  final sinArroba = sinEspacios.startsWith('@')
+      ? sinEspacios.substring(1)
+      : sinEspacios;
+  return sinArroba.isEmpty ? null : sinArroba;
+}
 
 /// Resuelve el destino para el deep-link de wa.me.
 ///
@@ -14,8 +20,8 @@ String _normalizarAlias(String alias) =>
 /// Si no, cae al comportamiento con [celular]: agrega prefijo `51` si
 /// falta. Si ambos son null/vacíos retorna '' (selector de chat).
 String resolverDestinoWhatsApp({String? celular, String? alias}) {
-  final aliasLimpio = alias?.trim() ?? '';
-  if (aliasLimpio.isNotEmpty) return _normalizarAlias(aliasLimpio);
+  final aliasNormalizado = _aliasNormalizadoOrNull(alias);
+  if (aliasNormalizado != null) return aliasNormalizado;
 
   if (celular == null || celular.isEmpty) return '';
   return celular.startsWith('51') ? celular : '51$celular';
@@ -24,9 +30,9 @@ String resolverDestinoWhatsApp({String? celular, String? alias}) {
 /// Línea de contacto para mensajes de texto: celular + alias juntos si
 /// hay alias, o solo celular si no.
 String lineaContacto(String celular, String? alias) {
-  final aliasLimpio = alias?.trim() ?? '';
-  if (aliasLimpio.isEmpty) return celular;
-  return '$celular (@${_normalizarAlias(aliasLimpio)})';
+  final aliasNormalizado = _aliasNormalizadoOrNull(alias);
+  if (aliasNormalizado == null) return celular;
+  return '$celular (@$aliasNormalizado)';
 }
 
 /// Abre WhatsApp Business con [mensaje] ya listo para enviar.
@@ -46,7 +52,7 @@ Future<void> abrirWhatsAppBusiness({
 }) async {
   final texto = Uri.encodeComponent(mensaje);
   final destino = resolverDestinoWhatsApp(celular: celular, alias: alias);
-  final url = 'https://wa.me/$destino?text=$texto';
+  final url = 'https://wa.me/${Uri.encodeComponent(destino)}?text=$texto';
 
   try {
     final intent = AndroidIntent(

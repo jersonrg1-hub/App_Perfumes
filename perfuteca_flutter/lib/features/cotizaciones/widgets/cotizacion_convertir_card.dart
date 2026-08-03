@@ -6,7 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
@@ -167,6 +167,7 @@ class _CotizacionConvertirCardState
           await ref.read(ventasRepositoryProvider).registrarVenta(
         comprador: _compradorCtrl.text.trim(),
         celular:   widget.cotizacion.celular,
+        alias:     widget.cotizacion.alias,
         direccion: _direccionCtrl.text.trim(),
         distrito:  _distritoCtrl.text.trim(),
         tipoEnvio: _tipoEnvio,
@@ -237,6 +238,7 @@ class _CotizacionConvertirCardState
           idCotizacion: widget.cotizacion.idCotizacion,
           comprador:    _compradorCtrl.text.trim(),
           celular:      widget.cotizacion.celular,
+          alias:        widget.cotizacion.alias,
           tipoEnvio:    _tipoEnvio,
           direccion:    _direccionCtrl.text.trim(),
           distrito:     _distritoCtrl.text.trim(),
@@ -688,6 +690,7 @@ class _CartaExito extends StatelessWidget {
     required this.idCotizacion,
     required this.comprador,
     required this.celular,
+    this.alias,
     required this.tipoEnvio,
     required this.direccion,
     required this.distrito,
@@ -703,6 +706,7 @@ class _CartaExito extends StatelessWidget {
   final String         idCotizacion;
   final String         comprador;
   final String         celular;
+  final String?        alias;
   final String         tipoEnvio;
   final String         direccion;
   final String         distrito;
@@ -725,13 +729,12 @@ class _CartaExito extends StatelessWidget {
     final distLinea = distrito.isNotEmpty  ? '\n🗺️ *Distrito:* $distrito'  : '';
     final texto =
         '📦 *Perfuteca — Pedido $idVenta*\n$sep\n'
-        '👤 *Cliente:* $comprador\n📱 *Celular:* $celular\n'
+        '👤 *Cliente:* $comprador\n📱 *Celular:* ${lineaContacto(celular, alias)}\n'
         '🚚 *Envío:* $tipoEnvio$dirLinea$distLinea\n$sep\n'
         '🌸 *Perfumes:*\n$itemsLineas\n$sep\n'
         '💰 *Total: S/ ${total.toStringAsFixed(2)}*\n'
         '💳 *Pago:* $metodoPago';
-    final url = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(texto)}');
-    if (await canLaunchUrl(url)) await launchUrl(url);
+    await abrirWhatsAppBusiness(mensaje: texto);
   }
 
   @override

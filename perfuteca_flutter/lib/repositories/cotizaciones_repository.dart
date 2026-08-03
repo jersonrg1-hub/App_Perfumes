@@ -67,7 +67,7 @@ class CotizacionesRepository {
   }
 
   Future<CotizacionRegistrada> guardarCotizacion({
-    required String celular,
+    String? celular,
     required List<Map<String, dynamic>> items,
     String? alias,
   }) async {
@@ -75,7 +75,7 @@ class CotizacionesRepository {
       final res = await _dio.post<Map<String, dynamic>>(
         ApiConstants.cotizaciones,
         data: {
-          'celular': celular,
+          if (celular != null && celular.trim().isNotEmpty) 'celular': celular.trim(),
           'items':   items,
           if (alias != null && alias.trim().isNotEmpty) 'alias': alias.trim(),
         },

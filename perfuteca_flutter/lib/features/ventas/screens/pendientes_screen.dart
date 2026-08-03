@@ -36,7 +36,6 @@ class _Orden {
 
   String? get comprador  => items.first.comprador;
   String? get celular    => items.first.celular;
-  String? get alias      => items.first.alias;
   String? get direccion  => items.first.direccion;
   String? get tipoEnvio  => items.first.tipoEnvio;
   String? get metodoPago => items.first.metodoPago;
@@ -402,7 +401,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final msg =
       '📦 *Perfuteca — Pedido ${orden.idCompra}*\n$sep\n'
       '👤 *Cliente:* ${orden.comprador ?? '—'}\n'
-      '📱 *Celular:* ${orden.celular != null ? lineaContacto(orden.celular!, orden.alias) : '—'}\n'
+      '📱 *Celular:* ${orden.celular ?? '—'}\n'
       '🚚 *Envío:* ${orden.tipoEnvio ?? '—'}$dirLinea$distLinea\n'
       '$sep\n'
       '🌸 *Perfumes:*\n$itemsLineas\n'

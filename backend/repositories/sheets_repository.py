@@ -442,6 +442,7 @@ class SheetsRepository:
                 cliente["direccion"].strip().title(),
                 (cliente.get("distrito") or "").strip().title(),
                 "Pendiente",
+                cliente.get("alias") or "",
             ]
             for item in cesta
         ]

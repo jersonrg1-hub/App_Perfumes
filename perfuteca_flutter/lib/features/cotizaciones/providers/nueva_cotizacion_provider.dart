@@ -121,17 +121,12 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
   // Navegar tras haber registrado ya una cotización (usuario no tocó
   // "Nueva cotización" y volvió a este flujo, ej. cambiando de tab y
   // regresando) significa que está empezando una cotización distinta.
-  // Se limpia lo que quedó de la anterior (cesta, descuentos, delivery,
-  // registrada) pero se conserva lo que el usuario ya haya tipeado en
-  // este momento (celular/alias/modo) — puede ser el mismo cliente.
+  // Se limpia todo (celular, alias, modo, cesta, descuentos, delivery,
+  // registrada) — es una cotización nueva, no se asume que sea el mismo
+  // cliente.
   void irPaso(int p) {
     if (state.registrada != null) {
-      state = NuevaCotizacionState(
-        modo:    state.modo,
-        celular: state.celular,
-        alias:   state.alias,
-        paso:    p,
-      );
+      state = NuevaCotizacionState(paso: p);
     } else {
       state = state.copyWith(paso: p, clearError: true);
     }

@@ -29,6 +29,11 @@ import 'package:perfuteca/theme/app_text_styles.dart';
 final cotizacionesAceptadasSesionProvider =
     StateProvider<Set<String>>((ref) => const {});
 
+// Quita un '@' inicial si el usuario lo tipeó al guardar el alias — evita
+// mostrar '@@alias' cuando se le antepone el ícono/prefijo '@' en UI.
+String _sinArroba(String alias) =>
+    alias.startsWith('@') ? alias.substring(1) : alias;
+
 class CotizacionConvertirCard extends ConsumerStatefulWidget {
   const CotizacionConvertirCard({super.key, required this.cotizacion});
   final CotizacionResponse cotizacion;
@@ -72,10 +77,11 @@ class _CotizacionConvertirCardState
       : _celularNuevoCtrl.text.trim();
 
   // Para mostrar en el header: celular si existe, si no el alias, si no vacío.
+  // _sinArroba evita '@@alias' si el usuario ya tipeó el '@' al guardar.
   String get _identificadorMostrado => widget.cotizacion.celular.isNotEmpty
       ? widget.cotizacion.celular
       : ((widget.cotizacion.alias ?? '').isNotEmpty
-          ? '@${widget.cotizacion.alias}'
+          ? '@${_sinArroba(widget.cotizacion.alias!)}'
           : '');
 
   @override

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:perfuteca/features/cotizaciones/widgets/cotizacion_convertir_card.dart';
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart'
+    show nowPeru;
 import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/models/cotizacion.dart';
 import 'package:perfuteca/repositories/cotizaciones_repository.dart';
@@ -17,7 +19,7 @@ import 'package:shimmer/shimmer.dart';
 
 final cotizaciones14dProvider =
     FutureProvider<List<CotizacionResponse>>((ref) async {
-  final ahora      = DateTime.now();
+  final ahora      = nowPeru();
   final hoy        = DateTime(ahora.year, ahora.month, ahora.day);
   final limite     = ahora.subtract(const Duration(days: 14));
   final fechaDesde = DateFormat('yyyy-MM-dd').format(limite);
@@ -74,7 +76,10 @@ class _CotizacionesTabState extends ConsumerState<CotizacionesTab>
             .where((c) =>
                 c.estado?.toLowerCase().startsWith('aceptad') == true)
             .length;
-        final pendientes = lista.length - aceptadas;
+        final anuladas   = lista
+            .where((c) => c.estado?.toLowerCase() == 'anulado')
+            .length;
+        final pendientes = lista.length - aceptadas - anuladas;
         final totalS     = lista.fold(0.0, (s, c) => s + (c.total ?? 0));
 
         // items: String = header de día, CotizacionResponse = card
@@ -333,7 +338,7 @@ String _diaKey(String iso) {
       'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
     ];
     const dias = ['', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
-    final now = DateTime.now();
+    final now = nowPeru();
     if (d.year == now.year && d.month == now.month && d.day == now.day) {
       return 'hoy · ${d.day} ${meses[d.month]}';
     }

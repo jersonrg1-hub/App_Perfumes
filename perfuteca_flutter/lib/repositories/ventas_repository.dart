@@ -105,6 +105,10 @@ class VentasRepository {
           'items':      items,
           if (alias != null && alias.trim().isNotEmpty) 'alias': alias.trim(),
         },
+        // Escritura en Google Sheets (gspread) puede tardar más que el
+        // receiveTimeout global — evita que el cliente marque error mientras
+        // el servidor aún está registrando la venta.
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
       );
       return VentaRegistrada.fromJson(res.data!);
     } on DioException catch (e) {

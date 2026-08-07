@@ -79,6 +79,9 @@ class CotizacionesRepository {
           'items':   items,
           if (alias != null && alias.trim().isNotEmpty) 'alias': alias.trim(),
         },
+        // Igual que registrarVenta — escritura en Sheets puede tardar más
+        // que el receiveTimeout global.
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
       );
       return CotizacionRegistrada.fromJson(res.data!);
     } on DioException catch (e) {

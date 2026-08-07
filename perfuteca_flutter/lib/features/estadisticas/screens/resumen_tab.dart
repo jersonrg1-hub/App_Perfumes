@@ -36,6 +36,7 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
         subtitle: e.toString(),
         onRetry: () {
           ref.invalidate(resumenBackendProvider);
+          ref.invalidate(perfumesMapProvider);
           ref.invalidate(resumenStatsProvider);
           ref.invalidate(ventasParaStatsProvider);
         },
@@ -44,6 +45,7 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
         color: AppColors.primary,
         onRefresh: () async {
           ref.invalidate(resumenBackendProvider);
+          ref.invalidate(perfumesMapProvider);
           ref.invalidate(resumenStatsProvider);
           ref.invalidate(ventasParaStatsProvider);
           await ref.read(resumenStatsProvider.future);
@@ -63,7 +65,7 @@ class _ResumenBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s      = stats;
-    final now    = DateTime.now();
+    final now    = nowPeru();
     final semana  = ref.watch(semanaStatsProvider);
     final tamanios = ref.watch(tamaniosStatsProvider);
 
@@ -646,7 +648,7 @@ class _MiniSemanalCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s      = semana;
     final maxBar = s.porDia.fold(0.0, (m, d) => d.total > m ? d.total : m);
-    final hoy    = DateTime.now();
+    final hoy    = nowPeru();
     final subiendo = s.variacionSemana >= 0;
 
     return Container(

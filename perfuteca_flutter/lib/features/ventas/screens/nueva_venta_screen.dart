@@ -10,8 +10,10 @@ import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.
 import 'package:perfuteca/features/ventas/providers/nueva_venta_provider.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/features/ventas/widgets/item_cesta_card.dart';
+import 'package:perfuteca/models/app_config_model.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
+import 'package:perfuteca/repositories/config_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
@@ -1115,20 +1117,23 @@ class _PerfumeItem extends StatelessWidget {
   }
 }
 
-class _StockChip extends StatelessWidget {
+class _StockChip extends ConsumerWidget {
   const _StockChip({required this.perfume});
   final Perfume perfume;
 
   @override
-  Widget build(BuildContext context) {
-    final color = perfume.stockCritico
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider).valueOrNull ??
+        AppConfigModel.defaults();
+    final (:esCritico, :esBajo) = perfume.stockEstado(config);
+    final color = esCritico
         ? AppColors.stockCritical
-        : perfume.stockBajo
+        : esBajo
             ? AppColors.stockLow
             : AppColors.textFaint;
-    final icon = perfume.stockCritico
+    final icon = esCritico
         ? Icons.warning_amber_rounded
-        : perfume.stockBajo
+        : esBajo
             ? Icons.info_outline_rounded
             : Icons.inventory_2_outlined;
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/theme/app_colors.dart';
@@ -31,6 +32,7 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
           ref.invalidate(ventasParaStatsProvider);
           ref.invalidate(historicoBackendProvider);
           ref.invalidate(historialGlobalProvider);
+          ref.invalidate(perfumesMapProvider);
         },
       ),
       data: (stats) => RefreshIndicator(
@@ -39,6 +41,7 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
           ref.invalidate(ventasParaStatsProvider);
           ref.invalidate(historicoBackendProvider);
           ref.invalidate(historialGlobalProvider);
+          ref.invalidate(perfumesMapProvider);
           await ref.read(historialGlobalProvider.future);
         },
         child: _HistoricoBody(stats: stats),
@@ -890,7 +893,7 @@ class _ComparaMesesSectionState extends ConsumerState<_ComparaMesesSection> {
             ),
             if (statsMap[_mes1] != null &&
                 statsMap[_mes2] != null &&
-                statsMap[_mes1]!.total > 0) ...[
+                statsMap[_mes2]!.total > 0) ...[
               const SizedBox(height: AppSpacing.md),
               _DiferenciaBanner(
                 mes1:  _mes1!,
@@ -1004,7 +1007,7 @@ class _DiferenciaBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final diff     = stat1.total - stat2.total;
-    final pct      = diff / stat1.total * 100;
+    final pct      = diff / stat2.total * 100;
     final positivo = diff >= 0;
     final color    = positivo ? AppColors.stockOk : AppColors.error;
     final bgColor  = positivo ? AppColors.successSurface : AppColors.errorSurface;

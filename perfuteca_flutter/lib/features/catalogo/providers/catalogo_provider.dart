@@ -99,7 +99,10 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
     while (state.isLoading || state.isLoadingMore) {
       await Future.delayed(const Duration(milliseconds: 50));
     }
-    while (state.hasMore) {
+    // loadMore() no baja hasMore cuando falla — sin este chequeo, un error
+    // de red (offline, backend caído) deja hasMore=true para siempre y este
+    // while reintenta sin límite ni espera, martillando el backend.
+    while (state.hasMore && state.error == null) {
       await loadMore();
     }
   }
@@ -131,7 +134,11 @@ String normalizeId(String id) {
 
 final perfumesMapProvider = FutureProvider<Map<String, Perfume>>((ref) async {
   final repo = ref.watch(catalogoRepositoryProvider);
-  final page = await repo.getCatalogo(limit: 500);
+  // bypassCache: true — el cache HTTP de 6h (cache_config.dart) puede quedar
+  // desactualizado si se agregan perfumes nuevos al catálogo; sin esto,
+  // perfumes con ID reciente no resuelven nombre en ventas/estadísticas
+  // hasta que expire el cache.
+  final page = await repo.getCatalogo(limit: 500, bypassCache: true);
   return {
     for (final p in page.items) normalizeId(p.idPerfume): p,
   };

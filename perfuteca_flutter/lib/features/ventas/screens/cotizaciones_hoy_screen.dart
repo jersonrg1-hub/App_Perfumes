@@ -7,6 +7,8 @@ import 'package:perfuteca/repositories/cotizaciones_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
+import 'package:perfuteca/widgets/common/empty_state_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 // ── Provider: cotizaciones registradas hoy ────────────────────────────────────
@@ -35,26 +37,21 @@ class CotizacionesHoyScreen extends ConsumerWidget {
 
     return async.when(
       loading: () => const _CotizacionesShimmer(),
-      error: (_, __) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.cloud_off_rounded,
-                size: 52, color: AppColors.textFaint),
-            const SizedBox(height: 12),
-            Text('Error al cargar',
-                style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Reintentar'),
-              onPressed: () => ref.invalidate(cotizacionesHoyProvider),
-            ),
-          ],
-        ),
+      error: (error, __) => AppErrorWidget(
+        error: error,
+        onRetry: () => ref.invalidate(cotizacionesHoyProvider),
       ),
       data: (lista) => lista.isEmpty
-          ? _EmptyState(onRefresh: () => ref.invalidate(cotizacionesHoyProvider))
+          ? EmptyStateWidget(
+              icon: Icons.receipt_long_outlined,
+              title: 'Sin cotizaciones hoy',
+              subtitle: 'Crea una cotización en la pestaña Cotización',
+              action: OutlinedButton.icon(
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Actualizar'),
+                onPressed: () => ref.invalidate(cotizacionesHoyProvider),
+              ),
+            )
           : RefreshIndicator(
               onRefresh: () async => ref.invalidate(cotizacionesHoyProvider),
               child: ListView.builder(
@@ -67,7 +64,10 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                     final convertidas = lista
                         .where((c) => c.estado?.toLowerCase().startsWith('aceptad') == true)
                         .length;
-                    final pendientes = lista.length - convertidas;
+                    final anuladas = lista
+                        .where((c) => c.estado?.toLowerCase() == 'anulado')
+                        .length;
+                    final pendientes = lista.length - convertidas - anuladas;
                     final totalS = lista.fold(0.0, (s, c) => s + (c.total ?? 0));
                     return _AnimatedListItem(
                       index: 0,
@@ -223,40 +223,6 @@ class _MetricaCard extends StatelessWidget {
       ),
     );
   }
-}
-
-// ── Estado vacío ──────────────────────────────────────────────────────────────
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.onRefresh});
-  final VoidCallback onRefresh;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.receipt_long_outlined,
-                size: 64, color: AppColors.textFaint),
-            const SizedBox(height: AppSpacing.lg),
-            Text('Sin cotizaciones hoy',
-                style:
-                    AppTextStyles.body.copyWith(color: AppColors.textMuted)),
-            const SizedBox(height: AppSpacing.xs + 2),
-            Text(
-              'Crea una cotización en la pestaña Cotización',
-              style: AppTextStyles.bodySmall
-                  .copyWith(color: AppColors.textFaint),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Actualizar'),
-              onPressed: onRefresh,
-            ),
-          ],
-        ),
-      );
 }
 
 // ── Animación de entrada staggered ────────────────────────────────────────────

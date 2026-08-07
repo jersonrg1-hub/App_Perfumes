@@ -4,19 +4,45 @@ import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/repositories/estadisticas_repository.dart';
 import 'package:perfuteca/repositories/ventas_repository.dart';
 
+// Perú es UTC-5 fijo (sin DST) — el backend agrupa "hoy"/mes/semana con esa
+// fecha, así que la UI debe usar el mismo día en vez del reloj local del
+// dispositivo (evita desfases con viajeros o celulares mal configurados).
+// Se devuelve como DateTime "local" (no isUtc) a propósito: DateTime.parse()
+// de fechas sin hora (ej. "2026-08-07", como vienen del backend) también
+// crea DateTime locales — si nowPeru() quedara marcado isUtc=true, cualquier
+// .isBefore/.isAfter/.difference/.subtract que lo mezcle con esas fechas
+// compararía instantes absolutos con convenciones de offset distintas y
+// volvería a romperse justo en el caso (huso del dispositivo ≠ Perú) que
+// se busca arreglar.
+DateTime nowPeru() {
+  final u = DateTime.now().toUtc().subtract(const Duration(hours: 5));
+  return DateTime(u.year, u.month, u.day, u.hour, u.minute, u.second,
+      u.millisecond, u.microsecond);
+}
+
 // Proveedor principal: datos pre-agregados del backend (reemplaza ventasParaStatsProvider)
 final resumenBackendProvider = FutureProvider<Map<String, dynamic>>((ref) async {
   ref.keepAlive();
   return ref.watch(estadisticasRepositoryProvider).getResumen();
 });
 
-// Ventas crudas: usadas por VentasTab/banner de aviso y tamaniosStatsProvider.
-// Con caché normal (5 min) — ya no se bypasea.
+// Ventas crudas de TODO el historial — alimenta el detalle de ventas de un
+// día en ResumenTab. El backend cappea cada página a 500 (límite del query
+// param 'limit'), así que se pagina hasta agotar 'has_more' en vez de leer
+// una sola página — de lo contrario un día con ventas antiguas fuera de las
+// últimas 500 aparecía vacío en el detalle.
 final ventasParaStatsProvider = FutureProvider<List<VentaResponse>>((ref) async {
   ref.keepAlive();
-  final page = await ref.watch(ventasRepositoryProvider)
-      .getVentas(limit: 500, bypassCache: true);
-  return page.items;
+  final repo = ref.watch(ventasRepositoryProvider);
+  final ventas = <VentaResponse>[];
+  var offset = 0;
+  while (true) {
+    final page = await repo.getVentas(limit: 500, offset: offset, bypassCache: true);
+    ventas.addAll(page.items);
+    if (!page.hasMore) break;
+    offset += page.items.length;
+  }
+  return ventas;
 });
 
 // Históricos pre-agregados del backend (sin tope de 500) — alimenta
@@ -145,41 +171,22 @@ class TamanioStat {
   final List<PerfumeDiaStat> topPerfumes;
 }
 
+// Pre-agregado por el backend sobre TODO el mes (sin tope de 500 filas).
 final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
   ref.keepAlive();
-  final ventas = await ref.watch(ventasParaStatsProvider.future);
-  final now    = DateTime.now();
+  final data      = await ref.watch(resumenBackendProvider.future);
+  final tamaniosRaw = data['tamanios'] as List<dynamic>? ?? [];
 
-  // Filtrar solo ventas del mes actual (Entregado + Pendiente, igual que backend)
-  final delMes = ventas.where((v) {
-    if (v.estado?.toLowerCase() == 'anulado') return false;
-    if (v.fecha == null) return false;
-    try {
-      final d = DateTime.parse(v.fecha!);
-      return d.year == now.year && d.month == now.month;
-    } catch (_) {
-      return false;
-    }
-  });
-
-  final mlMap = <int, ({int cantidad, double total})>{};
-  for (final v in delMes) {
-    final ml = v.mlVendido ?? 0;
-    if (ml == 0) continue;
-    final prev = mlMap[ml] ?? (cantidad: 0, total: 0.0);
-    mlMap[ml] = (
-      cantidad: prev.cantidad + 1,
-      total:    prev.total + (v.precioCobrado ?? 0),
-    );
-  }
-
-  return mlMap.entries
-      .map((e) => TamanioStat(
-            ml:          e.key,
-            cantidad:    e.value.cantidad,
-            total:       e.value.total,
-            topPerfumes: const [],
-          ))
+  return tamaniosRaw
+      .map((e) {
+        final m = e as Map<String, dynamic>;
+        return TamanioStat(
+          ml:          (m['ml']       as num?)?.toInt()    ?? 0,
+          cantidad:    (m['cantidad'] as num?)?.toInt()    ?? 0,
+          total:       (m['total']    as num?)?.toDouble() ?? 0,
+          topPerfumes: const [],
+        );
+      })
       .toList()
     ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
 });
@@ -441,7 +448,7 @@ final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async
   int diasActivo = 0;
   if (primeraVenta != null) {
     try {
-      diasActivo = DateTime.now().difference(DateTime.parse(primeraVenta)).inDays + 1;
+      diasActivo = nowPeru().difference(DateTime.parse(primeraVenta)).inDays + 1;
     } catch (_) {}
   }
 

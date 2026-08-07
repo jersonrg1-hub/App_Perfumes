@@ -52,18 +52,20 @@ Map<String, int> _contarPorModo(List<Perfume> perfumes, _Modo modo) {
   return map;
 }
 
-// Intersección: perfume debe coincidir con TODOS los filtros activos
+// AND en todos los niveles: el perfume debe tener TODOS los valores
+// elegidos, tanto entre categorías como dentro de una misma categoría.
 List<Perfume> _filtrarMultiple(
-    List<Perfume> perfumes, Map<_Modo, String> filtros) {
+    List<Perfume> perfumes, Map<_Modo, Set<String>> filtros) {
   if (filtros.isEmpty) return perfumes;
   return perfumes.where((p) {
     return filtros.entries.every((entry) {
       final raw = _getFieldRaw(p, entry.key);
       if (raw.isEmpty) return false;
-      return raw
+      final items = raw
           .split(RegExp(r'[,;|]'))
           .map((n) => _normalizar(n.trim()))
-          .contains(entry.value);
+          .toSet();
+      return entry.value.every(items.contains);
     });
   }).toList();
 }
@@ -192,7 +194,7 @@ class NotasScreen extends ConsumerStatefulWidget {
 
 class _NotasScreenState extends ConsumerState<NotasScreen> {
   _Modo _modo = _Modo.notas;
-  final Map<_Modo, String> _filtros = {};
+  final Map<_Modo, Set<String>> _filtros = {};
 
   bool get _tieneFiltros => _filtros.isNotEmpty;
 
@@ -203,15 +205,20 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
 
   void _toggleFiltro(String valor) {
     setState(() {
-      if (_filtros[_modo] == valor) {
-        _filtros.remove(_modo);
-      } else {
-        _filtros[_modo] = valor;
-      }
+      final set = _filtros.putIfAbsent(_modo, () => {});
+      if (!set.add(valor)) set.remove(valor);
+      if (set.isEmpty) _filtros.remove(_modo);
     });
   }
 
-  void _removerFiltro(_Modo modo) => setState(() => _filtros.remove(modo));
+  void _removerValor(_Modo modo, String valor) {
+    setState(() {
+      final set = _filtros[modo];
+      if (set == null) return;
+      set.remove(valor);
+      if (set.isEmpty) _filtros.remove(modo);
+    });
+  }
 
   void _limpiarTodo() => setState(() => _filtros.clear());
 
@@ -222,7 +229,7 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
       if (next != null) {
         setState(() {
           _modo = _Modo.notas;
-          _filtros[_Modo.notas] = _normalizar(next);
+          _filtros[_Modo.notas] = {_normalizar(next)};
         });
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -307,14 +314,14 @@ class _NotasScreenState extends ConsumerState<NotasScreen> {
           duration: const Duration(milliseconds: 200),
           child: _tieneFiltros
               ? _VistaMultifiltro(
-                  key:       ValueKey(_filtros.length),
-                  filtros:   _filtros,
-                  modo:      _modo,
-                  valores:   valores,
-                  filtrados: filtrados,
-                  onToggle:  _toggleFiltro,
-                  onRemover: _removerFiltro,
-                  onRefresh: () => ref.refresh(perfumesMapProvider.future),
+                  key:            ValueKey(_filtros.length),
+                  filtros:        _filtros,
+                  modo:           _modo,
+                  valores:        valores,
+                  filtrados:      filtrados,
+                  onToggle:       _toggleFiltro,
+                  onRemoverValor: _removerValor,
+                  onRefresh:      () => ref.refresh(perfumesMapProvider.future),
                 )
               : _VistaExplora(
                   key:      ValueKey('explora-$_modo'),
@@ -337,9 +344,9 @@ class _ModoBar extends StatelessWidget {
     required this.filtros,
     required this.onSelect,
   });
-  final _Modo                modoActivo;
-  final Map<_Modo, String>   filtros;
-  final void Function(_Modo) onSelect;
+  final _Modo                     modoActivo;
+  final Map<_Modo, Set<String>>   filtros;
+  final void Function(_Modo)      onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -512,30 +519,30 @@ class _VistaMultifiltro extends StatelessWidget {
     required this.valores,
     required this.filtrados,
     required this.onToggle,
-    required this.onRemover,
+    required this.onRemoverValor,
     required this.onRefresh,
   });
-  final Map<_Modo, String>   filtros;
-  final _Modo                modo;
-  final List<String>         valores;
-  final List<Perfume>        filtrados;
-  final void Function(String)   onToggle;
-  final void Function(_Modo)    onRemover;
-  final Future<void> Function() onRefresh;
+  final Map<_Modo, Set<String>>        filtros;
+  final _Modo                          modo;
+  final List<String>                   valores;
+  final List<Perfume>                  filtrados;
+  final void Function(String)          onToggle;
+  final void Function(_Modo, String)   onRemoverValor;
+  final Future<void> Function()        onRefresh;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         // Chips de filtros activos (removibles)
-        _FiltrosActivosBar(filtros: filtros, onRemover: onRemover),
+        _FiltrosActivosBar(filtros: filtros, onRemover: onRemoverValor),
 
         // Chips del modo actual para agregar/cambiar ese filtro
         _ChipBar(
-          valores:     valores,
-          valorActivo: filtros[modo],
-          modo:        modo,
-          onSelect:    onToggle,
+          valores:        valores,
+          valoresActivos: filtros[modo] ?? const {},
+          modo:           modo,
+          onSelect:       onToggle,
         ),
 
         // Resultados
@@ -569,8 +576,8 @@ class _VistaMultifiltro extends StatelessWidget {
 class _FiltrosActivosBar extends StatelessWidget {
   const _FiltrosActivosBar(
       {required this.filtros, required this.onRemover});
-  final Map<_Modo, String>   filtros;
-  final void Function(_Modo) onRemover;
+  final Map<_Modo, Set<String>>      filtros;
+  final void Function(_Modo, String) onRemover;
 
   @override
   Widget build(BuildContext context) {
@@ -595,20 +602,23 @@ class _FiltrosActivosBar extends StatelessWidget {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
-                children: filtros.entries.map((e) {
-                  final emoji = _emojiValor(e.value, e.key);
+                children: filtros.entries
+                    .expand((e) => e.value.map((valor) => (e.key, valor)))
+                    .map((par) {
+                  final (modo, valor) = par;
+                  final emoji = _emojiValor(valor, modo);
                   return Padding(
                     padding: const EdgeInsets.only(right: AppSpacing.xs),
                     child: GestureDetector(
-                      onTap: () => onRemover(e.key),
+                      onTap: () => onRemover(modo, valor),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _bg(e.value),
+                          color: _bg(valor),
                           borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                          border: Border.all(color: _border(e.value)),
+                          border: Border.all(color: _border(valor)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -617,7 +627,7 @@ class _FiltrosActivosBar extends StatelessWidget {
                                 style: const TextStyle(fontSize: 12)),
                             const SizedBox(width: 3),
                             Text(
-                              e.value,
+                              valor,
                               style: const TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
@@ -726,13 +736,13 @@ class _ValorCard extends StatelessWidget {
 class _ChipBar extends StatelessWidget {
   const _ChipBar({
     required this.valores,
-    required this.valorActivo,
+    required this.valoresActivos,
     required this.modo,
     required this.onSelect,
   });
-  final List<String>         valores;
-  final String?              valorActivo;
-  final _Modo                modo;
+  final List<String>          valores;
+  final Set<String>           valoresActivos;
+  final _Modo                 modo;
   final void Function(String) onSelect;
 
   @override
@@ -765,7 +775,7 @@ class _ChipBar extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: Row(
               children: valores.map((valor) {
-                final activo = valor == valorActivo;
+                final activo = valoresActivos.contains(valor);
                 return Padding(
                   padding: const EdgeInsets.only(right: AppSpacing.sm),
                   child: GestureDetector(
@@ -809,11 +819,11 @@ class _ChipBar extends StatelessWidget {
 
 class _SinResultados extends StatelessWidget {
   const _SinResultados({required this.filtros});
-  final Map<_Modo, String> filtros;
+  final Map<_Modo, Set<String>> filtros;
 
   @override
   Widget build(BuildContext context) {
-    final partes = filtros.values.join(' + ');
+    final partes = filtros.values.expand((set) => set).join(' + ');
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),

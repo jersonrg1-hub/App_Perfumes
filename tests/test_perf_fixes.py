@@ -53,10 +53,10 @@ def test_update_stock_batch_no_llama_fetch_catalog():
     mock_fetch.assert_not_called()
 
 
-# ── Task 1b: restore_stock_single no llama fetch_catalog ──────────────────────
+# ── Task 1b: restore_stock_batch no llama fetch_catalog ────────────────────────
 
-def test_restore_stock_single_no_llama_fetch_catalog():
-    """Con el fix, restore_stock_single NO debe llamar self.fetch_catalog()."""
+def test_restore_stock_batch_no_llama_fetch_catalog():
+    """Con el fix, restore_stock_batch NO debe llamar self.fetch_catalog()."""
     from backend.repositories.sheets_repository import SheetsRepository
 
     repo = SheetsRepository.__new__(SheetsRepository)
@@ -66,13 +66,46 @@ def test_restore_stock_single_no_llama_fetch_catalog():
     repo._credentials_info = {}
 
     df_cat = _make_df_catalogo()
+    items = [{"id_perfume": "P001", "ml": 2}]
 
     with patch.object(repo, "fetch_catalog") as mock_fetch, \
          patch.object(repo, "_ejecutar_con_reintento") as mock_retry:
         mock_retry.return_value = None
-        repo.restore_stock_single("P001", 2, merma_pct=0.04, df_catalogo=df_cat)
+        repo.restore_stock_batch(items, merma_pct=0.04, df_catalogo=df_cat)
 
     mock_fetch.assert_not_called()
+
+
+def test_restore_stock_batch_suma_items_duplicados():
+    """Anular una orden con 2 items del mismo perfume debe sumar la reposición,
+    no perder una de las dos (bug corregido: antes se pisaban entre sí)."""
+    from backend.repositories.sheets_repository import SheetsRepository
+
+    repo = SheetsRepository.__new__(SheetsRepository)
+    repo._worksheets = {}
+    repo._client = None
+    repo._spreadsheet = None
+    repo._credentials_info = {}
+
+    df_cat = _make_df_catalogo()
+    # Misma orden: 2ml y 5ml del mismo perfume P001
+    items = [
+        {"id_perfume": "P001", "ml": 2},
+        {"id_perfume": "P001", "ml": 5},
+    ]
+
+    with patch.object(repo, "_ejecutar_con_reintento") as mock_retry:
+        mock_retry.side_effect = lambda fn, nombre: fn()
+        with patch.object(SheetsRepository, "_get_worksheet") as mock_ws:
+            mock_sheet = MagicMock()
+            mock_ws.return_value = mock_sheet
+            repo.restore_stock_batch(items, merma_pct=0.04, df_catalogo=df_cat)
+
+    mock_sheet.batch_update.assert_called_once()
+    peticiones = mock_sheet.batch_update.call_args[0][0]
+    assert len(peticiones) == 1  # un solo perfume -> una sola escritura agregada
+    esperado = 50.0 + (2.2 * 1.04) + (5.1 * 1.04)  # ML_BASE_DISPENSACION[2]=2.2, [5]=5.1
+    assert peticiones[0]["values"][0][0] == pytest.approx(esperado)
 
 
 # ── Task 2: _compute_resumen vectorizado retorna valores correctos ─────────────

@@ -3,12 +3,24 @@ backend/services/cotizacion_service.py — Lógica pura de descuento y total par
 
 Sin imports de Streamlit ni de Google Sheets. Funciones puras.
 """
+import math
+
 from backend.core.config import DESCUENTO_COTIZACION_PCT, fmt_precio
 
 
 def precio_con_descuento(precio: float) -> float:
-    """Aplica DESCUENTO_COTIZACION_PCT y redondea al décimo de sol más cercano."""
-    return round(precio * (1 - DESCUENTO_COTIZACION_PCT) * 10) / 10
+    """
+    Aplica DESCUENTO_COTIZACION_PCT y redondea al décimo de sol más cercano.
+
+    Usa redondeo half-away-from-zero (no el half-to-even de round() de
+    Python) para que coincida con el redondeo de Dart en el frontend
+    (`(p * 10).round() / 10.0`) — en el caso de empate exacto en .5,
+    round() de Python redondea al par más cercano y Dart redondea hacia
+    arriba, lo que hacía que el total confirmado en la app difiriera del
+    guardado en Sheets.
+    """
+    valor = precio * (1 - DESCUENTO_COTIZACION_PCT) * 10
+    return math.floor(valor + 0.5) / 10
 
 
 def aplicar_descuentos(items: list[dict]) -> list[dict]:

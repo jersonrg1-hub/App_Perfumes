@@ -257,11 +257,11 @@ def actualizar_estado_venta(
     if filas_para_restock:
         try:
             df_cat = get_catalogo_cached(repo)
-            for fila in filas_para_restock:
-                repo.restore_stock_single(
-                    fila["ID_Perfume"], fila["Ml_Vendido"], MERMA_PCT,
-                    df_catalogo=df_cat,
-                )
+            items_anulados = [
+                {"id_perfume": f["ID_Perfume"], "ml": f["Ml_Vendido"]}
+                for f in filas_para_restock
+            ]
+            repo.restore_stock_batch(items_anulados, MERMA_PCT, df_catalogo=df_cat)
             invalidar_cache_catalogo()
         except Exception as e:
             logger.error(f"[anular_venta/restock] {type(e).__name__}: {e}")

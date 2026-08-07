@@ -370,31 +370,47 @@ class SheetsRepository:
         padded = list(valores) + [''] * max(0, len(COLUMNAS_VENTAS) - len(valores))
         return dict(zip(COLUMNAS_VENTAS, padded))
 
-    def restore_stock_single(
-        self, id_perfume: str, ml_vendido, merma_pct: float, df_catalogo: pd.DataFrame
+    def restore_stock_batch(
+        self, items_anulados: list[dict], merma_pct: float, df_catalogo: pd.DataFrame
     ) -> None:
-        """Repone stock al anular una venta — inverso de update_stock_batch. Caller provee df_catalogo."""
+        """
+        Repone stock en batch al anular una venta — inverso de update_stock_batch.
+        Agrega por ID_Perfume antes de escribir (igual que update_stock_batch):
+        si la orden anulada tiene 2+ items del mismo perfume, sumarlos primero
+        evita que una escritura posterior pise la reposición de la anterior.
+        Caller provee df_catalogo. items_anulados: [{"id_perfume": ..., "ml": ...}, ...]
+        """
         df_cat = df_catalogo
         if df_cat.empty or "fila_sheet" not in df_cat.columns:
             raise ValueError("Catálogo vacío o sin fila_sheet")
         if not {"Stock_ml", "ID_Perfume"}.issubset(df_cat.columns):
             raise ValueError("Faltan columnas ID_Perfume o Stock_ml en Catalogo")
 
-        fila = df_cat[df_cat["ID_Perfume"].astype(str) == str(id_perfume)]
-        if fila.empty:
-            logger.warning(f"[restore_stock_single] ID_Perfume {id_perfume} no encontrado en catalogo")
-            return
-
         sheet_cols = [c for c in df_cat.columns if c != "fila_sheet"]
-        col_stock  = sheet_cols.index("Stock_ml") + 1
-        row        = fila.iloc[0]
-        nuevo_valor = float(row["Stock_ml"]) + self._ml_con_merma(ml_vendido, merma_pct)
+        col_stock = sheet_cols.index("Stock_ml") + 1
 
-        def _write():
-            self._get_worksheet(WORKSHEET_CATALOGO).update_cell(
-                int(row["fila_sheet"]), col_stock, nuevo_valor
-            )
-        self._ejecutar_con_reintento(_write, "restore_stock_single")
+        ml_por_id: dict[str, float] = {}
+        for item in items_anulados:
+            id_perf = str(item["id_perfume"])
+            ml_por_id[id_perf] = ml_por_id.get(id_perf, 0) + self._ml_con_merma(item["ml"], merma_pct)
+
+        peticiones = []
+        for id_perf, ml_reponer in ml_por_id.items():
+            fila = df_cat[df_cat["ID_Perfume"].astype(str) == id_perf]
+            if fila.empty:
+                logger.warning(f"[restore_stock_batch] ID_Perfume {id_perf} no encontrado en catalogo")
+                continue
+            row = fila.iloc[0]
+            nuevo_valor = float(row["Stock_ml"]) + ml_reponer
+            peticiones.append({
+                "range": gspread.utils.rowcol_to_a1(int(row["fila_sheet"]), col_stock),
+                "values": [[nuevo_valor]],
+            })
+
+        if peticiones:
+            def _write():
+                self._get_worksheet(WORKSHEET_CATALOGO).batch_update(peticiones)
+            self._ejecutar_con_reintento(_write, "restore_stock_batch")
 
     def update_sales_multi_batch(
         self, filas_cambios: list[tuple[int, dict[int, object]]]

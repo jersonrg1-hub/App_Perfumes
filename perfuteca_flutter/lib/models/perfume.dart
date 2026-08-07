@@ -1,4 +1,5 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:perfuteca/models/app_config_model.dart';
 
 part 'perfume.freezed.dart';
 part 'perfume.g.dart';
@@ -34,7 +35,25 @@ extension PerfumeX on Perfume {
     if (precio10ml != null) 10: precio10ml!,
   };
 
-  bool get tieneStock   => (stockMl ?? 0) > 0;
-  bool get stockCritico => (stockMl ?? 0) <= 10 && tieneStock;
-  bool get stockBajo    => (stockMl ?? 0) <= 20 && tieneStock && !stockCritico;
+  bool get tieneStock => (stockMl ?? 0) > 0;
+
+  // Getters con default 10/20 — preferir esStockCritico/esStockBajo con los
+  // umbrales de AppConfigModel (backend, /api/v1/config) cuando estén disponibles.
+  bool get stockCritico => esStockCritico(10);
+  bool get stockBajo    => esStockBajo(critico: 10, bajo: 20);
+
+  bool esStockCritico(int critico) => (stockMl ?? 0) <= critico && tieneStock;
+  bool esStockBajo({required int critico, required int bajo}) =>
+      (stockMl ?? 0) <= bajo && tieneStock && !esStockCritico(critico);
+
+  /// Estado de stock combinado según umbrales de [AppConfigModel].
+  /// Preferir sobre llamar esStockCritico/esStockBajo por separado.
+  ({bool esCritico, bool esBajo}) stockEstado(AppConfigModel config) {
+    final esCritico = esStockCritico(config.stockCriticoMl);
+    final esBajo = esStockBajo(
+      critico: config.stockCriticoMl,
+      bajo: config.stockBajoMl,
+    );
+    return (esCritico: esCritico, esBajo: esBajo);
+  }
 }

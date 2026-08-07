@@ -1,17 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:perfuteca/models/app_config_model.dart';
 import 'package:perfuteca/models/perfume.dart';
+import 'package:perfuteca/repositories/config_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 import 'package:perfuteca/widgets/perfume/perfume_image.dart';
 
-class PerfumeCard extends StatelessWidget {
+class PerfumeCard extends ConsumerWidget {
   const PerfumeCard({super.key, required this.perfume});
   final Perfume perfume;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider).valueOrNull ??
+        AppConfigModel.defaults();
+    final (:esCritico, :esBajo) = perfume.stockEstado(config);
     return Material(
       color:        AppColors.surface,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -74,11 +80,11 @@ class PerfumeCard extends StatelessWidget {
                       ),
                     ),
                     // Badge de stock
-                    if (perfume.stockCritico || perfume.stockBajo)
+                    if (esCritico || esBajo)
                       Positioned(
                         top: AppSpacing.sm,
                         right: AppSpacing.sm,
-                        child: _StockBadge(perfume: perfume),
+                        child: _StockBadge(esCritico: esCritico),
                       ),
                   ],
                 ),
@@ -114,13 +120,13 @@ class PerfumeCard extends StatelessWidget {
 // ── Badge de stock ─────────────────────────────────────────────────────────────
 
 class _StockBadge extends StatelessWidget {
-  const _StockBadge({required this.perfume});
-  final Perfume perfume;
+  const _StockBadge({required this.esCritico});
+  final bool esCritico;
 
   @override
   Widget build(BuildContext context) {
-    final color = perfume.stockCritico ? AppColors.stockCritical : AppColors.stockLow;
-    final label = perfume.stockCritico ? '¡Último stock!' : 'Stock bajo';
+    final color = esCritico ? AppColors.stockCritical : AppColors.stockLow;
+    final label = esCritico ? '¡Último stock!' : 'Stock bajo';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(

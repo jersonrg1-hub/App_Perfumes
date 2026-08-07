@@ -1,10 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/utils/validators.dart';
 import 'package:perfuteca/models/cotizacion.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/repositories/cotizaciones_repository.dart';
 
 double _round10(double p) => (p * 10).round() / 10.0;
+
+// Única fuente de la fórmula de descuento (10%) — usada por el provider y
+// reutilizada en nueva_cotizacion_screen.dart para que la cesta/recibo
+// siempre muestren el mismo precio que se guarda al confirmar.
+double precioConDescuento(double precio) => _round10(precio * 0.90);
 
 class NuevaCotizacionState {
   const NuevaCotizacionState({
@@ -45,7 +51,7 @@ class NuevaCotizacionState {
 
   // Precio efectivo de un item según si ESE item tiene descuento
   double precioEfectivoIndex(int index, double precio) =>
-      itemConDescuento(index) ? _round10(precio * 0.90) : precio;
+      itemConDescuento(index) ? precioConDescuento(precio) : precio;
 
   // Subtotal SIN descuento (precios originales)
   double get subtotalOriginal => cesta.fold(0.0, (s, i) => s + i.precio);
@@ -66,8 +72,9 @@ class NuevaCotizacionState {
   // Backward-compat: totalConDelivery uses discounted base
   double get totalConDelivery => subtotalDescuento + (conDelivery ? costoDelivery : 0);
 
-  bool get paso1Valido =>
-      modo == 'celular' ? celular.length == 9 : alias.trim().isNotEmpty;
+  bool get paso1Valido => modo == 'celular'
+      ? esCelularPeruValido(celular)
+      : alias.trim().isNotEmpty;
   bool get cestaValida => cesta.isNotEmpty;
 
   NuevaCotizacionState copyWith({
@@ -155,6 +162,14 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
   }
 
   void agregarItem(Perfume perfume, int ml) {
+    // La UI solo permite un tamaño por perfume en la cesta (una vez
+    // agregado, los botones de ml se ocultan) — pero eso depende del
+    // rebuild, que llega después de la animación de _MlBtn (~320ms). Un
+    // doble-tap rápido puede disparar dos llamadas antes de que el botón
+    // desaparezca, duplicando el ítem silenciosamente. Se bloquea acá.
+    if (state.cesta.any((i) => i.perfume.idPerfume == perfume.idPerfume)) {
+      return;
+    }
     final precio = switch (ml) {
       2  => perfume.precio2ml,
       5  => perfume.precio5ml,

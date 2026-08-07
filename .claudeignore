@@ -1,0 +1,58 @@
+# Python venvs (miles de archivos)
+pythonProject/.venv_n/
+pythonProject/.venv_nuevo/
+
+# Python cache
+pythonProject/__pycache__/
+pythonProject/**/__pycache__/
+pythonProject/**/*.pyc
+
+# Streamlit legacy
+pythonProject/frontend/
+pythonProject/logic/
+pythonProject/tabs/
+pythonProject/estadisticas/
+pythonProject/.streamlit/
+pythonProject/.devcontainer/
+
+# Imágenes (binarios, sin valor para código)
+pythonProject/imagenes/
+
+# Flutter build artifacts
+perfuteca_flutter/build/
+perfuteca_flutter/android/build/
+perfuteca_flutter/.dart_tool/
+perfuteca_flutter/.idea/
+
+# Flutter generated code
+perfuteca_flutter/**/*.g.dart
+perfuteca_flutter/**/*.freezed.dart
+
+# Flutter no-código
+perfuteca_flutter/web/
+perfuteca_flutter/test/
+perfuteca_flutter/ios/
+perfuteca_flutter/linux/
+perfuteca_flutter/macos/
+perfuteca_flutter/windows/
+
+# Flutter archivos generados
+perfuteca_flutter/.flutter-plugins-dependencies
+perfuteca_flutter/.metadata
+perfuteca_flutter/pubspec.lock
+
+# Secretos — nunca leer
+pythonProject/secrets.txt
+pythonProject/credenciales.json
+pythonProject/.env
+pythonProject/.env.*
+
+# Misc
+.agents/
+skills-lock.json
+perfuteca_flutter/Could
+perfuteca_flutter/Get
+perfuteca_flutter/Run
+perfuteca_flutter/java.lang.OutOfMemoryError
+perfuteca_flutter/flutter_01.png
+perfuteca_flutter/flutter_02.png

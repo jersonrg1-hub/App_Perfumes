@@ -408,20 +408,21 @@ class _$PerfumeImpl implements _Perfume {
 
 abstract class _Perfume implements Perfume {
   const factory _Perfume(
-      {@JsonKey(name: 'id_perfume') required final String idPerfume,
-      required final String marca,
-      required final String nombre,
-      @JsonKey(name: 'precio_2ml') final double? precio2ml,
-      @JsonKey(name: 'precio_5ml') final double? precio5ml,
-      @JsonKey(name: 'precio_10ml') final double? precio10ml,
-      @JsonKey(name: 'stock_ml') final double? stockMl,
-      final String? notas,
-      @JsonKey(name: 'perfil_olfativo') final String? perfilOlfativo,
-      @JsonKey(name: 'image_url') final String? imageUrl,
-      final String? ocasion,
-      final String? estacion,
-      final String? hora,
-      @JsonKey(name: 'palabra_clave') final String? palabraClave}) = _$PerfumeImpl;
+          {@JsonKey(name: 'id_perfume') required final String idPerfume,
+          required final String marca,
+          required final String nombre,
+          @JsonKey(name: 'precio_2ml') final double? precio2ml,
+          @JsonKey(name: 'precio_5ml') final double? precio5ml,
+          @JsonKey(name: 'precio_10ml') final double? precio10ml,
+          @JsonKey(name: 'stock_ml') final double? stockMl,
+          final String? notas,
+          @JsonKey(name: 'perfil_olfativo') final String? perfilOlfativo,
+          @JsonKey(name: 'image_url') final String? imageUrl,
+          final String? ocasion,
+          final String? estacion,
+          final String? hora,
+          @JsonKey(name: 'palabra_clave') final String? palabraClave}) =
+      _$PerfumeImpl;
 
   factory _Perfume.fromJson(Map<String, dynamic> json) = _$PerfumeImpl.fromJson;
 

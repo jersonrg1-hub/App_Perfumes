@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:perfuteca/core/utils/validators.dart';
 import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
@@ -63,7 +64,12 @@ class _CotizacionConvertirCardState
   // Solo se usa cuando la cotización se guardó con alias y sin celular —
   // la venta requiere celular, así que se pide aquí antes de registrar.
   final _celularNuevoCtrl  = TextEditingController();
-  final _botonKey      = GlobalKey();
+  final _botonKey        = GlobalKey();
+  // Key separada del formulario: comparten el mismo AnimatedSwitcher y
+  // durante el crossfade ambos Row pueden estar montados a la vez —
+  // reusar _botonKey en los dos causaba "Multiple widgets used the same
+  // GlobalKey" al tocar Revisar pedido/Editar.
+  final _botonConfirmKey = GlobalKey();
   late final ValueNotifier<bool> _formValidoNotifier;
   late final List<String> _lineas;
   String _tipoEnvio  = '';
@@ -101,8 +107,7 @@ class _CotizacionConvertirCardState
 
   void _checkForm() {
     final celularOk = !_requiereCelularNuevo ||
-        (_celularNuevoCtrl.text.length == 9 &&
-            _celularNuevoCtrl.text.startsWith('9'));
+        esCelularPeruValido(_celularNuevoCtrl.text);
     _formValidoNotifier.value =
         _compradorCtrl.text.trim().isNotEmpty &&
         _direccionCtrl.text.trim().isNotEmpty &&
@@ -141,6 +146,11 @@ class _CotizacionConvertirCardState
           if (_tipoEnvio.isEmpty) _tipoEnvio = cliente.tipoEnvio;
           _metodoPago = cliente.metodoPago;
         });
+        // _tipoEnvio no es un TextEditingController — su cambio arriba no
+        // dispara los listeners que llaman _checkForm(). Sin esto, el botón
+        // "Revisar pedido" puede quedar deshabilitado aunque el formulario
+        // ya esté completo tras el autocompletado.
+        _checkForm();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (_botonKey.currentContext != null) {
             Scrollable.ensureVisible(
@@ -173,6 +183,7 @@ class _CotizacionConvertirCardState
     final cesta     = parseada.items;
 
     if (cesta.isEmpty) {
+      if (!mounted) return;
       setState(() {
         _registrando = false;
         _error = 'No se pudieron reconocer los perfumes de esta cotización';
@@ -183,6 +194,7 @@ class _CotizacionConvertirCardState
     // original no matcheó a un perfume del catálogo, es mejor bloquear y
     // avisar que descontar stock solo de una parte del pedido.
     if (!parseada.completa) {
+      if (!mounted) return;
       setState(() {
         _registrando = false;
         _error = 'No se pudieron reconocer todos los perfumes de esta cotización '
@@ -205,6 +217,7 @@ class _CotizacionConvertirCardState
         items: cesta.map((i) => i.toApiMap()).toList(),
       );
       ref.read(catalogoProvider.notifier).load();
+      if (!mounted) return;
       setState(() {
         _registrando     = false;
         _exito           = true;
@@ -228,12 +241,14 @@ class _CotizacionConvertirCardState
       ref.invalidate(historicoBackendProvider);
       ref.invalidate(historialGlobalProvider);
     } catch (e) {
+      if (!mounted) return;
       setState(
           () { _registrando = false; _error = e.toString(); _confirmando = false; });
     }
   }
 
   Future<void> _sincronizarEstado() async {
+    if (!mounted) return;
     setState(() { _sincronizando = true; });
     try {
       await ref.read(cotizacionesRepositoryProvider).actualizarEstado(
@@ -499,7 +514,7 @@ class _CotizacionConvertirCardState
                           distrito:    _distritoCtrl.text.trim(),
                           metodoPago:  _metodoPago,
                           total:       widget.cotizacion.total,
-                          botonKey:    _botonKey,
+                          botonKey:    _botonConfirmKey,
                           registrando: _registrando,
                           error:       _error,
                           onEditar:    () => setState(() => _confirmando = false),

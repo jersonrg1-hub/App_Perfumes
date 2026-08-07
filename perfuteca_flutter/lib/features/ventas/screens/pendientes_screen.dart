@@ -130,10 +130,14 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
       final exitosos = seleccionados.length - fallidos.length;
 
       if (fallidos.isNotEmpty) {
-        // Restaurar solo los que fallaron — los exitosos quedan ocultos
+        // Restaurar solo los que fallaron — los exitosos quedan ocultos.
+        // Invalidar acá porque un fallo (409 por conflicto, etc.) puede
+        // significar que el estado real ya cambió por otra vía — sin
+        // refrescar, la tarjeta restaurada muestra datos obsoletos.
         ref
             .read(_pendientesRemovidosProvider.notifier)
             .update((s) => s.difference(fallidos));
+        ref.invalidate(pendientesProvider);
       }
 
       if (mounted) {
@@ -157,6 +161,7 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
       ref
           .read(_pendientesRemovidosProvider.notifier)
           .update((s) => s.difference(seleccionados));
+      ref.invalidate(pendientesProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -362,9 +367,15 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
         );
 
     if (!ok) {
-      // Restaurar si el API falló
+      // Restaurar si el API falló. actualizar() solo invalida
+      // pendientesProvider cuando SÍ tiene éxito — si el fallo fue por
+      // conflicto (ej. otro dispositivo ya anuló/entregó esta misma orden,
+      // backend responde 409/500), la lista en caché sigue mostrando el
+      // estado viejo. Sin invalidar acá, restaurar la tarjeta la revive con
+      // datos obsoletos en vez de reflejar la verdad del servidor.
       ref.read(_pendientesRemovidosProvider.notifier)
           .update((s) => {...s}..remove(widget.orden.idCompra));
+      ref.invalidate(pendientesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -478,7 +489,12 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final orden = widget.orden;
 
     return GestureDetector(
-      onLongPress: widget.onLongPress,
+      // Si ya hay una selección activa, long-press debe sumar/quitar este
+      // ítem (igual que el tap), no reiniciar la selección a solo este —
+      // _iniciarSeleccion reemplaza el set entero y borraba en silencio
+      // lo ya elegido.
+      onLongPress:
+          widget.modoSeleccion ? widget.onTapSeleccion : widget.onLongPress,
       onTap: widget.modoSeleccion ? widget.onTapSeleccion : null,
       child: Stack(
         children: [

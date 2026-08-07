@@ -5,6 +5,8 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
     show perfumesMapProvider, normalizeId;
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart'
+    show nowPeru;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
@@ -99,7 +101,7 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
 
   List<VentaResponse> _aplicarFiltro(List<VentaResponse> ventas) {
     if (_filtro == _FiltroFecha.todo) return ventas;
-    final now = DateTime.now();
+    final now = nowPeru();
     final hoy = DateTime(now.year, now.month, now.day);
     return ventas.where((v) {
       if (v.fecha == null) return false;

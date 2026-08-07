@@ -20,8 +20,6 @@ const _kPage   = Duration(milliseconds: 300);
 String _fmtPrecio(double p) =>
     p == p.truncateToDouble() ? p.toInt().toString() : p.toStringAsFixed(2);
 
-double _round10(double p) => (p * 10).round() / 10.0;
-
 // Quita un '@' inicial si el usuario lo tipeó al guardar el alias — evita
 // mostrar '@@alias' cuando se le antepone el ícono/prefijo '@' en UI.
 String _sinArroba(String alias) =>
@@ -70,9 +68,14 @@ class _NuevaCotizacionScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(nuevaCotizacionProvider);
 
-    // Cuando se registra exitosamente, salta a paso 3
+    // Cuando se registra exitosamente, salta a paso 3.
+    // OJO: paso==3 también se alcanza al pulsar "Revisar cotización" en el
+    // Paso 2, ANTES de guardar nada (state.registrada sigue null en ese
+    // caso) — chequear solo el paso invalidaba cotizacionesHoyProvider y
+    // re-animaba el PageView cada vez que el usuario solo iba a revisar,
+    // no cuando se registraba de verdad.
     ref.listen(nuevaCotizacionProvider, (prev, next) {
-      if (prev?.paso != 3 && next.paso == 3) {
+      if (prev?.registrada != next.registrada && next.registrada != null) {
         _pageCtrl.animateToPage(2, duration: _kPage, curve: Curves.easeInOut);
         ref.invalidate(cotizacionesHoyProvider);
       }
@@ -86,6 +89,11 @@ class _NuevaCotizacionScreenState
           onTapPaso:  _irA,
           identificador: state.celular.isNotEmpty ? state.celular : state.alias,
           cestaCount: state.cesta.length,
+          // Ya registrada — navegar a paso 1/2 desde acá resetea todo el
+          // estado (irPaso lo trata como "cotización nueva"). Bloqueamos los
+          // dots para que ese borrado no ocurra sin que el usuario lo pida
+          // explícitamente vía "Nueva cotización".
+          bloqueado:  state.registrada != null,
         ),
         Expanded(
           child: PageView(
@@ -128,11 +136,13 @@ class _StepIndicator extends StatelessWidget {
     required this.onTapPaso,
     required this.identificador,
     required this.cestaCount,
+    this.bloqueado = false,
   });
   final int                paso;
   final void Function(int) onTapPaso;
   final String             identificador; // celular o alias, lo que se haya llenado
   final int                cestaCount;
+  final bool                bloqueado;
 
   @override
   Widget build(BuildContext context) {
@@ -154,11 +164,11 @@ class _StepIndicator extends StatelessWidget {
         children: [
           _Dot(n: 1, label: 'Celular',   sublabel: step1Sub,
               activo: paso >= 1, actual: paso == 1,
-              onTap: paso > 1 ? () => onTapPaso(1) : null),
+              onTap: paso > 1 && !bloqueado ? () => onTapPaso(1) : null),
           _Linea(activa: paso >= 2),
           _Dot(n: 2, label: 'Perfumes',  sublabel: step2Sub,
               activo: paso >= 2, actual: paso == 2,
-              onTap: paso > 2 ? () => onTapPaso(2) : null),
+              onTap: paso > 2 && !bloqueado ? () => onTapPaso(2) : null),
           _Linea(activa: paso >= 3),
           _Dot(n: 3, label: 'Confirmar', sublabel: null,
               activo: paso >= 3, actual: paso == 3,
@@ -559,6 +569,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
           _CestaPanel(
             cesta:    state.cesta,
             total:    state.total,
+            indicesConDescuento: state.indicesConDescuento,
             onQuitar: (i) => notifier.quitarItem(i),
           ),
 
@@ -854,7 +865,9 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
 
   Future<void> _onTap() async {
     await _ctrl.forward();
+    if (!mounted) return;
     await _ctrl.reverse();
+    if (!mounted) return;
     widget.onTap();
   }
 
@@ -1347,7 +1360,9 @@ class _Paso3State extends ConsumerState<_Paso3> {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: state.registrando ? null : widget.onGuardar,
+                  onPressed: state.registrando || !state.cestaValida
+                      ? null
+                      : widget.onGuardar,
                   icon: state.registrando
                       ? const SizedBox(
                           width: 16, height: 16,
@@ -1461,7 +1476,7 @@ class _TicketExitoState extends State<_TicketExito>
       final nombreCompleto = '${i.perfume.marca} ${i.perfume.nombre}'.trim();
       final tieneDescuento = widget.indicesConDescuento.contains(idx);
       final precioMostrado =
-          tieneDescuento ? _round10(i.precio * 0.90) : i.precio;
+          tieneDescuento ? precioConDescuento(i.precio) : i.precio;
       if (tieneDescuento) ahorroTotal += i.precio - precioMostrado;
       final precioLine = tieneDescuento
           ? '~S/ ${i.precio.toStringAsFixed(2)}~  ➡️ *S/ ${precioMostrado.toStringAsFixed(2)}*'
@@ -1530,6 +1545,7 @@ class _TicketExitoState extends State<_TicketExito>
               cesta:        widget.cesta,
               conDelivery:  widget.conDelivery,
               total:        widget.total,
+              indicesConDescuento: widget.indicesConDescuento,
             ),
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
@@ -1573,10 +1589,12 @@ class _CestaPanel extends StatefulWidget {
     required this.cesta,
     required this.total,
     required this.onQuitar,
+    this.indicesConDescuento = const {},
   });
   final List<ItemCesta>    cesta;
   final double             total;
   final void Function(int) onQuitar;
+  final Set<int>           indicesConDescuento;
 
   @override
   State<_CestaPanel> createState() => _CestaPanelState();
@@ -1671,13 +1689,38 @@ class _CestaPanelState extends State<_CestaPanel> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        'S/ ${e.value.precio.toStringAsFixed(2)}',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      Builder(builder: (context) {
+                        final conDescuento =
+                            widget.indicesConDescuento.contains(e.key);
+                        final precioMostrado = conDescuento
+                            ? precioConDescuento(e.value.precio)
+                            : e.value.precio;
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (conDescuento) ...[
+                              Text(
+                                'S/ ${e.value.precio.toStringAsFixed(2)}',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textMuted,
+                                  decoration: TextDecoration.lineThrough,
+                                  fontSize: 10,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              'S/ ${precioMostrado.toStringAsFixed(2)}',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: conDescuento
+                                    ? AppColors.success
+                                    : AppColors.primaryDark,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
                       IconButton(
                         icon: const Icon(Icons.close_rounded,
                             size: 16, color: AppColors.error),
@@ -1707,6 +1750,7 @@ class _ReceiptCard extends StatelessWidget {
     required this.cesta,
     required this.conDelivery,
     required this.total,
+    this.indicesConDescuento = const {},
   });
   final String          idCotizacion;
   final String          celular;
@@ -1714,6 +1758,7 @@ class _ReceiptCard extends StatelessWidget {
   final List<ItemCesta> cesta;
   final bool            conDelivery;
   final double          total;
+  final Set<int>        indicesConDescuento;
 
   @override
   Widget build(BuildContext context) {
@@ -1800,7 +1845,12 @@ class _ReceiptCard extends StatelessWidget {
                 const _DashedDivider(),
                 const SizedBox(height: AppSpacing.sm),
                 // items más compactos (bottom: 5 en vez de 8)
-                ...cesta.map((i) => Padding(
+                ...cesta.asMap().entries.map((e) {
+                  final i = e.value;
+                  final conDescuento = indicesConDescuento.contains(e.key);
+                  final precioMostrado =
+                      conDescuento ? precioConDescuento(i.precio) : i.precio;
+                  return Padding(
                   padding: const EdgeInsets.only(bottom: 5),
                   child: Row(
                     children: [
@@ -1817,17 +1867,31 @@ class _ReceiptCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (conDescuento) ...[
+                        Text(
+                          'S/ ${i.precio.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
                       Text(
-                        'S/ ${i.precio.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        'S/ ${precioMostrado.toStringAsFixed(2)}',
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          color: conDescuento
+                              ? AppColors.success
+                              : AppColors.textPrimary,
                         ),
                       ),
                     ],
                   ),
-                )),
+                  );
+                }),
                 if (conDelivery)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 5),

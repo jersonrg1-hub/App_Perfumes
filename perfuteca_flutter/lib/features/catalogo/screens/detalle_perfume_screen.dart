@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/notas/providers/notas_provider.dart';
+import 'package:perfuteca/models/app_config_model.dart';
 import 'package:perfuteca/models/perfume.dart';
+import 'package:perfuteca/repositories/config_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
@@ -122,46 +124,42 @@ class _DetalleBody extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xl),
-                  child: Row(
-                    children: perfume.precios.entries.map((e) {
-                      return Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.only(right: AppSpacing.sm),
-                          padding: const EdgeInsets.symmetric(
-                              vertical: AppSpacing.lg),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(
-                                AppSpacing.radiusMd),
-                            border:
-                                Border.all(color: AppColors.primaryLight),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: AppColors.shadowColor,
-                                blurRadius: 4,
-                                offset: Offset(0, 2),
+                  child: _SeccionCard(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: AppSpacing.md),
+                    child: Row(
+                      children: [
+                        for (final (i, e) in perfume.precios.entries.indexed) ...[
+                          if (i > 0)
+                            SizedBox(
+                              height: 36,
+                              child: VerticalDivider(
+                                width: 1,
+                                thickness: 1,
+                                color: AppColors.primaryLight,
                               ),
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-                              Text(
-                                '${e.key} ml',
-                                style: AppTextStyles.priceLabel,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'S/ ${e.value.toStringAsFixed(2)}',
-                                style: AppTextStyles.price.copyWith(
-                                  color: AppColors.primaryDark,
-                                  fontSize: 20,
+                            ),
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Text(
+                                  '${e.key} ml',
+                                  style: AppTextStyles.priceLabel,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 4),
+                                Text(
+                                  'S/ ${e.value.toStringAsFixed(2)}',
+                                  style: AppTextStyles.price.copyWith(
+                                    color: AppColors.primaryDark,
+                                    fontSize: 20,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    }).toList(),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -172,7 +170,11 @@ class _DetalleBody extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xl),
-                  child: _StockBar(perfume: perfume),
+                  child: _StockBar(
+                    perfume: perfume,
+                    config: ref.watch(appConfigProvider).valueOrNull ??
+                        AppConfigModel.defaults(),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
               ],
@@ -188,13 +190,16 @@ class _DetalleBody extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xl),
-                  child: _NotasNavigables(
-                    notas: perfume.notas!,
-                    onTapNota: (nota) {
-                      ref.read(notaSeleccionadaProvider.notifier).state =
-                          nota;
-                      context.go('/notas');
-                    },
+                  child: _SeccionCard(
+                    accentColor: AppColors.primary,
+                    child: _NotasNavigables(
+                      notas: perfume.notas!,
+                      onTapNota: (nota) {
+                        ref.read(notaSeleccionadaProvider.notifier).state =
+                            nota;
+                        context.go('/notas');
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.xl),
@@ -212,16 +217,8 @@ class _DetalleBody extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xl),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    decoration: BoxDecoration(
-                      color: AppColors.goldLight,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusMd),
-                      border: Border.all(
-                          color: AppColors.gold.withValues(alpha: 0.3)),
-                    ),
+                  child: _SeccionCard(
+                    accentColor: AppColors.gold,
                     child: Text(
                       perfume.perfilOlfativo!,
                       style: AppTextStyles.body
@@ -243,7 +240,10 @@ class _DetalleBody extends ConsumerWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xl),
-                  child: _DetallesGrid(perfume: perfume),
+                  child: _SeccionCard(
+                    padding: EdgeInsets.zero,
+                    child: _DetallesGrid(perfume: perfume),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.xxl),
               ],
@@ -327,38 +327,36 @@ class _NotasNavigables extends StatelessWidget {
 // ── Barra de stock visual ─────────────────────────────────────────────────────
 
 class _StockBar extends StatelessWidget {
-  const _StockBar({required this.perfume});
+  const _StockBar({required this.perfume, required this.config});
   final Perfume perfume;
+  final AppConfigModel config;
 
   @override
   Widget build(BuildContext context) {
     final stock = perfume.stockMl ?? 0;
-    final color = perfume.stockCritico
+    final (:esCritico, :esBajo) = perfume.stockEstado(config);
+    final color = esCritico
         ? AppColors.stockCritical
-        : perfume.stockBajo
+        : esBajo
             ? AppColors.stockLow
             : AppColors.stockOk;
-    final label = perfume.stockCritico
+    final label = esCritico
         ? '¡Último stock!'
-        : perfume.stockBajo
+        : esBajo
             ? 'Stock bajo'
             : 'Disponible';
-    final icon = perfume.stockCritico
+    final icon = esCritico
         ? Icons.warning_amber_rounded
-        : perfume.stockBajo
+        : esBajo
             ? Icons.info_outline_rounded
             : Icons.check_circle_outline_rounded;
 
     // Escala: 0 – 100 ml como máximo referencial para la barra
     final fraccion = (stock / 100).clamp(0.0, 1.0);
 
-    return Container(
+    return _SeccionCard(
+      accentColor: color,
       padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -399,6 +397,53 @@ class _StockBar extends StatelessWidget {
   }
 }
 
+// ── Card de sección unificada ───────────────────────────────────────────────
+//
+// Todas las secciones del detalle (precios, stock, notas, perfil, detalles)
+// comparten el mismo tratamiento visual: superficie + borde + sombra sutil.
+// Los colores semánticos se expresan como acento lateral, no como fondo
+// plano, para que ninguna sección "grite" más que las demás.
+
+class _SeccionCard extends StatelessWidget {
+  const _SeccionCard({
+    required this.child,
+    this.accentColor,
+    this.padding = const EdgeInsets.all(AppSpacing.lg),
+  });
+  final Widget     child;
+  final Color?      accentColor;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.primaryLight),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.shadowColor,
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (accentColor != null) Container(width: 3, color: accentColor),
+            Expanded(child: Padding(padding: padding, child: child)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 bool _tieneDetalles(Perfume p) =>
@@ -424,40 +469,40 @@ class _DetallesGrid extends StatelessWidget {
     ];
 
     return Column(
-      children: items.map((item) => Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-        padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg, vertical: AppSpacing.md),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: AppColors.primaryLight),
-        ),
-        child: Row(
-          children: [
-            Icon(item.icon, size: 16, color: AppColors.primary),
-            const SizedBox(width: AppSpacing.sm),
-            Text(
-              item.label,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.textMuted,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            Flexible(
-              child: Text(
-                item.valor,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
+      children: [
+        for (final (i, item) in items.indexed) ...[
+          if (i > 0)
+            const Divider(height: 1, color: AppColors.primaryLight),
+          Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg, vertical: AppSpacing.md),
+            child: Row(
+              children: [
+                Icon(item.icon, size: 16, color: AppColors.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Text(
+                  item.label,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                textAlign: TextAlign.end,
-              ),
+                const Spacer(),
+                Flexible(
+                  child: Text(
+                    item.valor,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.end,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      )).toList(),
+          ),
+        ],
+      ],
     );
   }
 }

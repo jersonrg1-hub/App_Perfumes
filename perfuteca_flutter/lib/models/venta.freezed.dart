@@ -46,6 +46,8 @@ mixin _$VentaResponse {
   String? get distrito => throw _privateConstructorUsedError;
   @JsonKey(fromJson: _toStrNullable)
   String? get estado => throw _privateConstructorUsedError;
+  @JsonKey(fromJson: _toStrNullable)
+  String? get alias => throw _privateConstructorUsedError;
 
   /// Serializes this VentaResponse to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -78,7 +80,8 @@ abstract class $VentaResponseCopyWith<$Res> {
       @JsonKey(name: 'tipo_envio', fromJson: _toStrNullable) String? tipoEnvio,
       @JsonKey(fromJson: _toStrNullable) String? direccion,
       @JsonKey(fromJson: _toStrNullable) String? distrito,
-      @JsonKey(fromJson: _toStrNullable) String? estado});
+      @JsonKey(fromJson: _toStrNullable) String? estado,
+      @JsonKey(fromJson: _toStrNullable) String? alias});
 }
 
 /// @nodoc
@@ -109,6 +112,7 @@ class _$VentaResponseCopyWithImpl<$Res, $Val extends VentaResponse>
     Object? direccion = freezed,
     Object? distrito = freezed,
     Object? estado = freezed,
+    Object? alias = freezed,
   }) {
     return _then(_value.copyWith(
       idCompra: null == idCompra
@@ -163,6 +167,10 @@ class _$VentaResponseCopyWithImpl<$Res, $Val extends VentaResponse>
           ? _value.estado
           : estado // ignore: cast_nullable_to_non_nullable
               as String?,
+      alias: freezed == alias
+          ? _value.alias
+          : alias // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -190,7 +198,8 @@ abstract class _$$VentaResponseImplCopyWith<$Res>
       @JsonKey(name: 'tipo_envio', fromJson: _toStrNullable) String? tipoEnvio,
       @JsonKey(fromJson: _toStrNullable) String? direccion,
       @JsonKey(fromJson: _toStrNullable) String? distrito,
-      @JsonKey(fromJson: _toStrNullable) String? estado});
+      @JsonKey(fromJson: _toStrNullable) String? estado,
+      @JsonKey(fromJson: _toStrNullable) String? alias});
 }
 
 /// @nodoc
@@ -219,6 +228,7 @@ class __$$VentaResponseImplCopyWithImpl<$Res>
     Object? direccion = freezed,
     Object? distrito = freezed,
     Object? estado = freezed,
+    Object? alias = freezed,
   }) {
     return _then(_$VentaResponseImpl(
       idCompra: null == idCompra
@@ -273,6 +283,10 @@ class __$$VentaResponseImplCopyWithImpl<$Res>
           ? _value.estado
           : estado // ignore: cast_nullable_to_non_nullable
               as String?,
+      alias: freezed == alias
+          ? _value.alias
+          : alias // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -294,7 +308,8 @@ class _$VentaResponseImpl implements _VentaResponse {
       @JsonKey(name: 'tipo_envio', fromJson: _toStrNullable) this.tipoEnvio,
       @JsonKey(fromJson: _toStrNullable) this.direccion,
       @JsonKey(fromJson: _toStrNullable) this.distrito,
-      @JsonKey(fromJson: _toStrNullable) this.estado});
+      @JsonKey(fromJson: _toStrNullable) this.estado,
+      @JsonKey(fromJson: _toStrNullable) this.alias});
 
   factory _$VentaResponseImpl.fromJson(Map<String, dynamic> json) =>
       _$$VentaResponseImplFromJson(json);
@@ -338,10 +353,13 @@ class _$VentaResponseImpl implements _VentaResponse {
   @override
   @JsonKey(fromJson: _toStrNullable)
   final String? estado;
+  @override
+  @JsonKey(fromJson: _toStrNullable)
+  final String? alias;
 
   @override
   String toString() {
-    return 'VentaResponse(idCompra: $idCompra, filaSheet: $filaSheet, fecha: $fecha, comprador: $comprador, celular: $celular, idPerfume: $idPerfume, mlVendido: $mlVendido, precioCobrado: $precioCobrado, metodoPago: $metodoPago, tipoEnvio: $tipoEnvio, direccion: $direccion, distrito: $distrito, estado: $estado)';
+    return 'VentaResponse(idCompra: $idCompra, filaSheet: $filaSheet, fecha: $fecha, comprador: $comprador, celular: $celular, idPerfume: $idPerfume, mlVendido: $mlVendido, precioCobrado: $precioCobrado, metodoPago: $metodoPago, tipoEnvio: $tipoEnvio, direccion: $direccion, distrito: $distrito, estado: $estado, alias: $alias)';
   }
 
   @override
@@ -371,7 +389,8 @@ class _$VentaResponseImpl implements _VentaResponse {
                 other.direccion == direccion) &&
             (identical(other.distrito, distrito) ||
                 other.distrito == distrito) &&
-            (identical(other.estado, estado) || other.estado == estado));
+            (identical(other.estado, estado) || other.estado == estado) &&
+            (identical(other.alias, alias) || other.alias == alias));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -390,7 +409,8 @@ class _$VentaResponseImpl implements _VentaResponse {
       tipoEnvio,
       direccion,
       distrito,
-      estado);
+      estado,
+      alias);
 
   /// Create a copy of VentaResponse
   /// with the given fields replaced by the non-null parameter values.
@@ -427,8 +447,9 @@ abstract class _VentaResponse implements VentaResponse {
       final String? tipoEnvio,
       @JsonKey(fromJson: _toStrNullable) final String? direccion,
       @JsonKey(fromJson: _toStrNullable) final String? distrito,
+      @JsonKey(fromJson: _toStrNullable) final String? estado,
       @JsonKey(fromJson: _toStrNullable)
-      final String? estado}) = _$VentaResponseImpl;
+      final String? alias}) = _$VentaResponseImpl;
 
   factory _VentaResponse.fromJson(Map<String, dynamic> json) =
       _$VentaResponseImpl.fromJson;
@@ -472,6 +493,9 @@ abstract class _VentaResponse implements VentaResponse {
   @override
   @JsonKey(fromJson: _toStrNullable)
   String? get estado;
+  @override
+  @JsonKey(fromJson: _toStrNullable)
+  String? get alias;
 
   /// Create a copy of VentaResponse
   /// with the given fields replaced by the non-null parameter values.
@@ -496,6 +520,8 @@ mixin _$ClientePrevio {
   String get metodoPago => throw _privateConstructorUsedError;
   @JsonKey(name: 'total_compras', fromJson: _toInt)
   int get totalCompras => throw _privateConstructorUsedError;
+  @JsonKey(fromJson: _toStrNullable)
+  String? get alias => throw _privateConstructorUsedError;
 
   /// Serializes this ClientePrevio to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -519,7 +545,8 @@ abstract class $ClientePrevioCopyWith<$Res> {
       String distrito,
       @JsonKey(name: 'tipo_envio') String tipoEnvio,
       @JsonKey(name: 'metodo_pago') String metodoPago,
-      @JsonKey(name: 'total_compras', fromJson: _toInt) int totalCompras});
+      @JsonKey(name: 'total_compras', fromJson: _toInt) int totalCompras,
+      @JsonKey(fromJson: _toStrNullable) String? alias});
 }
 
 /// @nodoc
@@ -543,6 +570,7 @@ class _$ClientePrevioCopyWithImpl<$Res, $Val extends ClientePrevio>
     Object? tipoEnvio = null,
     Object? metodoPago = null,
     Object? totalCompras = null,
+    Object? alias = freezed,
   }) {
     return _then(_value.copyWith(
       comprador: null == comprador
@@ -569,6 +597,10 @@ class _$ClientePrevioCopyWithImpl<$Res, $Val extends ClientePrevio>
           ? _value.totalCompras
           : totalCompras // ignore: cast_nullable_to_non_nullable
               as int,
+      alias: freezed == alias
+          ? _value.alias
+          : alias // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -587,7 +619,8 @@ abstract class _$$ClientePrevioImplCopyWith<$Res>
       String distrito,
       @JsonKey(name: 'tipo_envio') String tipoEnvio,
       @JsonKey(name: 'metodo_pago') String metodoPago,
-      @JsonKey(name: 'total_compras', fromJson: _toInt) int totalCompras});
+      @JsonKey(name: 'total_compras', fromJson: _toInt) int totalCompras,
+      @JsonKey(fromJson: _toStrNullable) String? alias});
 }
 
 /// @nodoc
@@ -609,6 +642,7 @@ class __$$ClientePrevioImplCopyWithImpl<$Res>
     Object? tipoEnvio = null,
     Object? metodoPago = null,
     Object? totalCompras = null,
+    Object? alias = freezed,
   }) {
     return _then(_$ClientePrevioImpl(
       comprador: null == comprador
@@ -635,6 +669,10 @@ class __$$ClientePrevioImplCopyWithImpl<$Res>
           ? _value.totalCompras
           : totalCompras // ignore: cast_nullable_to_non_nullable
               as int,
+      alias: freezed == alias
+          ? _value.alias
+          : alias // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -648,7 +686,8 @@ class _$ClientePrevioImpl implements _ClientePrevio {
       this.distrito = '',
       @JsonKey(name: 'tipo_envio') required this.tipoEnvio,
       @JsonKey(name: 'metodo_pago') required this.metodoPago,
-      @JsonKey(name: 'total_compras', fromJson: _toInt) this.totalCompras = 0});
+      @JsonKey(name: 'total_compras', fromJson: _toInt) this.totalCompras = 0,
+      @JsonKey(fromJson: _toStrNullable) this.alias});
 
   factory _$ClientePrevioImpl.fromJson(Map<String, dynamic> json) =>
       _$$ClientePrevioImplFromJson(json);
@@ -658,6 +697,7 @@ class _$ClientePrevioImpl implements _ClientePrevio {
   @override
   final String direccion;
   @override
+  @JsonKey()
   final String distrito;
   @override
   @JsonKey(name: 'tipo_envio')
@@ -668,10 +708,13 @@ class _$ClientePrevioImpl implements _ClientePrevio {
   @override
   @JsonKey(name: 'total_compras', fromJson: _toInt)
   final int totalCompras;
+  @override
+  @JsonKey(fromJson: _toStrNullable)
+  final String? alias;
 
   @override
   String toString() {
-    return 'ClientePrevio(comprador: $comprador, direccion: $direccion, distrito: $distrito, tipoEnvio: $tipoEnvio, metodoPago: $metodoPago, totalCompras: $totalCompras)';
+    return 'ClientePrevio(comprador: $comprador, direccion: $direccion, distrito: $distrito, tipoEnvio: $tipoEnvio, metodoPago: $metodoPago, totalCompras: $totalCompras, alias: $alias)';
   }
 
   @override
@@ -690,13 +733,14 @@ class _$ClientePrevioImpl implements _ClientePrevio {
             (identical(other.metodoPago, metodoPago) ||
                 other.metodoPago == metodoPago) &&
             (identical(other.totalCompras, totalCompras) ||
-                other.totalCompras == totalCompras));
+                other.totalCompras == totalCompras) &&
+            (identical(other.alias, alias) || other.alias == alias));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType, comprador, direccion, distrito, tipoEnvio, metodoPago, totalCompras);
+  int get hashCode => Object.hash(runtimeType, comprador, direccion, distrito,
+      tipoEnvio, metodoPago, totalCompras, alias);
 
   /// Create a copy of ClientePrevio
   /// with the given fields replaced by the non-null parameter values.
@@ -721,8 +765,9 @@ abstract class _ClientePrevio implements ClientePrevio {
       final String distrito,
       @JsonKey(name: 'tipo_envio') required final String tipoEnvio,
       @JsonKey(name: 'metodo_pago') required final String metodoPago,
-      @JsonKey(name: 'total_compras', fromJson: _toInt)
-      final int totalCompras}) = _$ClientePrevioImpl;
+      @JsonKey(name: 'total_compras', fromJson: _toInt) final int totalCompras,
+      @JsonKey(fromJson: _toStrNullable)
+      final String? alias}) = _$ClientePrevioImpl;
 
   factory _ClientePrevio.fromJson(Map<String, dynamic> json) =
       _$ClientePrevioImpl.fromJson;
@@ -742,6 +787,9 @@ abstract class _ClientePrevio implements ClientePrevio {
   @override
   @JsonKey(name: 'total_compras', fromJson: _toInt)
   int get totalCompras;
+  @override
+  @JsonKey(fromJson: _toStrNullable)
+  String? get alias;
 
   /// Create a copy of ClientePrevio
   /// with the given fields replaced by the non-null parameter values.

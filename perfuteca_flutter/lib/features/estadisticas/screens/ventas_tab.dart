@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
+import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/features/ventas/screens/historial_screen.dart';
-import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
@@ -102,88 +102,56 @@ class _TamanosViewState extends ConsumerState<_TamanosView> {
     }
   }
 
-  List<TamanioStat> _computeTamanios(List<VentaResponse> ventas) {
-    final now = DateTime.now();
-    final mesActual =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}';
-
-    final filtradas = ventas.where((v) {
-      if (v.estado?.toLowerCase() == 'anulado') return false;
-      if (_filtro == 'todo') return true;
-      if (v.fecha == null) return false;
-      try {
-        final d   = DateTime.parse(v.fecha!);
-        final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
-        return key == (_filtro == 'mes' ? mesActual : _filtro);
-      } catch (_) {
-        return false;
-      }
-    });
-
-    final mlMap = <int, ({int cantidad, double total})>{};
-    for (final v in filtradas) {
-      final ml = v.mlVendido ?? 0;
-      if (ml == 0) continue;
-      final prev = mlMap[ml] ?? (cantidad: 0, total: 0.0);
-      mlMap[ml] = (
-        cantidad: prev.cantidad + 1,
-        total:    prev.total + (v.precioCobrado ?? 0),
-      );
-    }
-    return mlMap.entries
-        .map((e) => TamanioStat(
-              ml:          e.key,
-              cantidad:    e.value.cantidad,
-              total:       e.value.total,
-              topPerfumes: const [],
-            ))
+  List<TamanioStat> _tamaniosFromJson(List<dynamic> raw) {
+    return raw
+        .map((e) {
+          final m = e as Map<String, dynamic>;
+          return TamanioStat(
+            ml:          (m['ml']       as num?)?.toInt()    ?? 0,
+            cantidad:    (m['cantidad'] as num?)?.toInt()    ?? 0,
+            total:       (m['total']    as num?)?.toDouble() ?? 0,
+            topPerfumes: const [],
+          );
+        })
         .toList()
       ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
   }
 
-  List<String> _mesesDisponibles(List<VentaResponse> ventas) {
-    final now     = DateTime.now();
-    final actual  =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}';
-    final set = <String>{};
-    for (final v in ventas) {
-      if (v.fecha == null) continue;
-      try {
-        final d   = DateTime.parse(v.fecha!);
-        final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
-        if (key != actual) set.add(key);
-      } catch (_) {}
-    }
-    return set.toList()..sort((a, b) => b.compareTo(a));
-  }
-
   @override
   Widget build(BuildContext context) {
-    return ref.watch(ventasParaStatsProvider).when(
+    return ref.watch(historicoBackendProvider).when(
       loading: () => const _TamanosSkeleton(),
-      error: (_, __) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.wifi_off_rounded,
-                size: 48, color: AppColors.textFaint),
-            const SizedBox(height: 12),
-            Text('Error al cargar datos',
-                style: AppTextStyles.body
-                    .copyWith(color: AppColors.textMuted)),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => ref.invalidate(ventasParaStatsProvider),
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Reintentar'),
-            ),
-          ],
-        ),
+      error: (_, __) => EstadisticasErrorView(
+        title: 'Error al cargar datos',
+        onRetry: () => ref.invalidate(historicoBackendProvider),
       ),
-      data: (ventas) {
-        final tamanios    = _computeTamanios(ventas);
-        final meses       = _mesesDisponibles(ventas);
-        final totalCount  = tamanios.fold(0, (s, t) => s + t.cantidad);
+      data: (data) {
+        final now       = nowPeru();
+        final mesActual =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final porMes = (data['por_mes'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
+
+        final meses = porMes
+            .map((m) => m['clave'] as String)
+            .where((clave) => clave != mesActual)
+            .toList()
+          ..sort((a, b) => b.compareTo(a));
+
+        List<dynamic> tamaniosRaw;
+        if (_filtro == 'todo') {
+          tamaniosRaw = data['tamanios_total'] as List<dynamic>? ?? [];
+        } else {
+          final clave = _filtro == 'mes' ? mesActual : _filtro;
+          final mes = porMes.cast<Map<String, dynamic>?>().firstWhere(
+                (m) => m?['clave'] == clave,
+                orElse: () => null,
+              );
+          tamaniosRaw = mes?['tamanios'] as List<dynamic>? ?? [];
+        }
+
+        final tamanios   = _tamaniosFromJson(tamaniosRaw);
+        final totalCount = tamanios.fold(0, (s, t) => s + t.cantidad);
 
         return ListView(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -386,16 +354,6 @@ class _FiltroChip extends StatelessWidget {
 class _TamanosSkeleton extends StatelessWidget {
   const _TamanosSkeleton();
 
-  static Widget _box({double? w, required double h, double r = 8}) =>
-      Container(
-        width: w,
-        height: h,
-        decoration: BoxDecoration(
-          color:        Colors.white,
-          borderRadius: BorderRadius.circular(r),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) => Shimmer.fromColors(
         baseColor:      AppColors.primaryLight,
@@ -404,17 +362,17 @@ class _TamanosSkeleton extends StatelessWidget {
           padding: const EdgeInsets.all(AppSpacing.md),
           physics: const NeverScrollableScrollPhysics(),
           children: [
-            _box(w: 220, h: 32, r: AppSpacing.radiusFull),
+            skeletonBox(width: 220, height: 32, radius: AppSpacing.radiusFull),
             const SizedBox(height: AppSpacing.md),
-            _box(w: 160, h: 14),
+            skeletonBox(width: 160, height: 14),
             const SizedBox(height: AppSpacing.md),
-            _box(h: 88, r: AppSpacing.radiusMd),
+            skeletonBox(height: 88, radius: AppSpacing.radiusMd),
             const SizedBox(height: AppSpacing.sm),
-            _box(h: 88, r: AppSpacing.radiusMd),
+            skeletonBox(height: 88, radius: AppSpacing.radiusMd),
             const SizedBox(height: AppSpacing.sm),
-            _box(h: 88, r: AppSpacing.radiusMd),
+            skeletonBox(height: 88, radius: AppSpacing.radiusMd),
             const SizedBox(height: AppSpacing.sm),
-            _box(h: 88, r: AppSpacing.radiusMd),
+            skeletonBox(height: 88, radius: AppSpacing.radiusMd),
           ],
         ),
       );

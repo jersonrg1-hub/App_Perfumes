@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
+import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
+import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
+    show perfumesMapProvider, normalizeId;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
@@ -20,10 +21,18 @@ class _Orden {
   _Orden({
     required this.idCompra,
     required this.items,
-  });
+  }) : itemsConNormId = items
+            .map((i) => (
+                  item: i,
+                  normId: i.idPerfume != null ? normalizeId(i.idPerfume!) : null,
+                ))
+            .toList();
 
-  final String            idCompra;
+  final String              idCompra;
   final List<VentaResponse> items;
+  // Normaliza el id de perfume una sola vez al agrupar — evita re-parsear en
+  // cada rebuild de _OrdenCard.
+  final List<({VentaResponse item, String? normId})> itemsConNormId;
 
   String? get comprador  => items.first.comprador;
   String? get celular    => items.first.celular;
@@ -104,7 +113,7 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
         .update((s) => {...s, ...seleccionados});
 
     try {
-      await Future.wait(
+      final resultados = await Future.wait(
         ordenes.map(
           (orden) => ref.read(estadoVentaProvider.notifier).actualizar(
                 idVenta:     orden.idCompra,
@@ -114,14 +123,35 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
         ),
       );
 
+      final fallidos = <String>{
+        for (var i = 0; i < ordenes.length; i++)
+          if (!resultados[i]) ordenes[i].idCompra,
+      };
+      final exitosos = seleccionados.length - fallidos.length;
+
+      if (fallidos.isNotEmpty) {
+        // Restaurar solo los que fallaron — los exitosos quedan ocultos.
+        // Invalidar acá porque un fallo (409 por conflicto, etc.) puede
+        // significar que el estado real ya cambió por otra vía — sin
+        // refrescar, la tarjeta restaurada muestra datos obsoletos.
+        ref
+            .read(_pendientesRemovidosProvider.notifier)
+            .update((s) => s.difference(fallidos));
+        ref.invalidate(pendientesProvider);
+      }
+
       if (mounted) {
+        final ok = exitosos > 0;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${seleccionados.length} pedido${seleccionados.length != 1 ? "s" : ""} '
-              'marcado${seleccionados.length != 1 ? "s" : ""} como entregado${seleccionados.length != 1 ? "s" : ""}',
+              fallidos.isEmpty
+                  ? '$exitosos pedido${exitosos != 1 ? "s" : ""} '
+                      'marcado${exitosos != 1 ? "s" : ""} como entregado${exitosos != 1 ? "s" : ""}'
+                  : '$exitosos de ${seleccionados.length} marcados. '
+                      '${fallidos.length} fallaron, intenta de nuevo.',
             ),
-            backgroundColor: AppColors.success,
+            backgroundColor: ok ? AppColors.success : AppColors.error,
             duration: const Duration(seconds: 3),
           ),
         );
@@ -131,6 +161,7 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
       ref
           .read(_pendientesRemovidosProvider.notifier)
           .update((s) => s.difference(seleccionados));
+      ref.invalidate(pendientesProvider);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -336,9 +367,15 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
         );
 
     if (!ok) {
-      // Restaurar si el API falló
+      // Restaurar si el API falló. actualizar() solo invalida
+      // pendientesProvider cuando SÍ tiene éxito — si el fallo fue por
+      // conflicto (ej. otro dispositivo ya anuló/entregó esta misma orden,
+      // backend responde 409/500), la lista en caché sigue mostrando el
+      // estado viejo. Sin invalidar acá, restaurar la tarjeta la revive con
+      // datos obsoletos en vez de reflejar la verdad del servidor.
       ref.read(_pendientesRemovidosProvider.notifier)
           .update((s) => {...s}..remove(widget.orden.idCompra));
+      ref.invalidate(pendientesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -354,13 +391,10 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final orden = widget.orden;
     const sep = '────────────────────';
 
-    final itemsLineas = orden.items.asMap().entries.map((entry) {
-      final idx  = entry.key + 1;
-      final item = entry.value;
-      final normId = item.idPerfume != null
-          ? (double.tryParse(item.idPerfume!)?.toInt().toString()
-              ?? item.idPerfume!)
-          : null;
+    final itemsLineas = orden.itemsConNormId.asMap().entries.map((entry) {
+      final idx     = entry.key + 1;
+      final item    = entry.value.item;
+      final normId  = entry.value.normId;
       final perfume = normId != null ? widget.perfumesMap[normId] : null;
       final nombre = perfume != null
           ? '${perfume.marca} — ${perfume.nombre}'
@@ -375,7 +409,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
         ? '\n🗺️ *Distrito:* ${orden.distrito}'
         : '';
 
-    final msg = Uri.encodeComponent(
+    final msg =
       '📦 *Perfuteca — Pedido ${orden.idCompra}*\n$sep\n'
       '👤 *Cliente:* ${orden.comprador ?? '—'}\n'
       '📱 *Celular:* ${orden.celular ?? '—'}\n'
@@ -384,12 +418,8 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
       '🌸 *Perfumes:*\n$itemsLineas\n'
       '$sep\n'
       '💰 *Total: S/ ${orden.total.toStringAsFixed(2)}*\n'
-      '💳 *Pago:* ${orden.metodoPago ?? '—'}',
-    );
-    final url = Uri.parse('https://wa.me/?text=$msg');
-    try {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+      '💳 *Pago:* ${orden.metodoPago ?? '—'}';
+    await abrirWhatsAppBusiness(mensaje: msg);
   }
 
   Future<void> _confirmarEntregado() async {
@@ -459,7 +489,12 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
     final orden = widget.orden;
 
     return GestureDetector(
-      onLongPress: widget.onLongPress,
+      // Si ya hay una selección activa, long-press debe sumar/quitar este
+      // ítem (igual que el tap), no reiniciar la selección a solo este —
+      // _iniciarSeleccion reemplaza el set entero y borraba en silencio
+      // lo ya elegido.
+      onLongPress:
+          widget.modoSeleccion ? widget.onTapSeleccion : widget.onLongPress,
       onTap: widget.modoSeleccion ? widget.onTapSeleccion : null,
       child: Stack(
         children: [
@@ -562,11 +597,9 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
                   padding: const EdgeInsets.fromLTRB(
                       AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
                   child: Column(
-                    children: orden.items.map((item) {
-                      final normId = item.idPerfume != null
-                          ? (double.tryParse(item.idPerfume!)?.toInt().toString()
-                              ?? item.idPerfume!)
-                          : null;
+                    children: orden.itemsConNormId.map((entry) {
+                      final item   = entry.item;
+                      final normId = entry.normId;
                       final perfume = normId != null
                           ? widget.perfumesMap[normId]
                           : null;

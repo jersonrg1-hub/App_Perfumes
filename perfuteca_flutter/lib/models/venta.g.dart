@@ -21,6 +21,7 @@ _$VentaResponseImpl _$$VentaResponseImplFromJson(Map<String, dynamic> json) =>
       direccion: _toStrNullable(json['direccion']),
       distrito: _toStrNullable(json['distrito']),
       estado: _toStrNullable(json['estado']),
+      alias: _toStrNullable(json['alias']),
     );
 
 Map<String, dynamic> _$$VentaResponseImplToJson(_$VentaResponseImpl instance) =>
@@ -38,6 +39,7 @@ Map<String, dynamic> _$$VentaResponseImplToJson(_$VentaResponseImpl instance) =>
       'direccion': instance.direccion,
       'distrito': instance.distrito,
       'estado': instance.estado,
+      'alias': instance.alias,
     };
 
 _$ClientePrevioImpl _$$ClientePrevioImplFromJson(Map<String, dynamic> json) =>
@@ -49,6 +51,7 @@ _$ClientePrevioImpl _$$ClientePrevioImplFromJson(Map<String, dynamic> json) =>
       metodoPago: json['metodo_pago'] as String,
       totalCompras:
           json['total_compras'] == null ? 0 : _toInt(json['total_compras']),
+      alias: _toStrNullable(json['alias']),
     );
 
 Map<String, dynamic> _$$ClientePrevioImplToJson(_$ClientePrevioImpl instance) =>
@@ -59,6 +62,7 @@ Map<String, dynamic> _$$ClientePrevioImplToJson(_$ClientePrevioImpl instance) =>
       'tipo_envio': instance.tipoEnvio,
       'metodo_pago': instance.metodoPago,
       'total_compras': instance.totalCompras,
+      'alias': instance.alias,
     };
 
 _$VentaRegistradaImpl _$$VentaRegistradaImplFromJson(

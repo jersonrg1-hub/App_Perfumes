@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/utils/validators.dart';
 import 'package:perfuteca/models/cotizacion.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
@@ -6,39 +7,58 @@ import 'package:perfuteca/repositories/cotizaciones_repository.dart';
 
 double _round10(double p) => (p * 10).round() / 10.0;
 
+// Única fuente de la fórmula de descuento (10%) — usada por el provider y
+// reutilizada en nueva_cotizacion_screen.dart para que la cesta/recibo
+// siempre muestren el mismo precio que se guarda al confirmar.
+double precioConDescuento(double precio) => _round10(precio * 0.90);
+
 class NuevaCotizacionState {
   const NuevaCotizacionState({
-    this.paso         = 1,
-    this.celular      = '',
-    this.cesta        = const [],
-    this.conDelivery  = false,
-    this.conDescuento = false,
-    this.registrando  = false,
+    this.paso                = 1,
+    this.modo                = 'celular',
+    this.celular             = '',
+    this.alias               = '',
+    this.cesta               = const [],
+    this.conDelivery         = false,
+    this.indicesConDescuento = const {},
+    this.registrando         = false,
     this.registrada,
     this.error,
   });
 
   final int                   paso;
+  // 'celular' | 'alias' — mutuamente excluyentes, solo uno se envía al backend
+  final String                modo;
   final String                celular;
+  final String                alias;
   final List<ItemCesta>       cesta;
   final bool                  conDelivery;
-  final bool                  conDescuento;
+  final Set<int>               indicesConDescuento;
   final bool                  registrando;
   final CotizacionRegistrada? registrada;
   final String?               error;
 
   static const double costoDelivery = 10.0;
 
-  // Precio efectivo de un item según descuento
-  double precioEfectivo(double precio) =>
-      conDescuento ? _round10(precio * 0.90) : precio;
+  // True solo si TODOS los items de la cesta tienen descuento — estado del switch "seleccionar todos"
+  bool get conDescuento =>
+      cesta.isNotEmpty && indicesConDescuento.length == cesta.length;
+
+  // True si AL MENOS un item tiene descuento (parcial o total)
+  bool get algunDescuento => indicesConDescuento.isNotEmpty;
+
+  bool itemConDescuento(int index) => indicesConDescuento.contains(index);
+
+  // Precio efectivo de un item según si ESE item tiene descuento
+  double precioEfectivoIndex(int index, double precio) =>
+      itemConDescuento(index) ? precioConDescuento(precio) : precio;
 
   // Subtotal SIN descuento (precios originales)
   double get subtotalOriginal => cesta.fold(0.0, (s, i) => s + i.precio);
 
-  // Subtotal CON descuento aplicado por item
-  double get subtotalDescuento =>
-      cesta.fold(0.0, (s, i) => s + precioEfectivo(i.precio));
+  // Subtotal CON descuento aplicado solo a los items seleccionados
+  double get subtotalDescuento => cesta.asMap().entries.fold(
+      0.0, (s, e) => s + precioEfectivoIndex(e.key, e.value.precio));
 
   // Ahorro total = diferencia entre subtotales
   double get ahorro => subtotalOriginal - subtotalDescuento;
@@ -52,29 +72,35 @@ class NuevaCotizacionState {
   // Backward-compat: totalConDelivery uses discounted base
   double get totalConDelivery => subtotalDescuento + (conDelivery ? costoDelivery : 0);
 
-  bool get paso1Valido => celular.length == 9;
+  bool get paso1Valido => modo == 'celular'
+      ? esCelularPeruValido(celular)
+      : alias.trim().isNotEmpty;
   bool get cestaValida => cesta.isNotEmpty;
 
   NuevaCotizacionState copyWith({
     int?                  paso,
+    String?               modo,
     String?               celular,
+    String?               alias,
     List<ItemCesta>?      cesta,
     bool?                 conDelivery,
-    bool?                 conDescuento,
+    Set<int>?             indicesConDescuento,
     bool?                 registrando,
     CotizacionRegistrada? registrada,
     String?               error,
     bool                  clearError      = false,
     bool                  clearRegistrada = false,
   }) => NuevaCotizacionState(
-    paso:         paso         ?? this.paso,
-    celular:      celular      ?? this.celular,
-    cesta:        cesta        ?? this.cesta,
-    conDelivery:  conDelivery  ?? this.conDelivery,
-    conDescuento: conDescuento ?? this.conDescuento,
-    registrando:  registrando  ?? this.registrando,
-    registrada:   clearRegistrada ? null : (registrada ?? this.registrada),
-    error:        clearError   ? null : (error        ?? this.error),
+    paso:                paso                ?? this.paso,
+    modo:                modo                ?? this.modo,
+    celular:             celular             ?? this.celular,
+    alias:               alias               ?? this.alias,
+    cesta:               cesta               ?? this.cesta,
+    conDelivery:         conDelivery         ?? this.conDelivery,
+    indicesConDescuento: indicesConDescuento ?? this.indicesConDescuento,
+    registrando:         registrando         ?? this.registrando,
+    registrada:          clearRegistrada ? null : (registrada ?? this.registrada),
+    error:               clearError   ? null : (error        ?? this.error),
   );
 }
 
@@ -86,11 +112,64 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
       ref.read(cotizacionesRepositoryProvider);
 
   void setCelular(String v)    => state = state.copyWith(celular: v);
-  void irPaso(int p)           => state = state.copyWith(paso: p, clearError: true);
+  void setAlias(String v)      => state = state.copyWith(alias: v);
+
+  // Alterna entre modo celular/alias — mutuamente excluyentes: cambiar de
+  // modo limpia el campo del modo anterior para que solo uno llegue al backend.
+  void setModo(String m) {
+    if (m == state.modo) return;
+    state = state.copyWith(
+      modo:    m,
+      celular: m == 'celular' ? state.celular : '',
+      alias:   m == 'alias'   ? state.alias   : '',
+    );
+  }
+
+  // Navegar tras haber registrado ya una cotización (usuario no tocó
+  // "Nueva cotización" y volvió a este flujo, ej. cambiando de tab y
+  // regresando) significa que está empezando una cotización distinta.
+  // Se limpia todo (celular, alias, modo, cesta, descuentos, delivery,
+  // registrada) — es una cotización nueva, no se asume que sea el mismo
+  // cliente.
+  void irPaso(int p) {
+    if (state.registrada != null) {
+      state = NuevaCotizacionState(paso: p);
+    } else {
+      state = state.copyWith(paso: p, clearError: true);
+    }
+  }
   void toggleDelivery()        => state = state.copyWith(conDelivery: !state.conDelivery);
-  void toggleDescuento()       => state = state.copyWith(conDescuento: !state.conDescuento);
+
+  // Shortcut "seleccionar todos": si ya estan todos seleccionados, limpia; si no, selecciona todos
+  void toggleDescuento() {
+    if (state.conDescuento) {
+      state = state.copyWith(indicesConDescuento: {});
+    } else {
+      state = state.copyWith(
+        indicesConDescuento: {for (var i = 0; i < state.cesta.length; i++) i},
+      );
+    }
+  }
+
+  void toggleItemDescuento(int index) {
+    final nuevos = Set<int>.from(state.indicesConDescuento);
+    if (nuevos.contains(index)) {
+      nuevos.remove(index);
+    } else {
+      nuevos.add(index);
+    }
+    state = state.copyWith(indicesConDescuento: nuevos);
+  }
 
   void agregarItem(Perfume perfume, int ml) {
+    // La UI solo permite un tamaño por perfume en la cesta (una vez
+    // agregado, los botones de ml se ocultan) — pero eso depende del
+    // rebuild, que llega después de la animación de _MlBtn (~320ms). Un
+    // doble-tap rápido puede disparar dos llamadas antes de que el botón
+    // desaparezca, duplicando el ítem silenciosamente. Se bloquea acá.
+    if (state.cesta.any((i) => i.perfume.idPerfume == perfume.idPerfume)) {
+      return;
+    }
     final precio = switch (ml) {
       2  => perfume.precio2ml,
       5  => perfume.precio5ml,
@@ -109,20 +188,22 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
   }
 
   void quitarItem(int index) {
-    final nueva = List<ItemCesta>.from(state.cesta)..removeAt(index);
-    state = state.copyWith(cesta: nueva);
+    final nuevaCesta = List<ItemCesta>.from(state.cesta)..removeAt(index);
+    final nuevosIndices = state.indicesConDescuento
+        .where((i) => i != index)
+        .map((i) => i > index ? i - 1 : i)
+        .toSet();
+    state = state.copyWith(cesta: nuevaCesta, indicesConDescuento: nuevosIndices);
   }
 
   Future<void> guardar() async {
     state = state.copyWith(registrando: true, clearError: true);
     try {
       final registrada = await _repo.guardarCotizacion(
-        celular: state.celular,
-        items:   state.cesta.map((i) => {
-          ...i.toApiMap(),
-          'precio': state.precioEfectivo(i.precio),
-        }).toList(),
-        total:   state.subtotalDescuento,
+        celular: state.celular.isEmpty ? null : state.celular,
+        alias:   state.alias.isEmpty ? null : state.alias,
+        items:   state.cesta.asMap().entries.map((e) =>
+            e.value.toApiMap(conDescuento: state.itemConDescuento(e.key))).toList(),
       );
       state = state.copyWith(
         registrando: false,

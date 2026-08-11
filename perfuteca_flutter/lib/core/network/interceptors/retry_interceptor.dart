@@ -28,8 +28,13 @@ class RetryInterceptor extends Interceptor {
     handler.next(err);
   }
 
+  // POST no se reintenta: crea recursos (venta, cotización) y no es
+  // idempotente. Si el timeout ocurre porque el backend sigue escribiendo
+  // en Google Sheets (lento), reintentar duplica el registro aunque la
+  // escritura original sí haya terminado en el servidor.
   bool _isRetryable(DioException e) =>
-      e.type == DioExceptionType.connectionTimeout ||
-      e.type == DioExceptionType.receiveTimeout ||
-      e.type == DioExceptionType.connectionError;
+      e.requestOptions.method.toUpperCase() != 'POST' &&
+      (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError);
 }

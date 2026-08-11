@@ -21,7 +21,7 @@ class EstadisticasRepository {
     try {
       final res = await _dio.get<Map<String, dynamic>>(
         ApiConstants.estadisticasResumen,
-        options: _cache.cacheFor(const Duration(minutes: 2)),
+        options: _cache.noCache,
       );
       return res.data!;
     } on DioException catch (e) {
@@ -31,7 +31,21 @@ class EstadisticasRepository {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getClientes({
+  Future<Map<String, dynamic>> getHistorico() async {
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        ApiConstants.estadisticasHistorico,
+        options: _cache.noCache,
+      );
+      return res.data!;
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    } catch (_) {
+      throw const ParseException();
+    }
+  }
+
+  Future<Map<String, dynamic>> getClientesPagina({
     int limit = 500,
     int offset = 0,
   }) async {
@@ -41,11 +55,28 @@ class EstadisticasRepository {
         queryParameters: {'limit': limit, 'offset': offset},
         options: _cache.noCache,
       );
-      return (res.data!['items'] as List).cast<Map<String, dynamic>>();
+      return res.data!;
     } on DioException catch (e) {
       throw mapDioError(e);
     } catch (_) {
       throw const ParseException();
     }
+  }
+
+  // Trae todas las páginas — el endpoint cappea a 500 por 'limit', así que
+  // itera hasta agotar 'has_more' en vez de leer una sola página, de lo
+  // contrario clientes con menor total_gastado (los que caen fuera de los
+  // primeros 500, orden desc del backend) desaparecían de la lista/búsqueda.
+  Future<List<Map<String, dynamic>>> getClientes() async {
+    final clientes = <Map<String, dynamic>>[];
+    var offset = 0;
+    while (true) {
+      final pagina = await getClientesPagina(limit: 500, offset: offset);
+      final items  = (pagina['items'] as List).cast<Map<String, dynamic>>();
+      clientes.addAll(items);
+      if (pagina['has_more'] != true) break;
+      offset += items.length;
+    }
+    return clientes;
   }
 }

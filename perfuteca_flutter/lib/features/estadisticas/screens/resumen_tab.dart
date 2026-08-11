@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
+import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/features/ventas/screens/pendientes_screen.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
@@ -30,18 +31,23 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
     super.build(context);
     return ref.watch(resumenStatsProvider).when(
       loading: () => const _ResumenSkeleton(),
-      error:   (e, _) => _ErrorView(
-        mensaje: e.toString(),
+      error:   (e, _) => EstadisticasErrorView(
+        title: 'Error al cargar estadísticas',
+        subtitle: e.toString(),
         onRetry: () {
           ref.invalidate(resumenBackendProvider);
+          ref.invalidate(perfumesMapProvider);
           ref.invalidate(resumenStatsProvider);
+          ref.invalidate(ventasParaStatsProvider);
         },
       ),
       data: (stats) => RefreshIndicator(
         color: AppColors.primary,
         onRefresh: () async {
           ref.invalidate(resumenBackendProvider);
+          ref.invalidate(perfumesMapProvider);
           ref.invalidate(resumenStatsProvider);
+          ref.invalidate(ventasParaStatsProvider);
           await ref.read(resumenStatsProvider.future);
         },
         child: _ResumenBody(stats: stats),
@@ -59,20 +65,13 @@ class _ResumenBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final s      = stats;
-    final now    = DateTime.now();
+    final now    = nowPeru();
     final semana  = ref.watch(semanaStatsProvider);
     final tamanios = ref.watch(tamaniosStatsProvider);
 
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
-        // ── Strip compacto de hoy ─────────────────────────────────────────────
-        _HoyStrip(
-          total:      s.totalHoy,
-          ordenes:    s.ventasHoy,
-          pendientes: s.pendientesCount,
-        ),
-
         // ── Hoy — primero, es lo que más importa ─────────────────────────────
         _SeccionLabel('Hoy · ${_diaLabel(now)}', icono: Icons.wb_sunny_rounded),
         const SizedBox(height: AppSpacing.sm),
@@ -246,7 +245,7 @@ class _HeroMesCard extends StatelessWidget {
 
           // Total — tipografía limpia, sin gradiente
           Text(
-            'S/ ${_fmt(s.totalMes)}',
+            'S/ ${formatMonto(s.totalMes)}',
             style: const TextStyle(
               fontSize:      30,
               fontWeight:    FontWeight.w800,
@@ -297,7 +296,7 @@ class _HeroMesCard extends StatelessWidget {
                       .copyWith(color: AppColors.textMuted),
                 ),
                 Text(
-                  'S/ ${_fmt(s.totalMesPasado)}  ·  ${s.ventasMesPasado} venta${s.ventasMesPasado != 1 ? 's' : ''}',
+                  'S/ ${formatMonto(s.totalMesPasado)}  ·  ${s.ventasMesPasado} venta${s.ventasMesPasado != 1 ? 's' : ''}',
                   style: AppTextStyles.bodySmall
                       .copyWith(color: AppColors.textMuted),
                 ),
@@ -452,7 +451,7 @@ class _SeccionHoy extends StatelessWidget {
                 Expanded(
                   child: _ColStat(
                     label: 'Ingresos',
-                    valor: 'S/ ${_fmt(totalHoy)}',
+                    valor: 'S/ ${formatMonto(totalHoy)}',
                     sub: mlHoy > 0 ? '$mlHoy ml' : null,
                   ),
                 ),
@@ -630,50 +629,7 @@ class _SeccionLabel extends StatelessWidget {
   }
 }
 
-// ── Error ─────────────────────────────────────────────────────────────────────
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.mensaje, required this.onRetry});
-  final String       mensaje;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.wifi_off_rounded,
-              size: 48, color: AppColors.textFaint),
-          const SizedBox(height: 12),
-          const Text('Error al cargar estadísticas',
-              style: AppTextStyles.body),
-          const SizedBox(height: 4),
-          Text(mensaje,
-              style: AppTextStyles.bodySmall,
-              textAlign: TextAlign.center),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded, size: 18),
-            label: const Text('Reintentar'),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-String _fmt(double v) {
-  if (v >= 1000) {
-    return v.toStringAsFixed(2)
-        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+\.)'), (m) => '${m[1]},');
-  }
-  return v.toStringAsFixed(2);
-}
 
 String _diaLabel(DateTime d) {
   const dias = ['', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
@@ -692,7 +648,7 @@ class _MiniSemanalCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final s      = semana;
     final maxBar = s.porDia.fold(0.0, (m, d) => d.total > m ? d.total : m);
-    final hoy    = DateTime.now();
+    final hoy    = nowPeru();
     final subiendo = s.variacionSemana >= 0;
 
     return Container(
@@ -709,7 +665,7 @@ class _MiniSemanalCard extends ConsumerWidget {
           Row(
             children: [
               Text(
-                'S/ ${_fmt(s.total)}',
+                'S/ ${formatMonto(s.total)}',
                 style: AppTextStyles.body.copyWith(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -1243,115 +1199,10 @@ class _TamaniosChips extends StatelessWidget {
   }
 }
 
-// ── Strip compacto con métricas de hoy ────────────────────────────────────────
-
-class _HoyStrip extends StatelessWidget {
-  const _HoyStrip({
-    required this.total,
-    required this.ordenes,
-    required this.pendientes,
-  });
-  final double total;
-  final int    ordenes;
-  final int    pendientes;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      border: Border.all(color: AppColors.primaryLight),
-      boxShadow: const [
-        BoxShadow(
-          color:      AppColors.shadowColor,
-          blurRadius: 4,
-          offset:     Offset(0, 2),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        _StripMetric(
-          label: 'HOY',
-          valor: 'S/ ${total.toStringAsFixed(0)}',
-          color: AppColors.primaryDark,
-        ),
-        _StripDivider(),
-        _StripMetric(
-          label: 'ÓRDENES',
-          valor: '$ordenes',
-          color: AppColors.textPrimary,
-        ),
-        _StripDivider(),
-        _StripMetric(
-          label: 'PENDIENTES',
-          valor: '$pendientes',
-          color: pendientes > 0 ? AppColors.warning : AppColors.stockOk,
-        ),
-      ],
-    ),
-  );
-}
-
-class _StripMetric extends StatelessWidget {
-  const _StripMetric({
-    required this.label,
-    required this.valor,
-    required this.color,
-  });
-  final String label;
-  final String valor;
-  final Color  color;
-
-  @override
-  Widget build(BuildContext context) => Expanded(
-    child: Column(
-      children: [
-        Text(
-          valor,
-          style: AppTextStyles.price.copyWith(
-            fontSize: 16,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: AppTextStyles.priceLabel.copyWith(fontSize: 9),
-        ),
-      ],
-    ),
-  );
-}
-
-class _StripDivider extends StatelessWidget {
-  const _StripDivider();
-
-  @override
-  Widget build(BuildContext context) => Container(
-    width: 1,
-    height: 28,
-    color: AppColors.primaryLight,
-    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-  );
-}
-
 // ── Skeleton de carga ─────────────────────────────────────────────────────────
 
 class _ResumenSkeleton extends StatelessWidget {
   const _ResumenSkeleton();
-
-  static Widget _box({double? w, required double h, double r = 8}) =>
-      Container(
-        width: w,
-        height: h,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(r),
-        ),
-      );
 
   @override
   Widget build(BuildContext context) {
@@ -1362,11 +1213,11 @@ class _ResumenSkeleton extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.md),
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          _box(h: 148, r: AppSpacing.radiusLg),
+          skeletonBox(height: 148, radius: AppSpacing.radiusLg),
           const SizedBox(height: AppSpacing.md),
-          _box(w: 90, h: 11),
+          skeletonBox(width: 90, height: 11),
           const SizedBox(height: AppSpacing.sm),
-          _box(h: 108, r: AppSpacing.radiusMd),
+          skeletonBox(height: 108, radius: AppSpacing.radiusMd),
         ],
       ),
     );

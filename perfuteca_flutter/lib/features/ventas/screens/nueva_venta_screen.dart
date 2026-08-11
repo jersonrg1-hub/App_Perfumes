@@ -4,14 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/ventas/providers/nueva_venta_provider.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/features/ventas/widgets/item_cesta_card.dart';
+import 'package:perfuteca/models/app_config_model.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
+import 'package:perfuteca/repositories/config_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
@@ -92,6 +94,7 @@ class _NuevaVentaScreenState extends ConsumerState<NuevaVentaScreen> {
           idCompra:   ventaRegistrada.idCompra,
           warning:    ventaRegistrada.warning,
           celular:    state.celular,
+          alias:      state.alias,
           comprador:  state.comprador,
           tipoEnvio:  state.tipoEnvio,
           direccion:  state.direccion,
@@ -235,6 +238,7 @@ class _Paso1 extends ConsumerStatefulWidget {
 
 class _Paso1State extends ConsumerState<_Paso1> {
   final _celularCtrl   = TextEditingController();
+  final _aliasCtrl     = TextEditingController();
   final _compradorCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
   final _distritoCtrl  = TextEditingController();
@@ -242,6 +246,7 @@ class _Paso1State extends ConsumerState<_Paso1> {
   @override
   void dispose() {
     _celularCtrl.dispose();
+    _aliasCtrl.dispose();
     _compradorCtrl.dispose();
     _direccionCtrl.dispose();
     _distritoCtrl.dispose();
@@ -254,6 +259,7 @@ class _Paso1State extends ConsumerState<_Paso1> {
     final notifier = ref.read(nuevaVentaProvider.notifier);
 
     if (_celularCtrl.text != state.celular)     _celularCtrl.text   = state.celular;
+    if (_aliasCtrl.text != state.alias)         _aliasCtrl.text     = state.alias;
     if (_compradorCtrl.text != state.comprador) _compradorCtrl.text = state.comprador;
     if (_direccionCtrl.text != state.direccion) _direccionCtrl.text = state.direccion;
     if (_distritoCtrl.text != state.distrito)   _distritoCtrl.text  = state.distrito;
@@ -300,6 +306,14 @@ class _Paso1State extends ConsumerState<_Paso1> {
             child: state.clientePrevio != null
                 ? _ClienteBanner(cliente: state.clientePrevio!)
                 : const SizedBox.shrink(),
+          ),
+
+          // ── Alias WhatsApp (opcional) ──────────────────────────────────
+          _Label('Alias WhatsApp (opcional)', Icons.alternate_email_rounded),
+          TextField(
+            controller: _aliasCtrl,
+            decoration: _inputDecor(hint: '@perfutecalima'),
+            onChanged: notifier.setAlias,
           ),
 
           const SizedBox(height: AppSpacing.sm),
@@ -1103,20 +1117,23 @@ class _PerfumeItem extends StatelessWidget {
   }
 }
 
-class _StockChip extends StatelessWidget {
+class _StockChip extends ConsumerWidget {
   const _StockChip({required this.perfume});
   final Perfume perfume;
 
   @override
-  Widget build(BuildContext context) {
-    final color = perfume.stockCritico
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider).valueOrNull ??
+        AppConfigModel.defaults();
+    final (:esCritico, :esBajo) = perfume.stockEstado(config);
+    final color = esCritico
         ? AppColors.stockCritical
-        : perfume.stockBajo
+        : esBajo
             ? AppColors.stockLow
             : AppColors.textFaint;
-    final icon = perfume.stockCritico
+    final icon = esCritico
         ? Icons.warning_amber_rounded
-        : perfume.stockBajo
+        : esBajo
             ? Icons.info_outline_rounded
             : Icons.inventory_2_outlined;
 
@@ -1289,6 +1306,7 @@ class _TicketExito extends StatelessWidget {
   const _TicketExito({
     required this.idCompra,
     required this.celular,
+    required this.alias,
     required this.comprador,
     required this.tipoEnvio,
     required this.direccion,
@@ -1301,6 +1319,7 @@ class _TicketExito extends StatelessWidget {
   final String       idCompra;
   final String?      warning;
   final String       celular;
+  final String       alias;
   final String       comprador;
   final String       tipoEnvio;
   final String       direccion;
@@ -1495,7 +1514,7 @@ class _TicketExito extends StatelessWidget {
                 side: const BorderSide(color: AppColors.whatsapp),
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: () => _abrirWhatsApp(context, celular, idCompra, total),
+              onPressed: () => _abrirWhatsApp(context, celular, alias, idCompra, total),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -1536,7 +1555,7 @@ class _TicketExito extends StatelessWidget {
   }
 
   Future<void> _abrirWhatsApp(
-      BuildContext context, String cel, String id, double total) async {
+      BuildContext context, String cel, String alias, String id, double total) async {
     const sep = '────────────────────';
     const dias = [
       'Lunes', 'Martes', 'Miércoles', 'Jueves',
@@ -1561,11 +1580,11 @@ class _TicketExito extends StatelessWidget {
         ? '\n📍 *Dirección:* $direccion'
         : '';
 
-    final msg = Uri.encodeComponent(
+    final msg =
       '🌸 *Perfuteca — Pedido $id*\n'
       '$sep\n'
       '👤 *Comprador:* $comprador\n'
-      '📱 *Celular:* $cel\n'
+      '📱 *Celular:* ${lineaContacto(cel, alias)}\n'
       '🚚 *Envío:* $tipoEnvio'
       '$dirLinea\n'
       '$sep\n'
@@ -1573,11 +1592,9 @@ class _TicketExito extends StatelessWidget {
       '$itemsTexto\n'
       '$sep\n'
       '📦 Tu pedido estará siendo enviado el *$fechaEnvio*.\n\n'
-      '_¡Gracias por tu compra! 💛_',
-    );
-    final url = Uri.parse('https://wa.me/51$cel?text=$msg');
+      '_¡Gracias por tu compra! 💛_';
     try {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+      await abrirWhatsAppBusiness(celular: cel, alias: alias, mensaje: msg);
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1607,7 +1624,7 @@ class _TicketExito extends StatelessWidget {
     final metodosUnicos = cesta.map((i) => i.metodo).toSet().join(', ');
     final pago = metodosUnicos.isNotEmpty ? metodosUnicos : metodoPago;
 
-    final msg = Uri.encodeComponent(
+    final msg =
       '📦 *Perfuteca — Pedido Nuevo $id*\n$sep\n'
       '👤 *Cliente:* $comprador\n'
       '📱 *Celular:* $celular\n'
@@ -1616,12 +1633,10 @@ class _TicketExito extends StatelessWidget {
       '🌸 *Perfumes:*\n$itemsLineas\n'
       '$sep\n'
       '💰 *Total: S/ ${total.toStringAsFixed(2)}*\n'
-      '💳 *Pago:* $pago',
-    );
-    // Sin número → WhatsApp abre el selector de chat (grupo, comunidad, etc.)
-    final url = Uri.parse('https://wa.me/?text=$msg');
+      '💳 *Pago:* $pago';
+    // Sin celular → WhatsApp Business abre el selector de chat (grupo, comunidad, etc.)
     try {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
+      await abrirWhatsAppBusiness(mensaje: msg);
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

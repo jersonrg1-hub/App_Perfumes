@@ -32,6 +32,7 @@ _$CotizacionResponseImpl _$$CotizacionResponseImplFromJson(
       total: _toDoubleNullable(json['total']),
       estado: json['estado'] as String?,
       filaSheet: json['fila_sheet'] == null ? 0 : _toInt(json['fila_sheet']),
+      alias: json['alias'] as String?,
     );
 
 Map<String, dynamic> _$$CotizacionResponseImplToJson(
@@ -44,4 +45,5 @@ Map<String, dynamic> _$$CotizacionResponseImplToJson(
       'total': instance.total,
       'estado': instance.estado,
       'fila_sheet': instance.filaSheet,
+      'alias': instance.alias,
     };

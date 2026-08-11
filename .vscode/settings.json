@@ -1,0 +1,26 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
+    "python.defaultInterpreterPath": "${workspaceFolder}\\pythonProject\\.venv_n\\Scripts\\python.exe",
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": ["pythonProject"],
+    "python.analysis.extraPaths": ["./pythonProject"],
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/.pytest_cache": true
+    },
+    "search.exclude": {
+        "pythonProject/.venv_n": true,
+        "pythonProject/.venv_nuevo": true,
+        "perfuteca_flutter/build": true,
+        "perfuteca_flutter/.dart_tool": true,
+        "perfuteca_flutter/android/build": true
+    },
+    "files.watcherExclude": {
+        "pythonProject/.venv_n/**": true,
+        "pythonProject/.venv_nuevo/**": true,
+        "perfuteca_flutter/build/**": true,
+        "perfuteca_flutter/.dart_tool/**": true,
+        "perfuteca_flutter/android/build/**": true
+    }
+}

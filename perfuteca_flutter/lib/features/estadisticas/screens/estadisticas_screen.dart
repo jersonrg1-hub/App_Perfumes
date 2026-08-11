@@ -79,11 +79,15 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
                     ref.invalidate(historialProvider);
                     ref.invalidate(pendientesProvider);
                     ref.invalidate(ventasParaStatsProvider);
+                    ref.invalidate(historicoBackendProvider);
                     ref.invalidate(historialGlobalProvider);
                     ref.invalidate(clientesStatsProvider);
                     ref.invalidate(cotizaciones14dProvider);
                     try {
-                      await ref.read(ventasParaStatsProvider.future);
+                      await Future.wait([
+                        ref.read(ventasParaStatsProvider.future),
+                        ref.read(resumenBackendProvider.future),
+                      ]);
                     } catch (_) {}
                     if (mounted) setState(() => _refrescando = false);
                   },
@@ -126,35 +130,6 @@ class _EstadisticasScreenState extends ConsumerState<EstadisticasScreen>
       ),
       body: Column(
         children: [
-          // Aviso si la API devolvió exactamente 500 registros — puede haber más.
-          ref.watch(ventasParaStatsProvider).maybeWhen(
-            data: (ventas) => ventas.length >= 500
-                ? Material(
-                    color: AppColors.goldLight,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: Row(children: [
-                        const Icon(Icons.warning_amber_rounded,
-                            size: 16, color: AppColors.gold),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Estadísticas basadas en las últimas 500 ventas. '
-                            'Los datos históricos pueden estar incompletos.',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.gold,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ]),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-            orElse: () => const SizedBox.shrink(),
-          ),
           Expanded(
             child: TabBarView(
               controller: _tab,

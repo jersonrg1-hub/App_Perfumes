@@ -23,6 +23,7 @@ class CotizacionesRepository {
     int limit = 100,
     int offset = 0,
     String? estado,
+    String? fechaDesde,
     bool bypassCache = false,
   }) async {
     try {
@@ -32,6 +33,7 @@ class CotizacionesRepository {
           'limit':  limit,
           'offset': offset,
           if (estado != null) 'estado': estado,
+          if (fechaDesde != null) 'fecha_desde': fechaDesde,
         },
         options: bypassCache
             ? _cache.noCache
@@ -65,18 +67,21 @@ class CotizacionesRepository {
   }
 
   Future<CotizacionRegistrada> guardarCotizacion({
-    required String celular,
+    String? celular,
     required List<Map<String, dynamic>> items,
-    required double total,
+    String? alias,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
         ApiConstants.cotizaciones,
         data: {
-          'celular': celular,
+          if (celular != null && celular.trim().isNotEmpty) 'celular': celular.trim(),
           'items':   items,
-          'total':   total,
+          if (alias != null && alias.trim().isNotEmpty) 'alias': alias.trim(),
         },
+        // Igual que registrarVenta — escritura en Sheets puede tardar más
+        // que el receiveTimeout global.
+        options: Options(receiveTimeout: const Duration(seconds: 45)),
       );
       return CotizacionRegistrada.fromJson(res.data!);
     } on DioException catch (e) {

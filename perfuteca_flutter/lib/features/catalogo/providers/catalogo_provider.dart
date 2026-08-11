@@ -71,9 +71,14 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
     if (!state.hasMore || state.isLoadingMore || state.isLoading) return;
     state = state.copyWith(isLoadingMore: true);
     try {
+      // bypassCache: true — igual que load(). Sin esto, páginas 2+ quedaban
+      // cacheadas 6h (cache_config.dart), así que precio/stock editados en
+      // un perfume fuera de la primera página podían tardar hasta 6h en
+      // reflejarse al armar o convertir una cotización.
       final page = await _repo.getCatalogo(
         limit:  _pageSize,
         offset: state.perfumes.length,
+        bypassCache: true,
       );
       state = state.copyWith(
         perfumes:      [...state.perfumes, ...page.items],
@@ -87,6 +92,20 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
   }
 
   Future<void> refresh() => load();
+
+  /// Carga todas las páginas restantes (usado por selectores que necesitan
+  /// el catálogo completo para buscar/filtrar, ej. nueva cotización).
+  Future<void> loadAll() async {
+    while (state.isLoading || state.isLoadingMore) {
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    // loadMore() no baja hasMore cuando falla — sin este chequeo, un error
+    // de red (offline, backend caído) deja hasMore=true para siempre y este
+    // while reintenta sin límite ni espera, martillando el backend.
+    while (state.hasMore && state.error == null) {
+      await loadMore();
+    }
+  }
 }
 
 final catalogoProvider = NotifierProvider<CatalogoNotifier, CatalogoState>(
@@ -108,15 +127,19 @@ final perfumeDetalleProvider = FutureProvider.family<Perfume, String>((ref, id) 
 // ── Mapa completo id → Perfume (para lookup en ventas/historial) ──────────────
 // Normaliza el id a entero ("10.0" → "10") para que coincida con el id de ventas.
 
-String _normalizeId(String id) {
+String normalizeId(String id) {
   final n = double.tryParse(id);
   return n != null ? n.toInt().toString() : id;
 }
 
 final perfumesMapProvider = FutureProvider<Map<String, Perfume>>((ref) async {
   final repo = ref.watch(catalogoRepositoryProvider);
-  final page = await repo.getCatalogo(limit: 500);
+  // bypassCache: true — el cache HTTP de 6h (cache_config.dart) puede quedar
+  // desactualizado si se agregan perfumes nuevos al catálogo; sin esto,
+  // perfumes con ID reciente no resuelven nombre en ventas/estadísticas
+  // hasta que expire el cache.
+  final page = await repo.getCatalogo(limit: 500, bypassCache: true);
   return {
-    for (final p in page.items) _normalizeId(p.idPerfume): p,
+    for (final p in page.items) normalizeId(p.idPerfume): p,
   };
 });

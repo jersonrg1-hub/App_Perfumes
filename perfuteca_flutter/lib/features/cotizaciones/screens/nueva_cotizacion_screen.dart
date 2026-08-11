@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/cotizaciones/providers/nueva_cotizacion_provider.dart';
 import 'package:perfuteca/features/ventas/screens/cotizaciones_hoy_screen.dart';
@@ -20,7 +20,10 @@ const _kPage   = Duration(milliseconds: 300);
 String _fmtPrecio(double p) =>
     p == p.truncateToDouble() ? p.toInt().toString() : p.toStringAsFixed(2);
 
-double _round10(double p) => (p * 10).round() / 10.0;
+// Quita un '@' inicial si el usuario lo tipeó al guardar el alias — evita
+// mostrar '@@alias' cuando se le antepone el ícono/prefijo '@' en UI.
+String _sinArroba(String alias) =>
+    alias.startsWith('@') ? alias.substring(1) : alias;
 
 class NuevaCotizacionScreen extends ConsumerStatefulWidget {
   const NuevaCotizacionScreen({super.key});
@@ -32,7 +35,18 @@ class NuevaCotizacionScreen extends ConsumerStatefulWidget {
 
 class _NuevaCotizacionScreenState
     extends ConsumerState<NuevaCotizacionScreen> {
-  final _pageCtrl = PageController();
+  late final PageController _pageCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    // Si el tab se recrea (ej. usuario cambia de tab y vuelve) el estado del
+    // provider sobrevive pero un PageController nuevo arranca en página 0
+    // por defecto — lo sincronizamos con el paso guardado para no mostrar
+    // "Paso 1" en pantalla mientras el estado interno sigue en otro paso.
+    final pasoInicial = ref.read(nuevaCotizacionProvider).paso;
+    _pageCtrl = PageController(initialPage: pasoInicial - 1);
+  }
 
   @override
   void dispose() {
@@ -54,9 +68,14 @@ class _NuevaCotizacionScreenState
   Widget build(BuildContext context) {
     final state = ref.watch(nuevaCotizacionProvider);
 
-    // Cuando se registra exitosamente, salta a paso 3
+    // Cuando se registra exitosamente, salta a paso 3.
+    // OJO: paso==3 también se alcanza al pulsar "Revisar cotización" en el
+    // Paso 2, ANTES de guardar nada (state.registrada sigue null en ese
+    // caso) — chequear solo el paso invalidaba cotizacionesHoyProvider y
+    // re-animaba el PageView cada vez que el usuario solo iba a revisar,
+    // no cuando se registraba de verdad.
     ref.listen(nuevaCotizacionProvider, (prev, next) {
-      if (prev?.paso != 3 && next.paso == 3) {
+      if (prev?.registrada != next.registrada && next.registrada != null) {
         _pageCtrl.animateToPage(2, duration: _kPage, curve: Curves.easeInOut);
         ref.invalidate(cotizacionesHoyProvider);
       }
@@ -68,8 +87,13 @@ class _NuevaCotizacionScreenState
         _StepIndicator(
           paso:       state.paso,
           onTapPaso:  _irA,
-          celular:    state.celular,
+          identificador: state.celular.isNotEmpty ? state.celular : state.alias,
           cestaCount: state.cesta.length,
+          // Ya registrada — navegar a paso 1/2 desde acá resetea todo el
+          // estado (irPaso lo trata como "cotización nueva"). Bloqueamos los
+          // dots para que ese borrado no ocurra sin que el usuario lo pida
+          // explícitamente vía "Nueva cotización".
+          bloqueado:  state.registrada != null,
         ),
         Expanded(
           child: PageView(
@@ -82,10 +106,11 @@ class _NuevaCotizacionScreenState
                   ? _TicketExito(
                       idCotizacion: state.registrada!.idCotizacion,
                       celular:      state.celular,
+                      alias:        state.alias,
                       total:        state.totalConDelivery,
                       cesta:        state.cesta,
-                      conDelivery:  state.conDelivery,
-                      conDescuento: state.conDescuento,
+                      conDelivery:         state.conDelivery,
+                      indicesConDescuento: state.indicesConDescuento,
                       onNueva:      () {
                         ref.read(nuevaCotizacionProvider.notifier).reset();
                         _irA(1);
@@ -109,18 +134,23 @@ class _StepIndicator extends StatelessWidget {
   const _StepIndicator({
     required this.paso,
     required this.onTapPaso,
-    required this.celular,
+    required this.identificador,
     required this.cestaCount,
+    this.bloqueado = false,
   });
   final int                paso;
   final void Function(int) onTapPaso;
-  final String             celular;
+  final String             identificador; // celular o alias, lo que se haya llenado
   final int                cestaCount;
+  final bool                bloqueado;
 
   @override
   Widget build(BuildContext context) {
-    final step1Sub = paso > 1 && celular.length >= 4
-        ? '···${celular.substring(celular.length - 4)}'
+    final esNumerico = RegExp(r'^\d+$').hasMatch(identificador);
+    final step1Sub = paso > 1 && identificador.length >= 4
+        ? (esNumerico
+            ? '···${identificador.substring(identificador.length - 4)}'
+            : '@${_sinArroba(identificador)}')
         : null;
     final step2Sub = paso > 2 && cestaCount > 0
         ? '$cestaCount ítem${cestaCount != 1 ? 's' : ''}'
@@ -134,11 +164,11 @@ class _StepIndicator extends StatelessWidget {
         children: [
           _Dot(n: 1, label: 'Celular',   sublabel: step1Sub,
               activo: paso >= 1, actual: paso == 1,
-              onTap: paso > 1 ? () => onTapPaso(1) : null),
+              onTap: paso > 1 && !bloqueado ? () => onTapPaso(1) : null),
           _Linea(activa: paso >= 2),
           _Dot(n: 2, label: 'Perfumes',  sublabel: step2Sub,
               activo: paso >= 2, actual: paso == 2,
-              onTap: paso > 2 ? () => onTapPaso(2) : null),
+              onTap: paso > 2 && !bloqueado ? () => onTapPaso(2) : null),
           _Linea(activa: paso >= 3),
           _Dot(n: 3, label: 'Confirmar', sublabel: null,
               activo: paso >= 3, actual: paso == 3,
@@ -242,6 +272,80 @@ class _Linea extends StatelessWidget {
       );
 }
 
+// ── Toggle celular / alias (mutuamente excluyentes) ───────────────────────────
+
+class _ModoIdentificadorToggle extends StatelessWidget {
+  const _ModoIdentificadorToggle({required this.modo, required this.onChanged});
+  final String modo;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppColors.primaryPale,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        ),
+        child: Row(
+          children: [
+            Expanded(child: _ModoBoton(
+              label: 'Celular',
+              icon:  Icons.phone_outlined,
+              activo: modo == 'celular',
+              onTap:  () => onChanged('celular'),
+            )),
+            Expanded(child: _ModoBoton(
+              label: 'Alias',
+              icon:  Icons.alternate_email_rounded,
+              activo: modo == 'alias',
+              onTap:  () => onChanged('alias'),
+            )),
+          ],
+        ),
+      );
+}
+
+class _ModoBoton extends StatelessWidget {
+  const _ModoBoton({
+    required this.label,
+    required this.icon,
+    required this.activo,
+    required this.onTap,
+  });
+  final String       label;
+  final IconData     icon;
+  final bool         activo;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        child: AnimatedContainer(
+          duration: _kFast,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: activo ? AppColors.primary : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 15,
+                  color: activo ? Colors.white : AppColors.textMuted),
+              const SizedBox(width: 6),
+              Text(label,
+                  style: TextStyle(
+                    fontSize:   13,
+                    fontWeight: FontWeight.w700,
+                    color: activo ? Colors.white : AppColors.textMuted,
+                  )),
+            ],
+          ),
+        ),
+      );
+}
+
 // ── Paso 1: Celular ───────────────────────────────────────────────────────────
 
 class _Paso1 extends ConsumerStatefulWidget {
@@ -267,6 +371,7 @@ String _normalizarCelular(String input) {
 
 class _Paso1State extends ConsumerState<_Paso1> {
   late final TextEditingController _celCtrl;
+  late final TextEditingController _aliasCtrl;
 
   @override
   void initState() {
@@ -274,11 +379,15 @@ class _Paso1State extends ConsumerState<_Paso1> {
     _celCtrl = TextEditingController(
       text: ref.read(nuevaCotizacionProvider).celular,
     );
+    _aliasCtrl = TextEditingController(
+      text: ref.read(nuevaCotizacionProvider).alias,
+    );
   }
 
   @override
   void dispose() {
     _celCtrl.dispose();
+    _aliasCtrl.dispose();
     super.dispose();
   }
 
@@ -298,6 +407,12 @@ class _Paso1State extends ConsumerState<_Paso1> {
     final state    = ref.watch(nuevaCotizacionProvider);
     final notifier = ref.read(nuevaCotizacionProvider.notifier);
 
+    // Mantiene los controllers sincronizados con el estado — necesario para
+    // que al cambiar de modo (celular <-> alias) el campo oculto se vacíe
+    // visualmente, ya que setModo() limpia el campo del modo anterior.
+    if (_celCtrl.text != state.celular) _celCtrl.text = state.celular;
+    if (_aliasCtrl.text != state.alias) _aliasCtrl.text = state.alias;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -314,39 +429,77 @@ class _Paso1State extends ConsumerState<_Paso1> {
             ],
           ),
           const SizedBox(height: AppSpacing.xl),
-          Text(
-            'Celular del cliente',
-            style: AppTextStyles.body.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
+          _ModoIdentificadorToggle(
+            modo: state.modo,
+            onChanged: notifier.setModo,
           ),
-          const SizedBox(height: AppSpacing.sm),
-          TextFormField(
-            controller: _celCtrl,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              prefixIcon: const Icon(Icons.phone_outlined, size: 18),
-              hintText: '+51 987654321 o 987654321',
-              helperText: 'Acepta formato WhatsApp, con o sin código de país',
-              counterText: '',
-              filled: true,
-              fillColor: AppColors.primaryPale,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: BorderSide.none,
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: const BorderSide(color: AppColors.primaryLight),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          const SizedBox(height: AppSpacing.lg),
+          if (state.modo == 'celular') ...[
+            Text(
+              'Celular del cliente',
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
               ),
             ),
-            onChanged: (v) => _onCelularChanged(v, notifier),
-          ),
+            const SizedBox(height: AppSpacing.sm),
+            TextFormField(
+              controller: _celCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+                hintText: '+51 987654321 o 987654321',
+                helperText: 'Acepta formato WhatsApp, con o sin código de país',
+                counterText: '',
+                filled: true,
+                fillColor: AppColors.primaryPale,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.primaryLight),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+              onChanged: (v) => _onCelularChanged(v, notifier),
+            ),
+          ] else ...[
+            Text(
+              'Alias de WhatsApp del cliente',
+              style: AppTextStyles.body.copyWith(
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            TextFormField(
+              controller: _aliasCtrl,
+              decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
+                hintText: '@perfutecalima',
+                filled: true,
+                fillColor: AppColors.primaryPale,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.primaryLight),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+                ),
+              ),
+              onChanged: notifier.setAlias,
+            ),
+          ],
           const SizedBox(height: AppSpacing.xl),
           SizedBox(
             width: double.infinity,
@@ -381,6 +534,16 @@ class _Paso2State extends ConsumerState<_Paso2> {
   final _searchCtrl = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    // El buscador filtra sobre lo ya cargado; sin esto solo se ve
+    // la primera página (50 perfumes) del catálogo paginado.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => ref.read(catalogoProvider.notifier).loadAll(),
+    );
+  }
+
+  @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
@@ -406,6 +569,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
           _CestaPanel(
             cesta:    state.cesta,
             total:    state.total,
+            indicesConDescuento: state.indicesConDescuento,
             onQuitar: (i) => notifier.quitarItem(i),
           ),
 
@@ -701,7 +865,9 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
 
   Future<void> _onTap() async {
     await _ctrl.forward();
+    if (!mounted) return;
     await _ctrl.reverse();
+    if (!mounted) return;
     widget.onTap();
   }
 
@@ -755,13 +921,20 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
 
 // ── Paso 3: Resumen + confirmar ───────────────────────────────────────────────
 
-class _Paso3 extends ConsumerWidget {
+class _Paso3 extends ConsumerStatefulWidget {
   const _Paso3({required this.onAnterior, required this.onGuardar});
   final VoidCallback onAnterior;
   final VoidCallback onGuardar;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_Paso3> createState() => _Paso3State();
+}
+
+class _Paso3State extends ConsumerState<_Paso3> {
+  bool _modoSeleccion = false;
+
+  @override
+  Widget build(BuildContext context) {
     final state    = ref.watch(nuevaCotizacionProvider);
     final notifier = ref.read(nuevaCotizacionProvider.notifier);
 
@@ -781,11 +954,17 @@ class _Paso3 extends ConsumerWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.phone_outlined,
-                    size: 18, color: AppColors.primary),
+                Icon(
+                  state.celular.isNotEmpty
+                      ? Icons.phone_outlined
+                      : Icons.alternate_email_rounded,
+                  size: 18, color: AppColors.primary,
+                ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  state.celular,
+                  state.celular.isNotEmpty
+                      ? state.celular
+                      : '@${_sinArroba(state.alias)}',
                   style: AppTextStyles.body.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -796,15 +975,24 @@ class _Paso3 extends ConsumerWidget {
           ),
 
           const SizedBox(height: AppSpacing.md),
-          Text(
-            'Perfumes cotizados',
-            style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Perfumes cotizados',
+                style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _modoSeleccion = !_modoSeleccion),
+                child: Text(_modoSeleccion ? 'Listo' : 'Elegir productos'),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm),
 
           // Items de la cesta
           ...state.cesta.asMap().entries.map((e) {
-            final notifier = ref.read(nuevaCotizacionProvider.notifier);
+            final seleccionado = state.itemConDescuento(e.key);
             return Dismissible(
               key: ValueKey('${e.value.perfume.idPerfume}_${e.value.ml}_${e.key}'),
               direction: DismissDirection.endToStart,
@@ -834,14 +1022,27 @@ class _Paso3 extends ConsumerWidget {
               ),
               child: Column(
                 children: [
-                  ItemCestaCard(
-                    item:           e.value,
-                    index:          e.key,
-                    onQuitar:       () => notifier.quitarItem(e.key),
-                    nombreFontSize: 15,
-                    marcaFontSize:  12,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ItemCestaCard(
+                          item:           e.value,
+                          index:          e.key,
+                          onQuitar:       () => notifier.quitarItem(e.key),
+                          nombreFontSize: 15,
+                          marcaFontSize:  12,
+                        ),
+                      ),
+                      if (_modoSeleccion) ...[
+                        const SizedBox(width: AppSpacing.sm),
+                        _DescuentoChip(
+                          seleccionado: seleccionado,
+                          onTap: () => notifier.toggleItemDescuento(e.key),
+                        ),
+                      ],
+                    ],
                   ),
-                  if (state.conDescuento)
+                  if (seleccionado)
                     Padding(
                       padding: const EdgeInsets.only(
                           bottom: AppSpacing.sm, right: AppSpacing.md),
@@ -857,7 +1058,7 @@ class _Paso3 extends ConsumerWidget {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '→  S/ ${_fmtPrecio(state.precioEfectivo(e.value.precio))}',
+                            '→  S/ ${_fmtPrecio(state.precioEfectivoIndex(e.key, e.value.precio))}',
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.success,
                               fontWeight: FontWeight.w700,
@@ -921,11 +1122,11 @@ class _Paso3 extends ConsumerWidget {
                               ),
                             ),
                             Text(
-                              state.conDescuento
+                              state.algunDescuento
                                   ? 'ahorras S/ ${state.ahorro.toStringAsFixed(2)}'
                                   : 'aplica 10% sobre cada perfume',
                               style: AppTextStyles.bodySmall.copyWith(
-                                color: state.conDescuento
+                                color: state.algunDescuento
                                     ? AppColors.success
                                     : AppColors.textMuted,
                               ),
@@ -1042,20 +1243,20 @@ class _Paso3 extends ConsumerWidget {
                       ),
                     ),
                     Text(
-                      state.conDescuento
+                      state.algunDescuento
                           ? 'S/ ${state.subtotalOriginal.toStringAsFixed(2)}'
                           : 'S/ ${state.subtotal.toStringAsFixed(2)}',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        decoration: state.conDescuento ? TextDecoration.lineThrough : null,
+                        decoration: state.algunDescuento ? TextDecoration.lineThrough : null,
                         decorationColor: Colors.white54,
                       ),
                     ),
                   ],
                 ),
-                if (state.conDescuento) ...[
+                if (state.algunDescuento) ...[
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1153,13 +1354,15 @@ class _Paso3 extends ConsumerWidget {
           Row(
             children: [
               OutlinedButton(
-                onPressed: state.registrando ? null : onAnterior,
+                onPressed: state.registrando ? null : widget.onAnterior,
                 child: const Text('Editar'),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: state.registrando ? null : onGuardar,
+                  onPressed: state.registrando || !state.cestaValida
+                      ? null
+                      : widget.onGuardar,
                   icon: state.registrando
                       ? const SizedBox(
                           width: 16, height: 16,
@@ -1183,24 +1386,59 @@ class _Paso3 extends ConsumerWidget {
   }
 }
 
+// ── Chip de descuento por item ───────────────────────────────────────────────
+
+class _DescuentoChip extends StatelessWidget {
+  const _DescuentoChip({required this.seleccionado, required this.onTap});
+  final bool         seleccionado;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: _kFast,
+          padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm, vertical: 6),
+          decoration: BoxDecoration(
+            color: seleccionado ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            border: Border.all(
+              color: seleccionado ? AppColors.primary : AppColors.primaryLight,
+              width: seleccionado ? 1.5 : 1,
+            ),
+          ),
+          child: Text(
+            '10%',
+            style: AppTextStyles.priceLabel.copyWith(
+              color: seleccionado ? Colors.white : AppColors.textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+}
+
 // ── Ticket de éxito ───────────────────────────────────────────────────────────
 
 class _TicketExito extends StatefulWidget {
   const _TicketExito({
     required this.idCotizacion,
     required this.celular,
+    required this.alias,
     required this.total,
     required this.cesta,
     required this.conDelivery,
-    required this.conDescuento,
+    required this.indicesConDescuento,
     required this.onNueva,
   });
   final String          idCotizacion;
   final String          celular;
+  final String?         alias;
   final double          total;
   final List<ItemCesta> cesta;
   final bool            conDelivery;
-  final bool            conDescuento;
+  final Set<int>        indicesConDescuento;
   final VoidCallback    onNueva;
 
   @override
@@ -1230,22 +1468,27 @@ class _TicketExitoState extends State<_TicketExito>
 
   Future<void> _abrirWhatsApp() async {
     const sep = '────────────────────';
+    const numeros = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
     final bloques = <String>[];
+    var ahorroTotal = 0.0;
     for (var idx = 0; idx < widget.cesta.length; idx++) {
       final i = widget.cesta[idx];
       final nombreCompleto = '${i.perfume.marca} ${i.perfume.nombre}'.trim();
-      final precioMostrado = widget.conDescuento
-          ? _round10(i.precio * 0.90)
-          : i.precio;
+      final tieneDescuento = widget.indicesConDescuento.contains(idx);
+      final precioMostrado =
+          tieneDescuento ? precioConDescuento(i.precio) : i.precio;
+      if (tieneDescuento) ahorroTotal += i.precio - precioMostrado;
+      final precioLine = tieneDescuento
+          ? '~S/ ${i.precio.toStringAsFixed(2)}~  ➡️ *S/ ${precioMostrado.toStringAsFixed(2)}*'
+          : '*S/ ${precioMostrado.toStringAsFixed(2)}*';
+      final numero = idx < numeros.length ? numeros[idx] : '*${idx + 1}.*';
       bloques.add(
-        '*${idx + 1}.* 🌸 *$nombreCompleto*\n'
-        '     📏 ${i.ml}ml  ·  💰 *S/ ${precioMostrado.toStringAsFixed(2)}*',
+        '$numero 🌸 *$nombreCompleto*\n'
+        '     📏 ${i.ml}ml  ·  💰 $precioLine',
       );
     }
-    final subtotalOriginal =
-        widget.cesta.fold(0.0, (s, i) => s + i.precio);
-    final descuentoLine = widget.conDescuento
-        ? '🎉 *Descuento 10%* (precio regular S/ ${subtotalOriginal.toStringAsFixed(2)})\n'
+    final descuentoLine = widget.indicesConDescuento.isNotEmpty
+        ? '🎉 *Descuento 10%* — ahorras S/ ${ahorroTotal.toStringAsFixed(2)}\n'
         : '';
     final deliveryLine = widget.conDelivery ? '🛵 Delivery: +S/ 10.00\n' : '';
     final texto =
@@ -1253,13 +1496,10 @@ class _TicketExitoState extends State<_TicketExito>
         '${bloques.join('\n\n')}\n\n'
         '$sep\n$descuentoLine$deliveryLine'
         '💰 *Total: S/ ${widget.total.toStringAsFixed(2)}*\n$sep\n\n'
-        '_Si confirmas, te envío los datos de Yape/Plin para que puedas apartar 💛_';
+        '_Si confirmas, te envío los datos de Yape para que puedas apartar 💛_';
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
-    final prefijo = numero.startsWith('51') ? numero : '51$numero';
-    final uri = Uri.parse(
-        'https://wa.me/$prefijo?text=${Uri.encodeComponent(texto)}');
     try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+      await abrirWhatsAppBusiness(celular: numero, alias: widget.alias, mensaje: texto);
     } catch (_) {}
   }
 
@@ -1301,9 +1541,11 @@ class _TicketExitoState extends State<_TicketExito>
             _ReceiptCard(
               idCotizacion: widget.idCotizacion,
               celular:      widget.celular,
+              alias:        widget.alias,
               cesta:        widget.cesta,
               conDelivery:  widget.conDelivery,
               total:        widget.total,
+              indicesConDescuento: widget.indicesConDescuento,
             ),
             const SizedBox(height: AppSpacing.lg),
             SizedBox(
@@ -1347,10 +1589,12 @@ class _CestaPanel extends StatefulWidget {
     required this.cesta,
     required this.total,
     required this.onQuitar,
+    this.indicesConDescuento = const {},
   });
   final List<ItemCesta>    cesta;
   final double             total;
   final void Function(int) onQuitar;
+  final Set<int>           indicesConDescuento;
 
   @override
   State<_CestaPanel> createState() => _CestaPanelState();
@@ -1445,13 +1689,38 @@ class _CestaPanelState extends State<_CestaPanel> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        'S/ ${e.value.precio.toStringAsFixed(2)}',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      Builder(builder: (context) {
+                        final conDescuento =
+                            widget.indicesConDescuento.contains(e.key);
+                        final precioMostrado = conDescuento
+                            ? precioConDescuento(e.value.precio)
+                            : e.value.precio;
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (conDescuento) ...[
+                              Text(
+                                'S/ ${e.value.precio.toStringAsFixed(2)}',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textMuted,
+                                  decoration: TextDecoration.lineThrough,
+                                  fontSize: 10,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              'S/ ${precioMostrado.toStringAsFixed(2)}',
+                              style: AppTextStyles.bodySmall.copyWith(
+                                color: conDescuento
+                                    ? AppColors.success
+                                    : AppColors.primaryDark,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        );
+                      }),
                       IconButton(
                         icon: const Icon(Icons.close_rounded,
                             size: 16, color: AppColors.error),
@@ -1477,15 +1746,19 @@ class _ReceiptCard extends StatelessWidget {
   const _ReceiptCard({
     required this.idCotizacion,
     required this.celular,
+    this.alias,
     required this.cesta,
     required this.conDelivery,
     required this.total,
+    this.indicesConDescuento = const {},
   });
   final String          idCotizacion;
   final String          celular;
+  final String?         alias;
   final List<ItemCesta> cesta;
   final bool            conDelivery;
   final double          total;
+  final Set<int>        indicesConDescuento;
 
   @override
   Widget build(BuildContext context) {
@@ -1546,14 +1819,20 @@ class _ReceiptCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                // Celular
+                // Celular o alias — lo que se haya guardado
                 Row(
                   children: [
-                    const Icon(Icons.phone_outlined,
-                        size: 12, color: AppColors.textMuted),
+                    Icon(
+                      celular.isNotEmpty
+                          ? Icons.phone_outlined
+                          : Icons.alternate_email_rounded,
+                      size: 12, color: AppColors.textMuted,
+                    ),
                     const SizedBox(width: 5),
                     Text(
-                      celular,
+                      celular.isNotEmpty
+                          ? celular
+                          : '@${_sinArroba(alias ?? '')}',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -1566,7 +1845,12 @@ class _ReceiptCard extends StatelessWidget {
                 const _DashedDivider(),
                 const SizedBox(height: AppSpacing.sm),
                 // items más compactos (bottom: 5 en vez de 8)
-                ...cesta.map((i) => Padding(
+                ...cesta.asMap().entries.map((e) {
+                  final i = e.value;
+                  final conDescuento = indicesConDescuento.contains(e.key);
+                  final precioMostrado =
+                      conDescuento ? precioConDescuento(i.precio) : i.precio;
+                  return Padding(
                   padding: const EdgeInsets.only(bottom: 5),
                   child: Row(
                     children: [
@@ -1583,17 +1867,31 @@ class _ReceiptCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (conDescuento) ...[
+                        Text(
+                          'S/ ${i.precio.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                            decoration: TextDecoration.lineThrough,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                      ],
                       Text(
-                        'S/ ${i.precio.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        'S/ ${precioMostrado.toStringAsFixed(2)}',
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
+                          color: conDescuento
+                              ? AppColors.success
+                              : AppColors.textPrimary,
                         ),
                       ),
                     ],
                   ),
-                )),
+                  );
+                }),
                 if (conDelivery)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 5),

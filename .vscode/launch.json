@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "FastAPI: uvicorn (reload)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": ["backend.api.main:app", "--reload", "--port", "8000"],
+            "cwd": "${workspaceFolder}/pythonProject",
+            "python": "${workspaceFolder}/pythonProject/.venv_n/Scripts/python.exe",
+            "jinja": true,
+            "justMyCode": true
+        },
+        {
+            "name": "Pytest: archivo actual",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": ["${file}", "-v"],
+            "cwd": "${workspaceFolder}/pythonProject",
+            "python": "${workspaceFolder}/pythonProject/.venv_n/Scripts/python.exe",
+            "justMyCode": true
+        }
+    ]
+}

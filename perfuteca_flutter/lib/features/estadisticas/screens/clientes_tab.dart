@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
+import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
@@ -71,29 +72,10 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
   Widget build(BuildContext context) {
     return ref.watch(clientesStatsProvider).when(
       loading: () => const _ClientesSkeleton(),
-      error: (e, _) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textFaint),
-              const SizedBox(height: AppSpacing.md),
-              Text('Error al cargar clientes',
-                  style: AppTextStyles.body, textAlign: TextAlign.center),
-              const SizedBox(height: AppSpacing.xs),
-              Text('Verifica tu conexión e intenta de nuevo',
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: AppSpacing.lg),
-              FilledButton.icon(
-                onPressed: () => ref.invalidate(clientesStatsProvider),
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
+      error: (e, _) => EstadisticasErrorView(
+        title: 'Error al cargar clientes',
+        subtitle: 'Verifica tu conexión e intenta de nuevo',
+        onRetry: () => ref.invalidate(clientesStatsProvider),
       ),
       data: (clientes) {
         final ordenados = _sorted(clientes);
@@ -239,7 +221,7 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
                         horizontal: AppSpacing.md,
                       ),
                       itemCount: filtrados.length,
-                      itemBuilder: (_, i) => _AnimatedListItem(
+                      itemBuilder: (_, i) => FadeSlideListItem(
                             index: i,
                             child: _ClienteCard(cliente: filtrados[i]),
                           ),
@@ -810,65 +792,10 @@ class _PedidoRow extends ConsumerWidget {
   }
 }
 
-// ── Stagger animation wrapper ─────────────────────────────────────────────────
-
-class _AnimatedListItem extends StatefulWidget {
-  const _AnimatedListItem({required this.index, required this.child});
-  final int    index;
-  final Widget child;
-
-  @override
-  State<_AnimatedListItem> createState() => _AnimatedListItemState();
-}
-
-class _AnimatedListItemState extends State<_AnimatedListItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double>   _fade;
-  late final Animation<Offset>   _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 0.06),
-      end:   Offset.zero,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    final delayMs = (widget.index * 40).clamp(0, 280);
-    Future.delayed(Duration(milliseconds: delayMs), () {
-      if (mounted) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-        opacity: _fade,
-        child: SlideTransition(position: _slide, child: widget.child),
-      );
-}
-
 // ── Skeleton clientes ─────────────────────────────────────────────────────────
 
 class _ClientesSkeleton extends StatelessWidget {
   const _ClientesSkeleton();
-
-  static Widget _box({double? w, required double h, double r = 8}) =>
-      Container(
-        width: w,
-        height: h,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(r),
-        ),
-      );
 
   Widget _clientCard() => Container(
         margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -890,17 +817,17 @@ class _ClientesSkeleton extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(
                 AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
             child: Row(children: [
-              _box(w: 88, h: 44, r: 10),
+              skeletonBox(width: 88, height: 44, radius: 10),
               const SizedBox(width: AppSpacing.sm),
-              Expanded(child: _box(h: 44, r: 10)),
+              Expanded(child: skeletonBox(height: 44, radius: 10)),
               const SizedBox(width: AppSpacing.sm),
-              _box(w: 88, h: 44, r: 10),
+              skeletonBox(width: 88, height: 44, radius: 10),
             ]),
           ),
           const SizedBox(height: AppSpacing.md),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: _box(h: 44, r: AppSpacing.radiusMd),
+            child: skeletonBox(height: 44, radius: AppSpacing.radiusMd),
           ),
           const SizedBox(height: AppSpacing.md),
           Expanded(

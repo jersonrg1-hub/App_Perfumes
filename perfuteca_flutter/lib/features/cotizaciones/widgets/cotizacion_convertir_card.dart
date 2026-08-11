@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:perfuteca/core/errors/app_exception.dart';
 import 'package:perfuteca/core/utils/validators.dart';
 import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
@@ -35,6 +36,28 @@ final cotizacionesAceptadasSesionProvider =
 String _sinArroba(String alias) =>
     alias.startsWith('@') ? alias.substring(1) : alias;
 
+// Marca la cotización como 'Aceptada'. Módulo-level y solo con
+// ProviderContainer + idCotizacion como dependencias — así lo puede llamar
+// tanto la card (al registrar) como el diálogo de éxito (al reintentar),
+// ninguno de los dos atado al ciclo de vida del otro.
+Future<bool> _marcarCotizacionAceptada(
+  ProviderContainer container,
+  String idCotizacion,
+) async {
+  try {
+    await container.read(cotizacionesRepositoryProvider).actualizarEstado(
+      idCotizacion: idCotizacion,
+      nuevoEstado:  'Aceptada',
+    );
+    container
+        .read(cotizacionesAceptadasSesionProvider.notifier)
+        .update((s) => {...s, idCotizacion});
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 class CotizacionConvertirCard extends ConsumerStatefulWidget {
   const CotizacionConvertirCard({super.key, required this.cotizacion});
   final CotizacionResponse cotizacion;
@@ -49,14 +72,9 @@ class _CotizacionConvertirCardState
   bool    _expandido       = false;
   bool    _registrando     = false;
   bool    _buscandoCliente = false;
-  bool    _exito           = false;
   bool    _clienteNuevo    = false;
   bool    _confirmando     = false;
-  bool    _sincronizando   = false;
-  bool    _estadoSincOk    = true;
   String?          _error;
-  String?          _idVenta;
-  List<ItemCesta>  _cestaRegistrada = [];
 
   final _compradorCtrl     = TextEditingController();
   final _direccionCtrl     = TextEditingController();
@@ -171,14 +189,31 @@ class _CotizacionConvertirCardState
   }
 
   Future<void> _registrar() async {
+    // Capturados ANTES de cualquier await: con 6+ perfumes, registrarVenta()
+    // puede tardar varios segundos (Sheets), tiempo suficiente para que la
+    // lista se reordene/refresque y esta tarjeta se desmonte a mitad del
+    // registro. `ref` deja de ser usable tras dispose(), pero el container
+    // y el Navigator del tab siguen vivos — así el PUT 'Aceptada', los
+    // invalidate() de abajo y la confirmación al usuario NO se saltan solo
+    // porque el widget ya no está en pantalla.
+    final container  = ProviderScope.containerOf(context, listen: false);
+    final navigator  = Navigator.of(context);
+    // Snapshot de los campos del form — leerlos de los controllers después
+    // de un await es fragil si la card se desmonta (dispose() ya corrió).
+    final compradorSnap = _compradorCtrl.text.trim();
+    final direccionSnap = _direccionCtrl.text.trim();
+    final distritoSnap  = _distritoCtrl.text.trim();
+    final celularSnap   = _celularResuelto;
+    final tipoEnvioSnap = _tipoEnvio;
+    final metodoPagoSnap = _metodoPago;
     setState(() { _registrando = true; _error = null; });
     // catalogoProvider pagina de a 50 — leer su estado actual sin más no
     // garantiza tener el catálogo completo (ej. si el usuario entró directo
     // a esta pantalla sin pasar antes por "Nueva cotización", que es quien
     // normalmente dispara loadAll()). Forzamos carga completa aquí para que
     // el matching de perfumes no falle silenciosamente por catálogo a medias.
-    await ref.read(catalogoProvider.notifier).loadAll();
-    final catalogo  = ref.read(catalogoProvider).perfumes;
+    await container.read(catalogoProvider.notifier).loadAll();
+    final catalogo  = container.read(catalogoProvider).perfumes;
     final parseada  = _parsearCesta(widget.cotizacion.items ?? '', catalogo, _metodoPago);
     final cesta     = parseada.items;
 
@@ -206,62 +241,145 @@ class _CotizacionConvertirCardState
 
     try {
       final registrada =
-          await ref.read(ventasRepositoryProvider).registrarVenta(
-        comprador: _compradorCtrl.text.trim(),
-        celular:   _celularResuelto,
-        alias:     widget.cotizacion.alias,
-        direccion: _direccionCtrl.text.trim(),
-        distrito:  _distritoCtrl.text.trim(),
-        tipoEnvio: _tipoEnvio,
-        fecha:     DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        items: cesta.map((i) => i.toApiMap()).toList(),
+          await container.read(ventasRepositoryProvider).registrarVenta(
+        comprador:    compradorSnap,
+        celular:      celularSnap,
+        alias:        widget.cotizacion.alias,
+        direccion:    direccionSnap,
+        distrito:     distritoSnap,
+        tipoEnvio:    tipoEnvioSnap,
+        fecha:        DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        items:        cesta.map((i) => i.toApiMap()).toList(),
+        idCotizacion: widget.cotizacion.idCotizacion,
       );
-      ref.read(catalogoProvider.notifier).load();
-      if (!mounted) return;
-      setState(() {
-        _registrando     = false;
-        _exito           = true;
-        _idVenta         = registrada.idCompra;
-        _cestaRegistrada = cesta;
-      });
-      // Marcar 'Aceptada' ANTES de invalidar las listas de cotizaciones — si
-      // se invalida primero, el refetch puede llegar antes que este PUT
-      // termine y traer la cotización todavía como 'Enviado'.
-      await _sincronizarEstado();
-      ref.invalidate(historialProvider);
-      ref.invalidate(pendientesProvider);
-      ref.invalidate(cotizacionesHoyProvider);
-      ref.invalidate(cotizaciones14dProvider);
-      ref.invalidate(resumenBackendProvider);
-      ref.invalidate(resumenStatsProvider);
-      ref.invalidate(semanaStatsProvider);
-      ref.invalidate(ventasParaStatsProvider);
-      ref.invalidate(tamaniosStatsProvider);
-      ref.invalidate(clientesStatsProvider);
-      ref.invalidate(historicoBackendProvider);
-      ref.invalidate(historialGlobalProvider);
+      container.read(catalogoProvider.notifier).load();
+      // El back ya marcó la cotización 'Aceptada' atómicamente al crear la
+      // venta (dentro de su propio lock, antes de responder) — no hace
+      // falta un PUT separado desde acá. Un PUT redundante solo agrega una
+      // segunda oportunidad de fallar por una razón que no tiene nada que
+      // ver con si la cotización quedó bien marcada, y mostraría "no se
+      // pudo sincronizar" con el backend ya en el estado correcto.
+      // `registrada.warning` es la señal real: viene del back solo si algo
+      // no terminó de cerrar del lado del servidor.
+      final syncOk = registrada.warning == null;
+      container.read(cotizacionesAceptadasSesionProvider.notifier)
+          .update((s) => {...s, widget.cotizacion.idCotizacion});
+      // Solo la UI local depende de mounted — el resto (invalidar listas)
+      // debe correr siempre, la venta YA existe en el backend aunque esta
+      // tarjeta ya no esté en pantalla.
+      if (mounted) setState(() { _registrando = false; });
+      // Mostrar la confirmación (con el botón "Enviar a comunidad") en un
+      // diálogo aparte del árbol de esta card, SIEMPRE — no solo cuando
+      // mounted. ListView.builder reutiliza sus elementos por índice (no
+      // por key) cuando no se le da findChildIndexCallback; al invalidar
+      // las listas de cotizaciones más abajo, un reorden del historial
+      // puede resetear el estado local de esta card aunque el widget siga
+      // técnicamente montado — dejando el botón de WhatsApp inalcanzable.
+      // El diálogo (y su propio State interno) no dependen de ese árbol,
+      // así que sobreviven sin importar lo que la lista haga después.
+      if (navigator.mounted) {
+        _mostrarDialogoExito(
+          navigator.context,
+          container:  container,
+          idVenta:    registrada.idCompra,
+          cesta:      cesta,
+          comprador:  compradorSnap,
+          celular:    celularSnap,
+          tipoEnvio:  tipoEnvioSnap,
+          direccion:  direccionSnap,
+          distrito:   distritoSnap,
+          metodoPago: metodoPagoSnap,
+          estadoSincOkInicial: syncOk,
+        );
+      }
+      container.invalidate(historialProvider);
+      container.invalidate(pendientesProvider);
+      container.invalidate(cotizacionesHoyProvider);
+      container.invalidate(cotizaciones14dProvider);
+      container.invalidate(resumenBackendProvider);
+      container.invalidate(resumenStatsProvider);
+      container.invalidate(semanaStatsProvider);
+      container.invalidate(ventasParaStatsProvider);
+      container.invalidate(tamaniosStatsProvider);
+      container.invalidate(clientesStatsProvider);
+      container.invalidate(historicoBackendProvider);
+      container.invalidate(historialGlobalProvider);
     } catch (e) {
+      if (e is ServerException && e.statusCode == 409) {
+        // El back también devuelve 409 para una cotización 'Anulado' (no
+        // convertible) — no solo para una ya 'Aceptada'. Solo la primera
+        // debe marcarse como aceptada localmente; para la anulada, marcarla
+        // sería mentirle a la UI (quedaría con el badge verde "Aceptada"
+        // sobre una cotización que en realidad está cancelada). Se
+        // distingue por el mensaje porque el status code es el mismo para
+        // ambos casos.
+        if (e.message.contains('ya fue convertida')) {
+          container.read(cotizacionesAceptadasSesionProvider.notifier)
+              .update((s) => {...s, widget.cotizacion.idCotizacion});
+        }
+        // En ambos casos el estado mostrado quedó desactualizado — refrescar
+        // para traer el estado real (Aceptada o Anulado) en vez de reintentar.
+        container.invalidate(cotizacionesHoyProvider);
+        container.invalidate(cotizaciones14dProvider);
+      }
       if (!mounted) return;
       setState(
           () { _registrando = false; _error = e.toString(); _confirmando = false; });
     }
   }
 
-  Future<void> _sincronizarEstado() async {
-    if (!mounted) return;
-    setState(() { _sincronizando = true; });
-    try {
-      await ref.read(cotizacionesRepositoryProvider).actualizarEstado(
-        idCotizacion: widget.cotizacion.idCotizacion,
-        nuevoEstado:  'Aceptada',
-      );
-      ref
-          .read(cotizacionesAceptadasSesionProvider.notifier)
-          .update((s) => {...s, widget.cotizacion.idCotizacion});
-      if (mounted) setState(() { _sincronizando = false; _estadoSincOk = true; });
-    } catch (_) {
-      if (mounted) setState(() { _sincronizando = false; _estadoSincOk = false; });
-    }
+  // Diálogo de confirmación con el botón "Enviar a comunidad" — deliberadamente
+  // fuera del árbol de esta card (usa el context del Navigator del tab, no
+  // `context` de este State) para no depender de que la card siga montada ni
+  // de que ListView.builder haya conservado su posición/estado tras el
+  // reorden de la lista al invalidar los providers. Su contenido es un
+  // widget con State propio (_ExitoDialogContent) para que "Reintentar"
+  // funcione de verdad, también desacoplado de esta card.
+  void _mostrarDialogoExito(
+    BuildContext dialogContext, {
+    required ProviderContainer container,
+    required String idVenta,
+    required List<ItemCesta> cesta,
+    required String comprador,
+    required String celular,
+    required String tipoEnvio,
+    required String direccion,
+    required String distrito,
+    required String metodoPago,
+    required bool estadoSincOkInicial,
+  }) {
+    showDialog<void>(
+      context: dialogContext,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              onPressed: () => Navigator.of(ctx).pop(),
+            ),
+            _ExitoDialogContent(
+              container:    container,
+              idVenta:      idVenta,
+              idCotizacion: widget.cotizacion.idCotizacion,
+              comprador:    comprador,
+              celular:      celular,
+              tipoEnvio:    tipoEnvio,
+              direccion:    direccion,
+              distrito:     distrito,
+              metodoPago:   metodoPago,
+              itemsStr:     widget.cotizacion.items ?? '',
+              cesta:        cesta,
+              total:        widget.cotizacion.total ?? 0,
+              estadoSincOkInicial: estadoSincOkInicial,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -271,31 +389,6 @@ class _CotizacionConvertirCardState
                 .select((s) => s.contains(widget.cotizacion.idCotizacion))) ||
             widget.cotizacion.estado?.toLowerCase().startsWith('aceptad') ==
                 true;
-
-    if (_exito) {
-      return TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: 1.0),
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        builder: (context, v, child) => Opacity(opacity: v, child: child),
-        child: _CartaExito(
-          idVenta:      _idVenta ?? '',
-          idCotizacion: widget.cotizacion.idCotizacion,
-          comprador:    _compradorCtrl.text.trim(),
-          celular:      _celularResuelto,
-          tipoEnvio:    _tipoEnvio,
-          direccion:    _direccionCtrl.text.trim(),
-          distrito:     _distritoCtrl.text.trim(),
-          metodoPago:   _metodoPago,
-          itemsStr:     widget.cotizacion.items ?? '',
-          cesta:        _cestaRegistrada,
-          total:        widget.cotizacion.total ?? 0,
-          sincronizando: _sincronizando,
-          estadoSincOk:  _estadoSincOk,
-          onReintentarSinc: _sincronizarEstado,
-        ),
-      );
-    }
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 250),
@@ -744,6 +837,75 @@ class _ConfirmacionInline extends StatelessWidget {
             ]),
           ],
         ),
+      );
+}
+
+// ── Contenido del diálogo de éxito ─────────────────────────────────────────────
+// State propio, independiente de CotizacionConvertirCard — así "Reintentar"
+// sincronizar el estado funciona incluso si la card de la lista ya no existe.
+
+class _ExitoDialogContent extends StatefulWidget {
+  const _ExitoDialogContent({
+    required this.container,
+    required this.idVenta,
+    required this.idCotizacion,
+    required this.comprador,
+    required this.celular,
+    required this.tipoEnvio,
+    required this.direccion,
+    required this.distrito,
+    required this.metodoPago,
+    required this.itemsStr,
+    required this.cesta,
+    required this.total,
+    required this.estadoSincOkInicial,
+  });
+  final ProviderContainer container;
+  final String            idVenta;
+  final String            idCotizacion;
+  final String            comprador;
+  final String            celular;
+  final String            tipoEnvio;
+  final String            direccion;
+  final String            distrito;
+  final String            metodoPago;
+  final String            itemsStr;
+  final List<ItemCesta>   cesta;
+  final double            total;
+  final bool              estadoSincOkInicial;
+
+  @override
+  State<_ExitoDialogContent> createState() => _ExitoDialogContentState();
+}
+
+class _ExitoDialogContentState extends State<_ExitoDialogContent> {
+  late bool _estadoSincOk  = widget.estadoSincOkInicial;
+  bool      _sincronizando = false;
+
+  Future<void> _reintentar() async {
+    setState(() => _sincronizando = true);
+    final ok = await _marcarCotizacionAceptada(
+        widget.container, widget.idCotizacion);
+    if (!mounted) return;
+    setState(() { _sincronizando = false; _estadoSincOk = ok; });
+  }
+
+  @override
+  Widget build(BuildContext context) => _CartaExito(
+        idVenta:      widget.idVenta,
+        idCotizacion: widget.idCotizacion,
+        comprador:    widget.comprador,
+        celular:      widget.celular,
+        tipoEnvio:    widget.tipoEnvio,
+        direccion:    widget.direccion,
+        distrito:     widget.distrito,
+        metodoPago:   widget.metodoPago,
+        itemsStr:     widget.itemsStr,
+        cesta:        widget.cesta,
+        total:        widget.total,
+        sincronizando: _sincronizando,
+        estadoSincOk:  _estadoSincOk,
+        onReintentarSinc: _reintentar,
       );
 }
 

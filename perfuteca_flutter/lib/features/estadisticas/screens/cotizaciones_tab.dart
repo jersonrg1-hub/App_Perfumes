@@ -21,7 +21,7 @@ final cotizaciones14dProvider =
     FutureProvider<List<CotizacionResponse>>((ref) async {
   final ahora      = nowPeru();
   final hoy        = DateTime(ahora.year, ahora.month, ahora.day);
-  final limite     = ahora.subtract(const Duration(days: 14));
+  final limite     = hoy.subtract(const Duration(days: 14));
   final fechaDesde = DateFormat('yyyy-MM-dd').format(limite);
   final page       = await ref.read(cotizacionesRepositoryProvider)
       .getCotizaciones(limit: 200, fechaDesde: fechaDesde, bypassCache: true);
@@ -29,8 +29,7 @@ final cotizaciones14dProvider =
     if (c.fecha == null) return false;
     try {
       final fecha = DateTime.parse(c.fecha!);
-      return fecha.isAfter(limite.subtract(const Duration(days: 1))) &&
-          fecha.isBefore(hoy);
+      return !fecha.isBefore(limite) && fecha.isBefore(hoy);
     } catch (_) {
       return false;
     }
@@ -80,7 +79,9 @@ class _CotizacionesTabState extends ConsumerState<CotizacionesTab>
             .where((c) => c.estado?.toLowerCase() == 'anulado')
             .length;
         final pendientes = lista.length - aceptadas - anuladas;
-        final totalS     = lista.fold(0.0, (s, c) => s + (c.total ?? 0));
+        final totalS     = lista
+            .where((c) => c.estado?.toLowerCase() != 'anulado')
+            .fold(0.0, (s, c) => s + (c.total ?? 0));
 
         // items: String = header de día, CotizacionResponse = card
         final items = <Object>[];

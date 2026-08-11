@@ -91,6 +91,7 @@ class VentasRepository {
     required List<Map<String, dynamic>> items,
     String distrito = '',
     String? alias,
+    String? idCotizacion,
   }) async {
     try {
       final res = await _dio.post<Map<String, dynamic>>(
@@ -104,6 +105,7 @@ class VentasRepository {
           'fecha':      fecha,
           'items':      items,
           if (alias != null && alias.trim().isNotEmpty) 'alias': alias.trim(),
+          if (idCotizacion != null) 'id_cotizacion': idCotizacion,
         },
         // Escritura en Google Sheets (gspread) puede tardar más que el
         // receiveTimeout global — evita que el cliente marque error mientras

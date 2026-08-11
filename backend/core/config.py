@@ -57,6 +57,13 @@ COLUMNAS_VENTAS: list[str] = [
 # Posición 1-indexed de la columna "Estado" en COLUMNAS_VENTAS (para batch_update)
 COL_ESTADO_NUM: int = COLUMNAS_VENTAS.index("Estado") + 1
 
+COLUMNAS_COTIZACIONES: list[str] = [
+    "ID_Cotizacion", "Fecha", "Celular", "Items", "Total", "Estado", "alias",
+]
+
+# Posición 1-indexed de la columna "Estado" en COLUMNAS_COTIZACIONES
+COL_ESTADO_COT: int = COLUMNAS_COTIZACIONES.index("Estado") + 1
+
 # ── Stock ─────────────────────────────────────────────────────────────────────
 
 STOCK_CRITICO: int = 10   # ml — muestra badge rojo

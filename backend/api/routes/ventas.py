@@ -25,6 +25,7 @@ from backend.api.dependencies import (
     get_catalogo_cached,
     invalidar_cache_catalogo,
     invalidar_cache_ventas,
+    invalidar_cache_cotizaciones,
     verify_api_key,
     df_to_json_list,
     paginate_df,
@@ -41,13 +42,14 @@ from backend.api.models import (
 )
 from backend.repositories.sheets_repository import SheetsRepository, StockUpdateError
 from backend.services.costos_service import MERMA_PCT
-from backend.core.config import COL_ESTADO_NUM
+from backend.core.config import COL_ESTADO_NUM, COL_ESTADO_COT
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 logger = logging.getLogger("perfuteca.api")
 
-_ESTADOS_VALIDOS  = {"Pendiente", "Entregado", "Anulado"}
-_anulacion_lock   = threading.Lock()   # serializa check-update en anulaciones concurrentes
+_ESTADOS_VALIDOS   = {"Pendiente", "Entregado", "Anulado"}
+_anulacion_lock     = threading.Lock()   # serializa check-update en anulaciones concurrentes
+_conversion_lock    = threading.Lock()   # serializa check-y-crea al convertir cotización en venta
 
 
 @router.get(
@@ -173,9 +175,81 @@ def registrar_venta(body: VentaRequest, repo: SheetsRepository = Depends(get_rep
     Si el stock falla (StockUpdateError) la venta queda guardada
     y se retorna con 'warning' para que Flutter lo muestre al usuario.
     Invalida cache de ventas y catálogo.
+
+    Si body.id_cotizacion viene informado (conversión de cotización a venta):
+    bajo _conversion_lock se relee el estado fresco de esa cotización y se
+    rechaza con 409 si ya está 'Aceptada'. Esto cierra la ventana de doble
+    venta cuando el cliente reintenta tras un timeout de red — el intento
+    original pudo haber terminado bien en Sheets aunque la respuesta nunca
+    llegó a Flutter. La cotización se marca 'Aceptada' aquí mismo, dentro
+    del lock, inmediatamente después de crear la venta — no se depende de
+    que Flutter haga ese PUT por separado más tarde.
     """
     cesta = [item.model_dump() for item in body.items]
-    cliente = body.model_dump(exclude={"items"})
+    cliente = body.model_dump(exclude={"items", "id_cotizacion"})
+
+    if body.id_cotizacion:
+        with _conversion_lock:
+            df_cot = repo.fetch_quotes()  # fresco — el estado debe ser el actual
+            filas = df_cot[df_cot["ID_Cotizacion"].astype(str) == body.id_cotizacion]
+            if filas.empty:
+                raise HTTPException(status_code=404, detail="Cotización no encontrada")
+            fila_cot = filas.iloc[0]
+            estado_cot = str(fila_cot.get("Estado", "")).lower()
+            # Solo se puede convertir una cotización pendiente (Enviado/Confirmado).
+            # No solo bloquea reconvertir una ya 'Aceptada' — una 'Anulado' tampoco
+            # debe poder registrarse como venta: sin este chequeo,
+            # update_quote_status de abajo la reescribiría a 'Aceptada',
+            # revirtiendo silenciosamente la anulación.
+            if estado_cot not in ("enviado", "confirmado"):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Esta cotización no se puede convertir (estado actual: "
+                    f"{fila_cot.get('Estado', 'desconocido')})",
+                )
+
+            def _marcar_aceptada_o_advertir(warning_base: str) -> Optional[str]:
+                """Best-effort: la venta YA está guardada en este punto — un fallo
+                acá no debe convertirse en un 500 (el cliente reintentaría y
+                duplicaría la venta, justo lo que este flujo evita)."""
+                try:
+                    repo.update_quote_status(
+                        nuevo_estado="Aceptada",
+                        fila_sheet=int(fila_cot["fila_sheet"]),
+                        col_estado=COL_ESTADO_COT,
+                    )
+                    return None
+                except Exception as e:
+                    logger.error(
+                        f"[registrar_venta/conversion] no se pudo marcar "
+                        f"{body.id_cotizacion} como Aceptada: {e}"
+                    )
+                    return (
+                        f"{warning_base} Además, no se pudo marcar la cotización "
+                        f"{body.id_cotizacion} como aceptada — verifícalo manualmente."
+                    )
+
+            try:
+                id_compra = repo.register_complete_sale(cesta, cliente, MERMA_PCT)
+            except StockUpdateError as e:
+                warning = _marcar_aceptada_o_advertir(
+                    "Venta guardada pero el stock no pudo actualizarse."
+                ) or "Venta guardada pero el stock no pudo actualizarse"
+                invalidar_cache_ventas()
+                invalidar_cache_cotizaciones()
+                _estadisticas_mod._invalidar_cache_stats()
+                _estadisticas_mod._invalidar_cache_clientes()
+                return VentaRegistrada(id_compra=e.id_compra, warning=warning)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"Error al registrar venta: {e}")
+
+            warning = _marcar_aceptada_o_advertir("Venta registrada.")
+            invalidar_cache_ventas()
+            invalidar_cache_catalogo()
+            invalidar_cache_cotizaciones()
+            _estadisticas_mod._invalidar_cache_stats()
+            _estadisticas_mod._invalidar_cache_clientes()
+            return VentaRegistrada(id_compra=id_compra, warning=warning)
 
     try:
         id_compra = repo.register_complete_sale(cesta, cliente, MERMA_PCT)

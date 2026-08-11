@@ -166,6 +166,10 @@ class VentaRequest(BaseModel):
     fecha: str = Field(..., description="Fecha ISO: YYYY-MM-DD")
     items: list[ItemCestaAPI] = Field(..., min_length=1)
     alias: Optional[str] = None
+    id_cotizacion: Optional[str] = Field(
+        None, description="Si la venta proviene de convertir una cotización, "
+        "su ID — el back rechaza duplicados si esa cotización ya está 'Aceptada'"
+    )
 
 
 class VentaRegistrada(BaseModel):

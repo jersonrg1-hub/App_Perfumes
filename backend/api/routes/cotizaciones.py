@@ -32,10 +32,10 @@ from backend.api.models import (
 )
 from backend.repositories.sheets_repository import SheetsRepository
 from backend.services.cotizacion_service import aplicar_descuentos, calcular_total_cotizacion
+from backend.core.config import COL_ESTADO_COT
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
-_COL_ESTADO_COT = 6  # posicion 1-indexed de "Estado" en hoja Cotizaciones
 _ESTADOS_VALIDOS = {"Enviado", "Confirmado", "Anulado", "Aceptada"}
 
 
@@ -156,7 +156,7 @@ def actualizar_estado_cotizacion(
         repo.update_quote_status(
             nuevo_estado=body.nuevo_estado,
             fila_sheet=int(filas.iloc[0]),
-            col_estado=_COL_ESTADO_COT,
+            col_estado=COL_ESTADO_COT,
         )
         invalidar_cache_cotizaciones()
         return {"id_cotizacion": id_cotizacion, "estado": body.nuevo_estado}

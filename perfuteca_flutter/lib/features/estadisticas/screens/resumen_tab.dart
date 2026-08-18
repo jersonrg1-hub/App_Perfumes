@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/errors/app_exception.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
@@ -7,6 +8,7 @@ import 'package:perfuteca/features/ventas/screens/pendientes_screen.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 const _meses = [
@@ -31,9 +33,12 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
     super.build(context);
     return ref.watch(resumenStatsProvider).when(
       loading: () => const _ResumenSkeleton(),
-      error:   (e, _) => EstadisticasErrorView(
+      error:   (e, _) => AppErrorWidget(
+        error: e,
         title: 'Error al cargar estadísticas',
-        subtitle: e.toString(),
+        subtitle: e is AppException ? e.message : e.toString(),
+        icon: Icons.wifi_off_rounded,
+        subtle: true,
         onRetry: () {
           ref.invalidate(resumenBackendProvider);
           ref.invalidate(perfumesMapProvider);
@@ -97,7 +102,7 @@ class _ResumenBody extends ConsumerWidget {
             tappable:   s.ventasHoy > 0,
           ),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
 
         // ── Pendientes ────────────────────────────────────────────────────────
         if (s.pendientesCount > 0) ...[
@@ -119,12 +124,12 @@ class _ResumenBody extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
         ],
 
         // ── Este mes ─────────────────────────────────────────────────────────
         _HeroMesCard(stats: s, now: now),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
 
         // ── Esta semana ───────────────────────────────────────────────────────
         _SeccionLabel('Esta semana', icono: Icons.calendar_view_week_rounded),
@@ -134,14 +139,14 @@ class _ResumenBody extends ConsumerWidget {
           error:   (_, __) => const SizedBox.shrink(),
           data:    (sem) => _MiniSemanalCard(semana: sem),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
 
         // ── Más vendidos del mes ──────────────────────────────────────────────
         if (s.masVendidos.isNotEmpty) ...[
           _SeccionLabel('Más vendidos del mes', icono: Icons.star_rounded),
           const SizedBox(height: AppSpacing.sm),
           _TopPerfumesCard(perfumes: s.masVendidos.take(5).toList()),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
         ],
 
         // ── Mix del mes (tamaños) ─────────────────────────────────────────────
@@ -180,7 +185,7 @@ class _ResumenBody extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               _TamaniosChips(tamanios: tams),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
             ],
           ),
         ),

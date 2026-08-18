@@ -284,7 +284,7 @@ class _CotizacionesShimmer extends StatelessWidget {
               AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 80),
           itemCount: 5,
           itemBuilder: (_, i) => Container(
-            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
             height: i == 0 ? 64 : 88,
             decoration: BoxDecoration(
               color: AppColors.surface,

@@ -433,7 +433,7 @@ class _OrdenCardState extends State<_OrdenCard> {
           children: [
             // ── Fila principal ────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               child: Row(
                 children: [
                   Icon(icon, size: 18, color: color),

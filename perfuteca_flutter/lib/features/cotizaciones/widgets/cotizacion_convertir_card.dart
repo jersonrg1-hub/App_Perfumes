@@ -394,7 +394,7 @@ class _CotizacionConvertirCardState
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOutCubic,
       child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         decoration: BoxDecoration(
           color: esAceptada && !_expandido
               ? AppColors.successSurface
@@ -964,7 +964,7 @@ class _CartaExito extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: AppColors.successSurface,

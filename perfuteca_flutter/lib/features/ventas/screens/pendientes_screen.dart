@@ -499,7 +499,7 @@ class _OrdenCardState extends ConsumerState<_OrdenCard> {
       child: Stack(
         children: [
           Container(
-            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
             decoration: BoxDecoration(
               color: widget.seleccionado
                   ? AppColors.primaryPale
@@ -1057,7 +1057,7 @@ class _PendientesShimmer extends StatelessWidget {
               horizontal: AppSpacing.md, vertical: AppSpacing.sm),
           itemCount: 4,
           itemBuilder: (_, __) => Container(
-            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
             height: 160,
             decoration: BoxDecoration(
               color: AppColors.surface,

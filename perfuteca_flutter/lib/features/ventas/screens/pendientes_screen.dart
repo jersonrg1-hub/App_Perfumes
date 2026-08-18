@@ -70,6 +70,10 @@ class PendientesScreen extends ConsumerStatefulWidget {
 
 class _PendientesScreenState extends ConsumerState<PendientesScreen> {
   Set<String>  _seleccionados   = {};
+  // Órdenes que ya reprodujeron su animación de entrada — persiste mientras
+  // la pantalla vive, así una tarjeta no vuelve a animarse solo porque su
+  // índice cambió al resolverse otras órdenes por encima de ella.
+  final Set<String> _yaAnimadas = {};
 
   bool get _modoSeleccion => _seleccionados.isNotEmpty;
 
@@ -212,6 +216,7 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
               perfumesMap:   perfumesMap,
               onRefresh:     onRefresh,
               seleccionados: _seleccionados,
+              yaAnimadas:    _yaAnimadas,
               onLongPress:   _iniciarSeleccion,
               onToggle:      _toggleSeleccion,
             ),
@@ -241,6 +246,7 @@ class _ListaOrdenes extends StatelessWidget {
     required this.perfumesMap,
     required this.onRefresh,
     required this.seleccionados,
+    required this.yaAnimadas,
     required this.onLongPress,
     required this.onToggle,
   });
@@ -248,6 +254,7 @@ class _ListaOrdenes extends StatelessWidget {
   final Map<String, Perfume>    perfumesMap;
   final Future<void> Function() onRefresh;
   final Set<String>             seleccionados;
+  final Set<String>             yaAnimadas;
   final void Function(String)   onLongPress;
   final void Function(String)   onToggle;
 
@@ -267,17 +274,26 @@ class _ListaOrdenes extends StatelessWidget {
                 vertical: AppSpacing.sm,
               ),
               itemCount: ordenes.length,
-              itemBuilder: (_, i) => _AnimatedListItem(
-                index: i,
-                child: _OrdenCard(
-                  orden:          ordenes[i],
-                  perfumesMap:    perfumesMap,
-                  seleccionado:   seleccionados.contains(ordenes[i].idCompra),
-                  modoSeleccion:  seleccionados.isNotEmpty,
-                  onLongPress:    () => onLongPress(ordenes[i].idCompra),
-                  onTapSeleccion: () => onToggle(ordenes[i].idCompra),
-                ),
-              ),
+              itemBuilder: (_, i) {
+                final id = ordenes[i].idCompra;
+                // Set.add() devuelve true solo la primera vez que se ve este
+                // id — así la animación de entrada corre una única vez por
+                // orden, sin importar cómo cambie su índice después.
+                final animar = yaAnimadas.add(id);
+                return _AnimatedListItem(
+                  key:    ValueKey(id),
+                  animar: animar,
+                  index:  i,
+                  child: _OrdenCard(
+                    orden:          ordenes[i],
+                    perfumesMap:    perfumesMap,
+                    seleccionado:   seleccionados.contains(id),
+                    modoSeleccion:  seleccionados.isNotEmpty,
+                    onLongPress:    () => onLongPress(id),
+                    onTapSeleccion: () => onToggle(id),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -1000,16 +1016,38 @@ class _BarraSeleccion extends StatelessWidget {
 
 // ── Animación de entrada staggered ────────────────────────────────────────────
 
-class _AnimatedListItem extends StatefulWidget {
-  const _AnimatedListItem({required this.index, required this.child});
+class _AnimatedListItem extends StatelessWidget {
+  const _AnimatedListItem({
+    super.key,
+    required this.animar,
+    required this.index,
+    required this.child,
+  });
+  // Si esta orden ya animó su entrada antes (ver `_yaAnimadas` en
+  // _PendientesScreenState), se muestra directo — un id no debe volver a
+  // animarse solo porque su índice cambió al resolverse otras órdenes.
+  final bool   animar;
+  // Solo se usa para el retraso escalonado (cosmético); no decide si anima.
   final int    index;
   final Widget child;
 
   @override
-  State<_AnimatedListItem> createState() => _AnimatedListItemState();
+  Widget build(BuildContext context) {
+    final card = RepaintBoundary(child: child);
+    return animar ? _StaggeredEntrance(index: index, child: card) : card;
+  }
 }
 
-class _AnimatedListItemState extends State<_AnimatedListItem>
+class _StaggeredEntrance extends StatefulWidget {
+  const _StaggeredEntrance({required this.index, required this.child});
+  final int    index;
+  final Widget child;
+
+  @override
+  State<_StaggeredEntrance> createState() => _StaggeredEntranceState();
+}
+
+class _StaggeredEntranceState extends State<_StaggeredEntrance>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _opacity;

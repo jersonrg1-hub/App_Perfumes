@@ -24,7 +24,6 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
   void initState() {
     super.initState();
     _tab = TabController(length: 4, vsync: this);
-    _tab.addListener(() => setState(() {}));
   }
 
   @override

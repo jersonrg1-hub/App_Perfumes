@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
@@ -29,12 +31,56 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
   _OrdenStock  _orden  = _OrdenStock.menorPrimero;
   String       _buscar = '';
   final _buscarCtrl    = TextEditingController();
+  Timer?       _debounce;
+
+  List<Perfume> _listaFiltrada(
+    List<Perfume> todos,
+    double critico,
+    double bajo,
+  ) {
+    var lista = switch (_filtro) {
+      _FiltroStock.todos   => todos,
+      _FiltroStock.critico => todos.where((p) => p.stockMl! <= critico).toList(),
+      _FiltroStock.bajo    => todos
+          .where((p) => p.stockMl! > critico && p.stockMl! <= bajo)
+          .toList(),
+      _FiltroStock.ok => todos.where((p) => p.stockMl! > bajo).toList(),
+    };
+
+    lista = switch (_orden) {
+      _OrdenStock.menorPrimero => (lista..sort((a, b) =>
+          (a.stockMl ?? 0).compareTo(b.stockMl ?? 0))),
+      _OrdenStock.mayorPrimero => (lista..sort((a, b) =>
+          (b.stockMl ?? 0).compareTo(a.stockMl ?? 0))),
+      _OrdenStock.nombreAZ     => (lista..sort((a, b) =>
+          a.nombre.compareTo(b.nombre))),
+    };
+
+    if (_buscar.isNotEmpty) {
+      final q = _buscar.toLowerCase();
+      lista = lista
+          .where((p) =>
+              p.nombre.toLowerCase().contains(q) ||
+              p.marca.toLowerCase().contains(q))
+          .toList();
+    }
+
+    return lista;
+  }
+
+  void _onBuscarChanged(String v) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) setState(() => _buscar = v.trim());
+    });
+  }
 
   @override
   bool get wantKeepAlive => true;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _buscarCtrl.dispose();
     super.dispose();
   }
@@ -69,32 +115,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
         .length;
     final ok       = todos.where((p) => p.stockMl! > bajo).length;
 
-    var lista = switch (_filtro) {
-      _FiltroStock.todos   => todos,
-      _FiltroStock.critico => todos.where((p) => p.stockMl! <= critico).toList(),
-      _FiltroStock.bajo    => todos
-          .where((p) => p.stockMl! > critico && p.stockMl! <= bajo)
-          .toList(),
-      _FiltroStock.ok => todos.where((p) => p.stockMl! > bajo).toList(),
-    };
-
-    lista = switch (_orden) {
-      _OrdenStock.menorPrimero => (lista..sort((a, b) =>
-          (a.stockMl ?? 0).compareTo(b.stockMl ?? 0))),
-      _OrdenStock.mayorPrimero => (lista..sort((a, b) =>
-          (b.stockMl ?? 0).compareTo(a.stockMl ?? 0))),
-      _OrdenStock.nombreAZ     => (lista..sort((a, b) =>
-          a.nombre.compareTo(b.nombre))),
-    };
-
-    if (_buscar.isNotEmpty) {
-      final q = _buscar.toLowerCase();
-      lista = lista
-          .where((p) =>
-              p.nombre.toLowerCase().contains(q) ||
-              p.marca.toLowerCase().contains(q))
-          .toList();
-    }
+    final lista = _listaFiltrada(todos, critico, bajo);
 
     final maxStock = todos.isEmpty
         ? 100.0
@@ -142,13 +163,14 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
                 ? IconButton(
                     icon: const Icon(Icons.clear_rounded, size: 18),
                     onPressed: () {
+                      _debounce?.cancel();
                       _buscarCtrl.clear();
                       setState(() => _buscar = '');
                     },
                   )
                 : null,
           ),
-          onChanged: (v) => setState(() => _buscar = v.trim()),
+          onChanged: _onBuscarChanged,
         ),
       ),
       // ── Filtros y ordenamiento ────────────────────────────────

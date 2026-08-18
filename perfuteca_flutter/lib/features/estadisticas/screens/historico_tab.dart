@@ -61,6 +61,24 @@ class _HistoricoBody extends StatelessWidget {
   const _HistoricoBody({required this.stats});
   final HistorialGlobalStats stats;
 
+  // Decoración del hero: no depende de los datos, así que se define una sola
+  // vez en vez de reconstruir gradient/boxShadow en cada rebuild de la tab.
+  static const _heroDecoration = BoxDecoration(
+    gradient: LinearGradient(
+      colors: [Color(0xFF1a0a04), Color(0xFF4a2810)],
+      begin: Alignment.topLeft,
+      end:   Alignment.bottomRight,
+    ),
+    borderRadius: BorderRadius.all(Radius.circular(AppSpacing.radiusLg)),
+    boxShadow: [
+      BoxShadow(
+        color:      Color(0x402C1A0E),
+        blurRadius: 12,
+        offset:     Offset(0, 4),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final s = stats;
@@ -71,21 +89,7 @@ class _HistoricoBody extends StatelessWidget {
         // ── Hero: totales globales ─────────────────────────────────────────
         Container(
           padding: const EdgeInsets.all(AppSpacing.md),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF1a0a04), Color(0xFF4a2810)],
-              begin: Alignment.topLeft,
-              end:   Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            boxShadow: const [
-              BoxShadow(
-                color:      Color(0x402C1A0E),
-                blurRadius: 12,
-                offset:     Offset(0, 4),
-              ),
-            ],
-          ),
+          decoration: _heroDecoration,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

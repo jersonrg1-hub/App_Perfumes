@@ -227,10 +227,10 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                 : SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount:   2,
-                      crossAxisSpacing: AppSpacing.md,
-                      mainAxisSpacing:  AppSpacing.md,
-                      childAspectRatio: 0.62,
+                      crossAxisCount:   3,
+                      crossAxisSpacing: AppSpacing.sm,
+                      mainAxisSpacing:  AppSpacing.sm,
+                      childAspectRatio: 0.56,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (_, i) => PerfumeCard(perfume: filtrados[i]),

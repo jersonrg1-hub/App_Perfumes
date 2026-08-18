@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:perfuteca/core/utils/debouncer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
@@ -47,7 +46,7 @@ enum _Orden { gasto, fecha, pedidos }
 class _ClientesViewState extends ConsumerState<_ClientesView> {
   String  _buscar = '';
   _Orden  _orden  = _Orden.gasto;
-  Timer?  _debounce;
+  final _debounce = Debouncer(const Duration(milliseconds: 300));
 
   List<ClienteStat> _sorted(List<ClienteStat> lista) {
     final c = List<ClienteStat>.from(lista);
@@ -65,7 +64,7 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _debounce.dispose();
     super.dispose();
   }
 
@@ -145,8 +144,7 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
                   ),
                 ),
                 onChanged: (v) {
-                  _debounce?.cancel();
-                  _debounce = Timer(const Duration(milliseconds: 300), () {
+                  _debounce.run(() {
                     if (mounted) setState(() => _buscar = v);
                   });
                 },

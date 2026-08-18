@@ -47,6 +47,12 @@ class HistorialNotifier extends Notifier<HistorialState> {
   // el largo de la lista deduplicada el offset queda corrido para siempre.
   int _offset = 0;
 
+  // Se incrementa en cada load(). loadMore() guarda el valor vigente al
+  // arrancar y descarta su resultado si cambió — evita que una página
+  // pedida antes de un refresh se aplique después sobre el estado ya
+  // reseteado, corrompiendo _offset y duplicando/perdiendo filas.
+  int _version = 0;
+
   @override
   HistorialState build() {
     Future.microtask(load);
@@ -56,25 +62,30 @@ class HistorialNotifier extends Notifier<HistorialState> {
   VentasRepository get _repo => ref.read(ventasRepositoryProvider);
 
   Future<void> load() async {
+    final version = ++_version;
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final page = await _repo.getVentas(
         limit: _pageSize, offset: 0, bypassCache: true,
       );
+      if (version != _version) return;
       _offset = page.items.length;
       state = HistorialState(ventas: page.items, hasMore: page.hasMore);
     } catch (e) {
+      if (version != _version) return;
       state = state.copyWith(isLoading: false, error: e);
     }
   }
 
   Future<void> loadMore() async {
     if (!state.hasMore || state.isLoadingMore || state.isLoading) return;
+    final version = _version;
     state = state.copyWith(isLoadingMore: true);
     try {
       final page = await _repo.getVentas(
         limit: _pageSize, offset: _offset, bypassCache: true,
       );
+      if (version != _version) return;
       _offset += page.items.length;
       final filasExistentes = state.ventas.map((v) => v.filaSheet).toSet();
       final nuevos = page.items.where((v) => !filasExistentes.contains(v.filaSheet));
@@ -84,6 +95,7 @@ class HistorialNotifier extends Notifier<HistorialState> {
         isLoadingMore: false,
       );
     } catch (e) {
+      if (version != _version) return;
       state = state.copyWith(isLoadingMore: false, error: e);
     }
   }

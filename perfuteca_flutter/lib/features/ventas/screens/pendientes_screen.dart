@@ -276,10 +276,15 @@ class _ListaOrdenes extends StatelessWidget {
               itemCount: ordenes.length,
               itemBuilder: (_, i) {
                 final id = ordenes[i].idCompra;
-                // Set.add() devuelve true solo la primera vez que se ve este
-                // id — así la animación de entrada corre una única vez por
-                // orden, sin importar cómo cambie su índice después.
-                final animar = yaAnimadas.add(id);
+                // Anima solo la primera vez que se ve este id — sin importar
+                // cómo cambie su índice después. La mutación de yaAnimadas se
+                // difiere a post-frame para no mutar estado externo durante
+                // el build/layout pass de itemBuilder.
+                final animar = !yaAnimadas.contains(id);
+                if (animar) {
+                  WidgetsBinding.instance
+                      .addPostFrameCallback((_) => yaAnimadas.add(id));
+                }
                 return _AnimatedListItem(
                   key:    ValueKey(id),
                   animar: animar,

@@ -1,7 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/utils/debouncer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/repositories/config_repository.dart';
@@ -31,7 +30,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
   _OrdenStock  _orden  = _OrdenStock.menorPrimero;
   String       _buscar = '';
   final _buscarCtrl    = TextEditingController();
-  Timer?       _debounce;
+  final _debounce      = Debouncer(const Duration(milliseconds: 250));
 
   List<Perfume> _listaFiltrada(
     List<Perfume> todos,
@@ -69,8 +68,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
   }
 
   void _onBuscarChanged(String v) {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 250), () {
+    _debounce.run(() {
       if (mounted) setState(() => _buscar = v.trim());
     });
   }
@@ -80,7 +78,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _debounce.dispose();
     _buscarCtrl.dispose();
     super.dispose();
   }
@@ -163,7 +161,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
                 ? IconButton(
                     icon: const Icon(Icons.clear_rounded, size: 18),
                     onPressed: () {
-                      _debounce?.cancel();
+                      _debounce.dispose();
                       _buscarCtrl.clear();
                       setState(() => _buscar = '');
                     },

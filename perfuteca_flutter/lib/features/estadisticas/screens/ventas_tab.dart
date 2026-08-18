@@ -6,6 +6,7 @@ import 'package:perfuteca/features/ventas/screens/historial_screen.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 class VentasTab extends ConsumerStatefulWidget {
@@ -102,27 +103,15 @@ class _TamanosViewState extends ConsumerState<_TamanosView> {
     }
   }
 
-  List<TamanioStat> _tamaniosFromJson(List<dynamic> raw) {
-    return raw
-        .map((e) {
-          final m = e as Map<String, dynamic>;
-          return TamanioStat(
-            ml:          (m['ml']       as num?)?.toInt()    ?? 0,
-            cantidad:    (m['cantidad'] as num?)?.toInt()    ?? 0,
-            total:       (m['total']    as num?)?.toDouble() ?? 0,
-            topPerfumes: const [],
-          );
-        })
-        .toList()
-      ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
-  }
-
   @override
   Widget build(BuildContext context) {
     return ref.watch(historicoBackendProvider).when(
       loading: () => const _TamanosSkeleton(),
-      error: (_, __) => EstadisticasErrorView(
+      error: (e, __) => AppErrorWidget(
+        error: e,
         title: 'Error al cargar datos',
+        icon: Icons.wifi_off_rounded,
+        subtle: true,
         onRetry: () => ref.invalidate(historicoBackendProvider),
       ),
       data: (data) {
@@ -150,7 +139,7 @@ class _TamanosViewState extends ConsumerState<_TamanosView> {
           tamaniosRaw = mes?['tamanios'] as List<dynamic>? ?? [];
         }
 
-        final tamanios   = _tamaniosFromJson(tamaniosRaw);
+        final tamanios   = tamaniosFromJson(tamaniosRaw);
         final totalCount = tamanios.fold(0, (s, t) => s + t.cantidad);
 
         return ListView(
@@ -183,14 +172,14 @@ class _TamanosViewState extends ConsumerState<_TamanosView> {
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
 
             // ── Título dinámico ─────────────────────────────────────
             Text(
               'Tamaños · ${_labelFiltro(_filtro)}',
               style: AppTextStyles.heading2.copyWith(fontSize: 15),
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
 
             // ── Lista o vacío ───────────────────────────────────────
             if (tamanios.isEmpty)
@@ -363,9 +352,9 @@ class _TamanosSkeleton extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           children: [
             skeletonBox(width: 220, height: 32, radius: AppSpacing.radiusFull),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             skeletonBox(width: 160, height: 14),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             skeletonBox(height: 88, radius: AppSpacing.radiusMd),
             const SizedBox(height: AppSpacing.sm),
             skeletonBox(height: 88, radius: AppSpacing.radiusMd),

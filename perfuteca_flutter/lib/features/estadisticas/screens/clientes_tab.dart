@@ -12,6 +12,7 @@ import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
 
 class ClientesTab extends StatefulWidget {
   const ClientesTab({super.key});
@@ -72,9 +73,12 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
   Widget build(BuildContext context) {
     return ref.watch(clientesStatsProvider).when(
       loading: () => const _ClientesSkeleton(),
-      error: (e, _) => EstadisticasErrorView(
+      error: (e, _) => AppErrorWidget(
+        error: e,
         title: 'Error al cargar clientes',
         subtitle: 'Verifica tu conexión e intenta de nuevo',
+        icon: Icons.wifi_off_rounded,
+        subtle: true,
         onRetry: () => ref.invalidate(clientesStatsProvider),
       ),
       data: (clientes) {
@@ -824,12 +828,12 @@ class _ClientesSkeleton extends StatelessWidget {
               skeletonBox(width: 88, height: 44, radius: 10),
             ]),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: skeletonBox(height: 44, radius: AppSpacing.radiusMd),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),

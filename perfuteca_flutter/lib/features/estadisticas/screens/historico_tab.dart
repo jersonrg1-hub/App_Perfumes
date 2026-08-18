@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/errors/app_exception.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 class HistoricoTab extends ConsumerStatefulWidget {
@@ -25,9 +27,12 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
     super.build(context);
     return ref.watch(historialGlobalProvider).when(
       loading: () => const _HistoricoSkeleton(),
-      error:   (e, _) => EstadisticasErrorView(
+      error:   (e, _) => AppErrorWidget(
+        error: e,
         title: 'Error al cargar historial',
-        subtitle: e.toString(),
+        subtitle: e is AppException ? e.message : e.toString(),
+        icon: Icons.wifi_off_rounded,
+        subtle: true,
         onRetry: () {
           ref.invalidate(ventasParaStatsProvider);
           ref.invalidate(historicoBackendProvider);
@@ -122,7 +127,7 @@ class _HistoricoBody extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
 
         // ── Cards: ticket promedio + promedio mensual ──────────────────────
         Row(
@@ -472,27 +477,16 @@ class _MiniCard extends StatelessWidget {
 
 // ── Ranking de distritos ──────────────────────────────────────────────────────
 
-class _RankingDistritosSection extends StatefulWidget {
+class _RankingDistritosSection extends StatelessWidget {
   const _RankingDistritosSection({required this.distritos});
   final List<DistritoStat> distritos;
 
   @override
-  State<_RankingDistritosSection> createState() =>
-      _RankingDistritosSectionState();
-}
-
-class _RankingDistritosSectionState extends State<_RankingDistritosSection> {
-  static const _paso = 8;
-  int _visible = _paso;
-
-  @override
   Widget build(BuildContext context) {
-    final list = widget.distritos;
+    final list = distritos;
     if (list.isEmpty) return const SizedBox.shrink();
 
     final maxPedidos = list.first.pedidos;
-    final mostrados  = list.take(_visible).toList();
-    final quedan     = list.length - _visible;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -520,29 +514,12 @@ class _RankingDistritosSectionState extends State<_RankingDistritosSection> {
           ),
         ]),
         const SizedBox(height: AppSpacing.sm),
-        ...mostrados.asMap().entries.map((e) =>
-            _DistritoRow(pos: e.key + 1, stat: e.value, maxPedidos: maxPedidos)),
-        if (quedan > 0)
-          Center(
-            child: TextButton.icon(
-              onPressed: () => setState(() => _visible += _paso),
-              icon: const Icon(Icons.expand_more_rounded, size: 16),
-              label: Text(
-                'Ver ${quedan > _paso ? _paso : quedan} más'
-                '${quedan > _paso ? ' ($quedan restantes)' : ''}',
-              ),
-              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-            ),
-          ),
-        if (_visible > _paso)
-          Center(
-            child: TextButton.icon(
-              onPressed: () => setState(() => _visible = _paso),
-              icon: const Icon(Icons.expand_less_rounded, size: 16),
-              label: const Text('Ver menos'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
-            ),
-          ),
+        _ExpandableRankedList<DistritoStat>(
+          items: list,
+          paso: 8,
+          itemBuilder: (pos, stat) =>
+              _DistritoRow(pos: pos, stat: stat, maxPedidos: maxPedidos),
+        ),
       ],
     );
   }
@@ -561,11 +538,6 @@ class _DistritoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final barPct = maxPedidos > 0 ? (stat.pedidos / maxPedidos).clamp(0.0, 1.0) : 0.0;
-    final Color rankBg;
-    final Color rankFg;
-    if (pos == 1)      { rankBg = AppColors.primary;   rankFg = Colors.white; }
-    else if (pos == 2) { rankBg = AppColors.textMuted;  rankFg = Colors.white; }
-    else               { rankBg = AppColors.primaryPale; rankFg = AppColors.textMuted; }
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
@@ -578,14 +550,7 @@ class _DistritoRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 26, height: 26,
-            decoration: BoxDecoration(color: rankBg, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: Text('$pos',
-                style: TextStyle(
-                    color: rankFg, fontSize: 11, fontWeight: FontWeight.w700)),
-          ),
+          _RankBadge(pos: pos),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -651,6 +616,98 @@ class _DistritoRow extends StatelessWidget {
   }
 }
 
+// ── Badge de ranking compartido (posición 1/2/otro) ───────────────────────────
+
+class _RankBadge extends StatelessWidget {
+  const _RankBadge({required this.pos});
+  final int pos;
+
+  static const double size     = 26;
+  static const double fontSize = 11;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color bg;
+    final Color fg;
+    if (pos == 1) {
+      bg = AppColors.primary;
+      fg = Colors.white;
+    } else if (pos == 2) {
+      bg = AppColors.textMuted;
+      fg = Colors.white;
+    } else {
+      bg = AppColors.primaryPale;
+      fg = AppColors.textMuted;
+    }
+
+    return Container(
+      width: size, height: size,
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+      alignment: Alignment.center,
+      child: Text('$pos',
+          style: TextStyle(color: fg, fontSize: fontSize, fontWeight: FontWeight.w700)),
+    );
+  }
+}
+
+// ── Lista con paginación "ver más/ver menos" compartida ───────────────────────
+
+class _ExpandableRankedList<T> extends StatefulWidget {
+  const _ExpandableRankedList({
+    required this.items,
+    required this.itemBuilder,
+    this.paso = 5,
+  });
+  final List<T>                    items;
+  final Widget Function(int pos, T item) itemBuilder;
+  final int                        paso;
+
+  @override
+  State<_ExpandableRankedList<T>> createState() =>
+      _ExpandableRankedListState<T>();
+}
+
+class _ExpandableRankedListState<T> extends State<_ExpandableRankedList<T>> {
+  late int _visible = widget.paso;
+
+  @override
+  Widget build(BuildContext context) {
+    final mostrados = widget.items.take(_visible).toList();
+    final quedan    = widget.items.length - _visible;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...mostrados
+            .asMap()
+            .entries
+            .map((e) => widget.itemBuilder(e.key + 1, e.value)),
+        if (quedan > 0)
+          Center(
+            child: TextButton.icon(
+              onPressed: () => setState(() => _visible += widget.paso),
+              icon: const Icon(Icons.expand_more_rounded, size: 16),
+              label: Text(
+                'Ver ${quedan > widget.paso ? widget.paso : quedan} más'
+                '${quedan > widget.paso ? ' ($quedan restantes)' : ''}',
+              ),
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+            ),
+          ),
+        if (_visible > widget.paso)
+          Center(
+            child: TextButton.icon(
+              onPressed: () => setState(() => _visible = widget.paso),
+              icon: const Icon(Icons.expand_less_rounded, size: 16),
+              label: const Text('Ver menos'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 String _fmtFecha(String fecha) {
@@ -666,25 +723,13 @@ String _fmtFecha(String fecha) {
 
 // ── Top perfumes ──────────────────────────────────────────────────────────────
 
-class _TopPerfumesSection extends StatefulWidget {
+class _TopPerfumesSection extends StatelessWidget {
   const _TopPerfumesSection({required this.masVendidos});
   final List<TopPerfume> masVendidos;
 
   @override
-  State<_TopPerfumesSection> createState() => _TopPerfumesSectionState();
-}
-
-class _TopPerfumesSectionState extends State<_TopPerfumesSection> {
-  static const _paso = 5;
-  int _visible = _paso;
-
-  @override
   Widget build(BuildContext context) {
-    final masVendidos = widget.masVendidos;
     if (masVendidos.isEmpty) return const SizedBox.shrink();
-
-    final mostrados = masVendidos.take(_visible).toList();
-    final quedan    = masVendidos.length - _visible;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -700,31 +745,11 @@ class _TopPerfumesSectionState extends State<_TopPerfumesSection> {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        ...mostrados
-            .asMap()
-            .entries
-            .map((e) => _TopPerfumeRow(pos: e.key + 1, item: e.value)),
-        if (quedan > 0)
-          Center(
-            child: TextButton.icon(
-              onPressed: () => setState(() => _visible += _paso),
-              icon: const Icon(Icons.expand_more_rounded, size: 16),
-              label: Text(
-                'Ver ${quedan > _paso ? _paso : quedan} más'
-                '${quedan > _paso ? ' ($quedan restantes)' : ''}',
-              ),
-              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-            ),
-          ),
-        if (_visible > _paso)
-          Center(
-            child: TextButton.icon(
-              onPressed: () => setState(() => _visible = _paso),
-              icon: const Icon(Icons.expand_less_rounded, size: 16),
-              label: const Text('Ver menos'),
-              style: TextButton.styleFrom(foregroundColor: AppColors.textMuted),
-            ),
-          ),
+        _ExpandableRankedList<TopPerfume>(
+          items: masVendidos,
+          paso: 5,
+          itemBuilder: (pos, item) => _TopPerfumeRow(pos: pos, item: item),
+        ),
       ],
     );
   }
@@ -737,19 +762,6 @@ class _TopPerfumeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color rankBg;
-    final Color rankFg;
-    if (pos == 1) {
-      rankBg = AppColors.primary;
-      rankFg = Colors.white;
-    } else if (pos == 2) {
-      rankBg = AppColors.textMuted;
-      rankFg = Colors.white;
-    } else {
-      rankBg = AppColors.primaryPale;
-      rankFg = AppColors.textMuted;
-    }
-
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.xs + 2),
       padding: const EdgeInsets.symmetric(
@@ -761,14 +773,7 @@ class _TopPerfumeRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 26, height: 26,
-            decoration: BoxDecoration(color: rankBg, shape: BoxShape.circle),
-            alignment: Alignment.center,
-            child: Text('$pos',
-                style: TextStyle(
-                    color: rankFg, fontSize: 11, fontWeight: FontWeight.w700)),
-          ),
+          _RankBadge(pos: pos),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -853,7 +858,7 @@ class _ComparaMesesSectionState extends ConsumerState<_ComparaMesesSection> {
                 style: AppTextStyles.heading2.copyWith(fontSize: 15)),
           ],
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
 
         if (meses.length < 2)
           Text(
@@ -882,7 +887,7 @@ class _ComparaMesesSectionState extends ConsumerState<_ComparaMesesSection> {
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           if (_mes1 != null && _mes2 != null) ...[
             Row(
               children: [
@@ -894,7 +899,7 @@ class _ComparaMesesSectionState extends ConsumerState<_ComparaMesesSection> {
             if (statsMap[_mes1] != null &&
                 statsMap[_mes2] != null &&
                 statsMap[_mes2]!.total > 0) ...[
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
               _DiferenciaBanner(
                 mes1:  _mes1!,
                 mes2:  _mes2!,
@@ -1072,7 +1077,7 @@ class _HistoricoSkeleton extends StatelessWidget {
         physics: const NeverScrollableScrollPhysics(),
         children: [
           skeletonBox(height: 130, radius: AppSpacing.radiusLg),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Row(children: [
             Expanded(child: skeletonBox(height: 72, radius: AppSpacing.radiusMd)),
             const SizedBox(width: AppSpacing.sm),

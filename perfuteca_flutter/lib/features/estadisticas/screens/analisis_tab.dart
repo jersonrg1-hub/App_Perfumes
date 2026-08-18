@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
-import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/repositories/config_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 // Defaults usados solo mientras appConfigProvider carga o si falla (sin red).
@@ -51,8 +51,11 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
       return const _StockSkeleton();
     }
     if (estado.error != null) {
-      return EstadisticasErrorView(
+      return AppErrorWidget(
+        error: estado.error!,
         title: 'Error al cargar catálogo',
+        icon: Icons.wifi_off_rounded,
+        subtle: true,
         onRetry: () => ref.read(catalogoProvider.notifier).refresh(),
       );
     }
@@ -109,7 +112,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
         const SizedBox(width: 6),
         Expanded(child: _StockChip(label: 'OK',      valor: '$ok',              color: AppColors.successSurface, textColor: AppColors.stockOk)),
       ]),
-      const SizedBox(height: AppSpacing.md),
+      const SizedBox(height: AppSpacing.sm),
       // ── Buscador ─────────────────────────────────────────────
       Padding(
         padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -440,7 +443,7 @@ class _StockSkeleton extends StatelessWidget {
                 ),
               ),
             ))),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             Container(height: 44, decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -457,7 +460,7 @@ class _StockSkeleton extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ))),
             ]),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             ...List.generate(8, (_) => Container(
               margin: const EdgeInsets.only(bottom: AppSpacing.sm - 2),
               height: 60,

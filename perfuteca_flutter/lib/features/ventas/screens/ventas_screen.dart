@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/cotizaciones/screens/nueva_cotizacion_screen.dart';
 import 'package:perfuteca/features/ventas/screens/cotizaciones_hoy_screen.dart';
-import 'package:perfuteca/features/ventas/screens/nueva_venta_screen.dart';
 import 'package:perfuteca/features/ventas/screens/pendientes_screen.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/theme/app_colors.dart';
@@ -23,7 +22,7 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
+    _tab = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -85,11 +84,6 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
             const Tab(
-              icon: Icon(Icons.sell_rounded, size: 18),
-              text: 'Nueva Venta',
-              iconMargin: EdgeInsets.only(bottom: 2),
-            ),
-            const Tab(
               iconMargin: EdgeInsets.only(bottom: 2),
               text: 'Pendientes',
               icon: _PendientesBadge(),
@@ -103,7 +97,6 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
         children: const [
           CotizacionesHoyScreen(),
           NuevaCotizacionScreen(),
-          NuevaVentaScreen(),
           PendientesScreen(),
         ],
       ),

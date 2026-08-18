@@ -89,7 +89,16 @@ Siempre usar estos antes de crear nuevos:
 | `PerfumeCard` | Card de perfume en catálogo/listados |
 | `PerfumeImage` | Imagen de perfume con fallback |
 
+## Helpers compartidos — usar antes de reimplementar
+
+| Helper | Ubicación | Uso |
+|---|---|---|
+| `Perfume.stockEstado()` | `lib/models/perfume.dart` | esCritico/esBajo — antes triplicado en perfume_card, nueva_venta_screen, detalle_perfume_screen |
+| `esCelularPeruValido()` | `lib/core/utils/validators.dart` | Validación celular — usado en nueva_cotizacion_provider y cotizacion_convertir_card |
+| `AppErrorWidget` / `EmptyStateWidget` | `lib/widgets/common/` | No reimplementar por pantalla (ver Widgets reutilizables arriba) |
+
 ## Reglas
 - No lógica de negocio en screens — va en providers o repositories
 - Screens solo UI + llamadas a provider
 - Modelos en `lib/models/`, no duplicar en features
+- `setState`/lógica post-`await` siempre detrás de `if (!mounted) return` — bugs de crash por widget desmontado ya ocurrieron en cards dentro de ListView que se reordena

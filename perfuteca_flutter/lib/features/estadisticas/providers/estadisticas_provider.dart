@@ -171,13 +171,10 @@ class TamanioStat {
   final List<PerfumeDiaStat> topPerfumes;
 }
 
-// Pre-agregado por el backend sobre TODO el mes (sin tope de 500 filas).
-final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
-  ref.keepAlive();
-  final data      = await ref.watch(resumenBackendProvider.future);
-  final tamaniosRaw = data['tamanios'] as List<dynamic>? ?? [];
-
-  return tamaniosRaw
+/// Mapea una lista cruda `{ml, cantidad, total}` del backend a [TamanioStat],
+/// ordenada por cantidad descendente.
+List<TamanioStat> tamaniosFromJson(List<dynamic> raw) {
+  return raw
       .map((e) {
         final m = e as Map<String, dynamic>;
         return TamanioStat(
@@ -189,6 +186,13 @@ final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
       })
       .toList()
     ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
+}
+
+// Pre-agregado por el backend sobre TODO el mes (sin tope de 500 filas).
+final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
+  ref.keepAlive();
+  final data = await ref.watch(resumenBackendProvider.future);
+  return tamaniosFromJson(data['tamanios'] as List<dynamic>? ?? []);
 });
 
 // ── Semanal ───────────────────────────────────────────────────────────────────

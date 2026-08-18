@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:perfuteca/core/utils/validators.dart';
+import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
@@ -50,11 +52,20 @@ class NuevaVentaState {
 
   bool get paso1Valido {
     return comprador.trim().isNotEmpty &&
-        celular.length == 9 &&
-        celular.startsWith('9') &&
+        esCelularPeruValido(celular) &&
         direccion.trim().isNotEmpty &&
         tipoEnvio.isNotEmpty &&
         fecha.isNotEmpty;
+  }
+
+  /// Campos de paso 1 aún incompletos, para mostrar en `_ValidationHint`.
+  List<String> get camposFaltantes {
+    final faltantes = <String>[];
+    if (comprador.trim().isEmpty) faltantes.add('nombre');
+    if (!esCelularPeruValido(celular)) faltantes.add('celular (9 dígitos, empieza con 9)');
+    if (tipoEnvio.isEmpty) faltantes.add('tipo de envío');
+    if (direccion.trim().isEmpty) faltantes.add('dirección');
+    return faltantes;
   }
 
   NuevaVentaState copyWith({
@@ -110,6 +121,21 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
 
   VentasRepository get _repo => ref.read(ventasRepositoryProvider);
 
+  // Refresca el catálogo una sola vez por venta al entrar a paso 2, para que
+  // perfumes agregados a Sheets mientras la app está abierta aparezcan sin
+  // esperar a cerrar/reabrir la app. No en cada entrada a paso 2 (ida y
+  // vuelta entre pasos) para no repetir la llamada de red innecesariamente.
+  bool _catalogoRefrescado = false;
+
+  void _refrescarCatalogoSiCorresponde() {
+    if (_catalogoRefrescado) return;
+    _catalogoRefrescado = true;
+    // catalogoProvider es compartido con el tab Catálogo — refreshPreservandoProfundidad()
+    // publica el resultado en un solo cambio de estado, sin truncar la lista
+    // visible mientras se recarga.
+    ref.read(catalogoProvider.notifier).refreshPreservandoProfundidad();
+  }
+
   // ── Paso 1: datos del cliente ─────────────────────────────────────────────
 
   void setCelular(String v) {
@@ -150,7 +176,10 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
   void setMetodoPago(String v)  => state = state.copyWith(metodoPago: v);
   void setFecha(String v)       => state = state.copyWith(fecha: v);
 
-  void irPaso(int p) => state = state.copyWith(paso: p, clearError: true);
+  void irPaso(int p) {
+    state = state.copyWith(paso: p, clearError: true);
+    if (p == 2) _refrescarCatalogoSiCorresponde();
+  }
 
   void preCargarDesdeCotizacion({
     required String celular,
@@ -158,6 +187,7 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
     String? refItems,
     List<ItemCesta> cesta = const [],
   }) {
+    _catalogoRefrescado = false;
     state = NuevaVentaState(
       fecha:         DateFormat('yyyy-MM-dd').format(DateTime.now()),
       celular:       celular,
@@ -194,6 +224,7 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
   }
 
   void setPrecioItem(int index, double nuevoPrecio) {
+    if (nuevoPrecio <= 0) return;
     final item = state.cesta[index];
     final nueva = List<ItemCesta>.from(state.cesta);
     nueva[index] = ItemCesta(
@@ -233,9 +264,12 @@ class NuevaVentaNotifier extends Notifier<NuevaVentaState> {
     }
   }
 
-  void reset() => state = NuevaVentaState(
-    fecha: DateFormat('yyyy-MM-dd').format(DateTime.now()),
-  );
+  void reset() {
+    _catalogoRefrescado = false;
+    state = NuevaVentaState(
+      fecha: DateFormat('yyyy-MM-dd').format(DateTime.now()),
+    );
+  }
 }
 
 final nuevaVentaProvider =

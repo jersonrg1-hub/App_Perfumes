@@ -42,6 +42,11 @@ class HistorialState {
 class HistorialNotifier extends Notifier<HistorialState> {
   static const _pageSize = 100;
 
+  // Offset real ya consumido del servidor — distinto de state.ventas.length
+  // porque el dedup por filaSheet puede descartar filas, y si se pagina por
+  // el largo de la lista deduplicada el offset queda corrido para siempre.
+  int _offset = 0;
+
   @override
   HistorialState build() {
     Future.microtask(load);
@@ -56,6 +61,7 @@ class HistorialNotifier extends Notifier<HistorialState> {
       final page = await _repo.getVentas(
         limit: _pageSize, offset: 0, bypassCache: true,
       );
+      _offset = page.items.length;
       state = HistorialState(ventas: page.items, hasMore: page.hasMore);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e);
@@ -67,10 +73,13 @@ class HistorialNotifier extends Notifier<HistorialState> {
     state = state.copyWith(isLoadingMore: true);
     try {
       final page = await _repo.getVentas(
-        limit: _pageSize, offset: state.ventas.length, bypassCache: true,
+        limit: _pageSize, offset: _offset, bypassCache: true,
       );
+      _offset += page.items.length;
+      final filasExistentes = state.ventas.map((v) => v.filaSheet).toSet();
+      final nuevos = page.items.where((v) => !filasExistentes.contains(v.filaSheet));
       state = state.copyWith(
-        ventas:        [...state.ventas, ...page.items],
+        ventas:        [...state.ventas, ...nuevos],
         hasMore:       page.hasMore,
         isLoadingMore: false,
       );

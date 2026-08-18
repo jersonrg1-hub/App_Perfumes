@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
@@ -553,55 +554,78 @@ class _ChipSelector extends StatelessWidget {
         child: Wrap(
           spacing: AppSpacing.sm,
           runSpacing: AppSpacing.sm,
-          children: opciones.asMap().entries.map((e) {
-            final selected = valor == e.value;
-            final icon     = iconos?[e.key];
-            return Semantics(
-              button: true,
-              label: e.value,
-              selected: selected,
-              child: GestureDetector(
-                onTap: () => onSelect(e.value),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                  decoration: BoxDecoration(
-                    color: selected ? AppColors.primary : AppColors.surface,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    border: Border.all(
-                      color: selected ? AppColors.primary : AppColors.primaryLight,
-                      width: selected ? 1.5 : 1,
-                    ),
-                    boxShadow: selected
-                        ? const [BoxShadow(
-                            color: AppColors.shadowColor,
-                            blurRadius: 4, offset: Offset(0, 2))]
-                        : null,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (icon != null) ...[
-                        Icon(icon,
-                            size: 14,
-                            color: selected ? Colors.white : AppColors.textMuted),
-                        const SizedBox(width: 5),
-                      ],
-                      Text(
-                        e.value,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                          color: selected ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
+          children: opciones.asMap().entries.map((e) => _Pill(
+                label:    e.value,
+                selected: valor == e.value,
+                onTap:    () => onSelect(e.value),
+                icon:     iconos?[e.key],
+              )).toList(),
+        ),
+      );
+}
+
+/// Chip pill reutilizable: variante normal (`_ChipSelector`) y `dense`
+/// (`_BrandChip`, filtro de marcas) comparten el mismo diseño de selección.
+class _Pill extends StatelessWidget {
+  const _Pill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.icon,
+    this.dense = false,
+  });
+  final String       label;
+  final bool         selected;
+  final VoidCallback onTap;
+  final IconData?    icon;
+  final bool         dense;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: label,
+        selected: selected,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: Duration(milliseconds: dense ? 150 : 180),
+            padding: EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: dense ? 6 : AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: selected ? AppColors.primary : AppColors.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: selected ? AppColors.primary : AppColors.primaryLight,
+                width: selected ? 1.5 : 1,
+              ),
+              boxShadow: (selected && !dense)
+                  ? const [BoxShadow(
+                      color: AppColors.shadowColor,
+                      blurRadius: 4, offset: Offset(0, 2))]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(icon,
+                      size: 14,
+                      color: selected ? Colors.white : AppColors.textMuted),
+                  const SizedBox(width: 5),
+                ],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: dense ? 12 : 13,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? Colors.white : AppColors.textSecondary,
                   ),
                 ),
-              ),
-            );
-          }).toList(),
+              ],
+            ),
+          ),
         ),
       );
 }
@@ -623,6 +647,19 @@ class _Paso2State extends ConsumerState<_Paso2> {
   String? _marcaFiltro;
   Timer?  _debounce;
 
+  // Cache de marcas: solo se recalcula si cambia la lista de perfumes,
+  // no en cada rebuild (toggle de cesta, tipeo, etc).
+  List<Perfume>? _marcasCacheKey;
+  List<String>   _marcasCache = const [];
+
+  List<String> _marcasDe(List<Perfume> perfumes) {
+    if (!identical(_marcasCacheKey, perfumes)) {
+      _marcasCacheKey = perfumes;
+      _marcasCache = perfumes.map((p) => p.marca).toSet().toList()..sort();
+    }
+    return _marcasCache;
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -636,11 +673,15 @@ class _Paso2State extends ConsumerState<_Paso2> {
     final notifier      = ref.read(nuevaVentaProvider.notifier);
     final catalogoState = ref.watch(catalogoProvider);
 
-    final marcas = catalogoState.perfumes
-        .map((p) => p.marca)
-        .toSet()
-        .toList()
-      ..sort();
+    final marcas = _marcasDe(catalogoState.perfumes);
+
+    // Conteo de items en cesta por perfume, precalculado una sola vez
+    // por build en vez de recorrer la cesta por cada fila del catálogo.
+    final conteoEnCesta = <String, int>{};
+    for (final item in state.cesta) {
+      conteoEnCesta[item.perfume.idPerfume] =
+          (conteoEnCesta[item.perfume.idPerfume] ?? 0) + 1;
+    }
 
     final q = _query.toLowerCase();
     final perfumes = catalogoState.perfumes.where((p) {
@@ -662,19 +703,21 @@ class _Paso2State extends ConsumerState<_Paso2> {
               padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.lg),
               children: [
-                _BrandChip(
+                _Pill(
                   label: 'Todas',
                   selected: _marcaFiltro == null,
                   onTap: () => setState(() => _marcaFiltro = null),
+                  dense: true,
                 ),
                 ...marcas.map((m) => Padding(
                   padding: const EdgeInsets.only(left: AppSpacing.xs),
-                  child: _BrandChip(
+                  child: _Pill(
                     label: m,
                     selected: _marcaFiltro == m,
                     onTap: () => setState(
                       () => _marcaFiltro = _marcaFiltro == m ? null : m,
                     ),
+                    dense: true,
                   ),
                 )),
               ],
@@ -749,9 +792,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
                           const SizedBox(height: AppSpacing.sm),
                       itemBuilder: (_, i) {
                         final p = perfumes[i];
-                        final enCesta = state.cesta
-                            .where((it) => it.perfume.idPerfume == p.idPerfume)
-                            .length;
+                        final enCesta = conteoEnCesta[p.idPerfume] ?? 0;
                         return _PerfumeItem(
                           perfume:    p,
                           metodoPago: state.metodoPago,
@@ -1554,47 +1595,15 @@ class _TicketExito extends StatelessWidget {
     );
   }
 
-  Future<void> _abrirWhatsApp(
-      BuildContext context, String cel, String alias, String id, double total) async {
-    const sep = '────────────────────';
-    const dias = [
-      'Lunes', 'Martes', 'Miércoles', 'Jueves',
-      'Viernes', 'Sábado', 'Domingo',
-    ];
-    const meses = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-    ];
-    final manana = DateTime.now().add(const Duration(days: 1));
-    final fechaEnvio =
-        '${dias[manana.weekday - 1]} ${manana.day} de ${meses[manana.month - 1]}';
+  String get _dirLinea =>
+      direccion.trim().isNotEmpty ? '\n📍 *Dirección:* $direccion' : '';
 
-    final itemsTexto = cesta.map((i) {
-      final marca = i.perfume.marca.trim();
-      return marca.isNotEmpty
-          ? '  🌸 *$marca* · ${i.perfume.nombre} · ${i.ml}ml'
-          : '  🌸 ${i.perfume.nombre} · ${i.ml}ml';
-    }).join('\n');
-
-    final dirLinea = direccion.trim().isNotEmpty
-        ? '\n📍 *Dirección:* $direccion'
-        : '';
-
-    final msg =
-      '🌸 *Perfuteca — Pedido $id*\n'
-      '$sep\n'
-      '👤 *Comprador:* $comprador\n'
-      '📱 *Celular:* ${lineaContacto(cel, alias)}\n'
-      '🚚 *Envío:* $tipoEnvio'
-      '$dirLinea\n'
-      '$sep\n'
-      '🛍️ *Tu pedido:*\n'
-      '$itemsTexto\n'
-      '$sep\n'
-      '📦 Tu pedido estará siendo enviado el *$fechaEnvio*.\n\n'
-      '_¡Gracias por tu compra! 💛_';
+  /// Ejecuta el envío por WhatsApp; muestra snackbar de error si falla
+  /// (`abrirWhatsAppBusiness` no propaga excepción, pero se cubre igual).
+  Future<void> _enviarWhatsApp(
+      BuildContext context, Future<void> Function() enviar) async {
     try {
-      await abrirWhatsAppBusiness(celular: cel, alias: alias, mensaje: msg);
+      await enviar();
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1608,7 +1617,37 @@ class _TicketExito extends StatelessWidget {
     }
   }
 
-  Future<void> _abrirWhatsAppComunidad(BuildContext context, String id, double total) async {
+  Future<void> _abrirWhatsApp(
+      BuildContext context, String cel, String alias, String id, double total) {
+    const sep = '────────────────────';
+    final manana = DateTime.now().add(const Duration(days: 1));
+    final fechaEnvio = _formatFecha(manana.toIso8601String());
+
+    final itemsTexto = cesta.map((i) {
+      final marca = i.perfume.marca.trim();
+      return marca.isNotEmpty
+          ? '  🌸 *$marca* · ${i.perfume.nombre} · ${i.ml}ml'
+          : '  🌸 ${i.perfume.nombre} · ${i.ml}ml';
+    }).join('\n');
+
+    final msg =
+      '🌸 *Perfuteca — Pedido $id*\n'
+      '$sep\n'
+      '👤 *Comprador:* $comprador\n'
+      '📱 *Celular:* ${lineaContacto(cel, alias)}\n'
+      '🚚 *Envío:* $tipoEnvio'
+      '$_dirLinea\n'
+      '$sep\n'
+      '🛍️ *Tu pedido:*\n'
+      '$itemsTexto\n'
+      '$sep\n'
+      '📦 Tu pedido estará siendo enviado el *$fechaEnvio*.\n\n'
+      '_¡Gracias por tu compra! 💛_';
+    return _enviarWhatsApp(context,
+        () => abrirWhatsAppBusiness(celular: cel, alias: alias, mensaje: msg));
+  }
+
+  Future<void> _abrirWhatsAppComunidad(BuildContext context, String id, double total) {
     const sep = '────────────────────';
     final itemsLineas = cesta.map((i) {
       final marca = i.perfume.marca.trim();
@@ -1617,10 +1656,6 @@ class _TicketExito extends StatelessWidget {
           : '  • ${i.perfume.nombre} ${i.ml}ml — S/ ${i.precio.toStringAsFixed(2)}';
     }).join('\n');
 
-    final dirLinea = direccion.trim().isNotEmpty
-        ? '\n📍 *Dirección:* $direccion'
-        : '';
-
     final metodosUnicos = cesta.map((i) => i.metodo).toSet().join(', ');
     final pago = metodosUnicos.isNotEmpty ? metodosUnicos : metodoPago;
 
@@ -1628,26 +1663,14 @@ class _TicketExito extends StatelessWidget {
       '📦 *Perfuteca — Pedido Nuevo $id*\n$sep\n'
       '👤 *Cliente:* $comprador\n'
       '📱 *Celular:* $celular\n'
-      '🚚 *Envío:* $tipoEnvio$dirLinea\n'
+      '🚚 *Envío:* $tipoEnvio$_dirLinea\n'
       '$sep\n'
       '🌸 *Perfumes:*\n$itemsLineas\n'
       '$sep\n'
       '💰 *Total: S/ ${total.toStringAsFixed(2)}*\n'
       '💳 *Pago:* $pago';
     // Sin celular → WhatsApp Business abre el selector de chat (grupo, comunidad, etc.)
-    try {
-      await abrirWhatsAppBusiness(mensaje: msg);
-    } catch (_) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo abrir WhatsApp'),
-            duration: Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
+    return _enviarWhatsApp(context, () => abrirWhatsAppBusiness(mensaje: msg));
   }
 }
 
@@ -1784,15 +1807,7 @@ class _ValidationHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final faltantes = <String>[];
-    if (state.comprador.trim().isEmpty) { faltantes.add('nombre'); }
-    if (state.celular.length != 9 || !state.celular.startsWith('9')) {
-      faltantes.add('celular (9 dígitos, empieza con 9)');
-    }
-    if (state.tipoEnvio.isEmpty) { faltantes.add('tipo de envío'); }
-    if (state.direccion.trim().isEmpty) {
-      faltantes.add('dirección');
-    }
+    final faltantes = state.camposFaltantes;
     if (faltantes.isEmpty) return const SizedBox.shrink();
     return Text(
       'Falta: ${faltantes.join(', ')}',
@@ -1802,60 +1817,19 @@ class _ValidationHint extends StatelessWidget {
   }
 }
 
-// ── _BrandChip ────────────────────────────────────────────────────────────────
-
-class _BrandChip extends StatelessWidget {
-  const _BrandChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-  final String       label;
-  final bool         selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: 6),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.primary : AppColors.surface,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.primaryLight,
-              width: selected ? 1.5 : 1,
-            ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? Colors.white : AppColors.textSecondary,
-            ),
-          ),
-        ),
-      );
-}
-
 // ── _formatFecha ──────────────────────────────────────────────────────────────
 
 String _formatFecha(String isoDate) {
   if (isoDate.isEmpty) return 'Hoy';
   try {
-    final d = DateTime.parse(isoDate);
-    const dias = [
-      'Lunes', 'Martes', 'Miércoles', 'Jueves',
-      'Viernes', 'Sábado', 'Domingo',
-    ];
-    const meses = [
-      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-    ];
-    return '${dias[d.weekday - 1]} ${d.day} de ${meses[d.month - 1]}';
+    final texto = DateFormat("EEEE d 'de' MMMM", 'es').format(DateTime.parse(isoDate));
+    // El locale 'es' de intl da día y mes en minúscula ("martes ... agosto");
+    // se capitaliza cada palabra (salvo "de") para mantener el estilo
+    // visible al cliente ("Martes 18 de Agosto").
+    return texto.split(' ').map((w) {
+      if (w.isEmpty || w == 'de') return w;
+      return '${w[0].toUpperCase()}${w.substring(1)}';
+    }).join(' ');
   } catch (_) {
     return isoDate;
   }

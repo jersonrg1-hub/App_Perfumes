@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:perfuteca/app.dart';
 import 'package:perfuteca/config/env.dart';
@@ -13,6 +14,9 @@ void main() async {
 
   // Despierta Render en segundo plano mientras carga la UI
   unawaited(_warmUpApi());
+
+  // Necesario para DateFormat con patrones en español (ej. "Martes 18 de Agosto")
+  await initializeDateFormatting('es');
 
   final cacheDir = await getApplicationDocumentsDirectory();
 

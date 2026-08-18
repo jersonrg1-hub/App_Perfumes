@@ -35,12 +35,6 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
 
   @override
   Widget build(BuildContext context) {
-    final pendientesAsync = ref.watch(pendientesProvider);
-    final pendienteCount  = (pendientesAsync.valueOrNull ?? [])
-        .map((v) => v.idCompra)
-        .toSet()
-        .length;
-
     ref.listen(ventasTabProvider, (_, next) => _tab.animateTo(next));
 
     return Scaffold(
@@ -96,14 +90,10 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
               text: 'Nueva Venta',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
-            Tab(
-              iconMargin: const EdgeInsets.only(bottom: 2),
+            const Tab(
+              iconMargin: EdgeInsets.only(bottom: 2),
               text: 'Pendientes',
-              icon: Badge(
-                isLabelVisible: pendienteCount > 0,
-                label: Text('$pendienteCount'),
-                child: const Icon(Icons.schedule_rounded, size: 18),
-              ),
+              icon: _PendientesBadge(),
             ),
           ],
         ),
@@ -118,6 +108,24 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
           PendientesScreen(),
         ],
       ),
+    );
+  }
+}
+
+/// Badge del contador de pendientes, aislado para no re-renderizar todo
+/// el Scaffold/TabBar cuando cambia `pendientesProvider`.
+class _PendientesBadge extends ConsumerWidget {
+  const _PendientesBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(pendientesProvider.select(
+      (a) => (a.valueOrNull ?? const []).map((v) => v.idCompra).toSet().length,
+    ));
+    return Badge(
+      isLabelVisible: count > 0,
+      label: Text('$count'),
+      child: const Icon(Icons.schedule_rounded, size: 18),
     );
   }
 }

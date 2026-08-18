@@ -93,6 +93,31 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
 
   Future<void> refresh() => load();
 
+  /// Refresca desde la página 1 (bypassCache) pero restaura la profundidad
+  /// ya cargada antes de publicar el nuevo estado, en un solo cambio de
+  /// estado — así ninguna pantalla que observe `catalogoProvider` ve la
+  /// lista truncarse a la primera página mientras se recarga el resto.
+  Future<void> refreshPreservandoProfundidad() async {
+    final cantidadPrevia = state.perfumes.length;
+    try {
+      var page = await _repo.getCatalogo(limit: _pageSize, offset: 0, bypassCache: true);
+      var perfumes = page.items;
+      var hasMore   = page.hasMore;
+      var total     = page.total;
+      while (perfumes.length < cantidadPrevia && hasMore) {
+        final next = await _repo.getCatalogo(
+          limit: _pageSize, offset: perfumes.length, bypassCache: true,
+        );
+        perfumes = [...perfumes, ...next.items];
+        hasMore  = next.hasMore;
+        total    = next.total;
+      }
+      state = CatalogoState(perfumes: perfumes, total: total, hasMore: hasMore);
+    } catch (e) {
+      state = state.copyWith(error: e);
+    }
+  }
+
   /// Carga todas las páginas restantes (usado por selectores que necesitan
   /// el catálogo completo para buscar/filtrar, ej. nueva cotización).
   Future<void> loadAll() async {

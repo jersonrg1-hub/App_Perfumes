@@ -4,60 +4,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
-    show perfumesMapProvider, normalizeId;
+    show perfumesMapProvider;
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart'
     show nowPeru;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
+import 'package:perfuteca/models/orden_agrupada.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
-
-// ── Modelo de orden agrupada ──────────────────────────────────────────────────
-
-class _Orden {
-  _Orden({required this.idCompra, required this.items})
-      : itemsConNormId = items
-            .map((i) => (
-                  item: i,
-                  normId: i.idPerfume != null ? normalizeId(i.idPerfume!) : null,
-                ))
-            .toList();
-
-  final String              idCompra;
-  final List<VentaResponse> items;
-  // Normaliza el id de perfume una sola vez al agrupar — evita re-parsear en
-  // cada rebuild de _OrdenCard (ej: al expandir/colapsar).
-  final List<({VentaResponse item, String? normId})> itemsConNormId;
-
-  String? get comprador  => items.first.comprador;
-  String? get metodoPago => items.first.metodoPago;
-  String? get tipoEnvio  => items.first.tipoEnvio;
-  String? get fecha      => items.first.fecha;
-  String? get estado     => items.first.estado;
-
-  double get total => items.fold(0.0, (s, i) => s + (i.precioCobrado ?? 0));
-}
-
-// Agrupa lista de ventas por id_compra preservando el orden original
-Map<String, List<VentaResponse>> _agruparPorOrden(List<VentaResponse> ventas) {
-  final map = <String, List<VentaResponse>>{};
-  for (final v in ventas) {
-    if (v.idCompra.isEmpty) continue;
-    (map[v.idCompra] ??= []).add(v);
-  }
-  return map;
-}
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
+import 'package:perfuteca/widgets/common/empty_state_widget.dart';
 
 // Agrupa órdenes por fecha
-Map<String, List<_Orden>> _agruparPorFecha(List<VentaResponse> ventas) {
-  final porOrden = _agruparPorOrden(ventas);
-  final ordenes  = porOrden.entries
-      .map((e) => _Orden(idCompra: e.key, items: e.value))
-      .toList();
+Map<String, List<OrdenAgrupada>> _agruparPorFecha(List<VentaResponse> ventas) {
+  final ordenes = agruparOrdenes(ventas);
 
-  final porFecha = <String, List<_Orden>>{};
+  final porFecha = <String, List<OrdenAgrupada>>{};
   for (final o in ordenes) {
     final key = o.fecha ?? 'Sin fecha';
     (porFecha[key] ??= []).add(o);
@@ -192,8 +156,10 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
     if (state.isLoading) return const _HistorialSkeleton();
 
     if (state.error != null && state.ventas.isEmpty) {
-      return _ErrorView(
-        mensaje: state.error.toString(),
+      return AppErrorWidget(
+        error: state.error!,
+        title: 'Error al cargar historial',
+        subtitle: state.error.toString(),
         onRetry: () => ref.read(historialProvider.notifier).refresh(),
       );
     }
@@ -209,7 +175,16 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
       return state.ventas.isEmpty
           ? RefreshIndicator(
               onRefresh: onRefresh,
-              child: _EmptyView(onRefresh: onRefresh),
+              child: EmptyStateWidget(
+                icon: Icons.receipt_long_outlined,
+                title: 'Sin ventas registradas',
+                subtitle: 'Registra ventas desde la pestaña Nueva Venta',
+                action: OutlinedButton.icon(
+                  icon: const Icon(Icons.refresh_rounded, size: 16),
+                  label: const Text('Actualizar'),
+                  onPressed: onRefresh,
+                ),
+              ),
             )
           : Center(
               child: Column(
@@ -256,7 +231,7 @@ class _ListaHistorial extends StatelessWidget {
     required this.hasMore,
   });
   final ScrollController           scrollController;
-  final Map<String, List<_Orden>>  porFecha;
+  final Map<String, List<OrdenAgrupada>>  porFecha;
   final List<String>               fechas;
   final Map<String, Perfume>       perfumesMap;
   final Future<void> Function()    onRefresh;
@@ -307,7 +282,7 @@ class _ListaHistorial extends StatelessWidget {
                 cantidad: ordenes.length,
                 total:    totalDia,
               ),
-              ...ordenes.map((o) => _OrdenCard(orden: o, perfumesMap: perfumesMap)),
+              ...ordenes.map((o) => OrdenAgrupadaCard(orden: o, perfumesMap: perfumesMap)),
               const SizedBox(height: AppSpacing.sm),
             ],
           );
@@ -375,16 +350,16 @@ class _FechaHeader extends StatelessWidget {
 
 // ── Tarjeta expandible de orden ───────────────────────────────────────────────
 
-class _OrdenCard extends StatefulWidget {
-  const _OrdenCard({required this.orden, required this.perfumesMap});
-  final _Orden               orden;
+class OrdenAgrupadaCard extends StatefulWidget {
+  const OrdenAgrupadaCard({required this.orden, required this.perfumesMap});
+  final OrdenAgrupada               orden;
   final Map<String, Perfume> perfumesMap;
 
   @override
-  State<_OrdenCard> createState() => _OrdenCardState();
+  State<OrdenAgrupadaCard> createState() => OrdenAgrupadaCardState();
 }
 
-class _OrdenCardState extends State<_OrdenCard> {
+class OrdenAgrupadaCardState extends State<OrdenAgrupadaCard> {
   bool _expandido = false;
 
   Color _estadoColor(String? estado) => switch (estado?.toLowerCase()) {
@@ -632,71 +607,6 @@ class _OrdenCardState extends State<_OrdenCard> {
       ),
     );
   }
-}
-
-// ── Estados vacío / error ─────────────────────────────────────────────────────
-
-class _EmptyView extends StatelessWidget {
-  const _EmptyView({required this.onRefresh});
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.receipt_long_outlined,
-                size: 64, color: AppColors.textFaint),
-            const SizedBox(height: AppSpacing.lg),
-            Text('Sin ventas registradas',
-                style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
-            const SizedBox(height: AppSpacing.xs + 2),
-            Text('Registra ventas desde la pestaña Nueva Venta',
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.textFaint)),
-            const SizedBox(height: AppSpacing.xl),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Actualizar'),
-              onPressed: onRefresh,
-            ),
-          ],
-        ),
-      );
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.mensaje, required this.onRetry});
-  final String       mensaje;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off_rounded,
-                  size: 48, color: AppColors.textFaint),
-              const SizedBox(height: 12),
-              Text('Error al cargar historial',
-                  style: AppTextStyles.body
-                      .copyWith(color: AppColors.textPrimary)),
-              const SizedBox(height: 4),
-              Text(mensaje,
-                  style: AppTextStyles.bodySmall,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
 }
 
 // ── Skeleton de carga ─────────────────────────────────────────────────────────

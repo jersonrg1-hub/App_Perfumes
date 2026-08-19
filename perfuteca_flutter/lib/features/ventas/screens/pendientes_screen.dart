@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
-    show perfumesMapProvider, normalizeId;
+    show perfumesMapProvider;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
+import 'package:perfuteca/models/orden_agrupada.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
@@ -16,48 +17,9 @@ import 'package:shimmer/shimmer.dart';
 final _pendientesRemovidosProvider =
     StateProvider<Set<String>>((ref) => const {});
 
-// ── Modelo de orden agrupada ──────────────────────────────────────────────────
-
-class _Orden {
-  _Orden({
-    required this.idCompra,
-    required this.items,
-  }) : itemsConNormId = items
-            .map((i) => (
-                  item: i,
-                  normId: i.idPerfume != null ? normalizeId(i.idPerfume!) : null,
-                ))
-            .toList();
-
-  final String              idCompra;
-  final List<VentaResponse> items;
-  // Normaliza el id de perfume una sola vez al agrupar — evita re-parsear en
-  // cada rebuild de _OrdenCard.
-  final List<({VentaResponse item, String? normId})> itemsConNormId;
-
-  String? get comprador  => items.first.comprador;
-  String? get celular    => items.first.celular;
-  String? get direccion  => items.first.direccion;
-  String? get tipoEnvio  => items.first.tipoEnvio;
-  String? get metodoPago => items.first.metodoPago;
-  String? get fecha      => items.first.fecha;
-  String? get estado     => items.first.estado;
-  String? get distrito  => items.first.distrito;
-
-  double get total => items.fold(0.0, (s, i) => s + (i.precioCobrado ?? 0));
-  List<int> get filas => items.map((i) => i.filaSheet).toList();
-}
-
-List<_Orden> _agrupar(List<VentaResponse> ventas) {
-  final map = <String, List<VentaResponse>>{};
-  for (final v in ventas) {
-    if (v.idCompra.isEmpty) continue;
-    (map[v.idCompra] ??= []).add(v);
-  }
-  return (map.entries
-      .map((e) => _Orden(idCompra: e.key, items: e.value))
-      .toList()
-    ..sort((a, b) => (a.fecha ?? '').compareTo(b.fecha ?? '')));
+List<OrdenAgrupada> _agrupar(List<VentaResponse> ventas) {
+  return agruparOrdenes(ventas)
+    ..sort((a, b) => (a.fecha ?? '').compareTo(b.fecha ?? ''));
 }
 
 // ── Pantalla ──────────────────────────────────────────────────────────────────
@@ -251,7 +213,7 @@ class _ListaOrdenes extends StatelessWidget {
     required this.onLongPress,
     required this.onToggle,
   });
-  final List<_Orden>            ordenes;
+  final List<OrdenAgrupada>            ordenes;
   final Map<String, Perfume>    perfumesMap;
   final Future<void> Function() onRefresh;
   final Set<String>             seleccionados;
@@ -282,7 +244,7 @@ class _ListaOrdenes extends StatelessWidget {
                   id:         id,
                   index:      i,
                   yaAnimadas: yaAnimadas,
-                  child: _OrdenCard(
+                  child: OrdenAgrupadaCard(
                     orden:          ordenes[i],
                     perfumesMap:    perfumesMap,
                     seleccionado:   seleccionados.contains(id),
@@ -348,8 +310,8 @@ class _ResumenBanner extends StatelessWidget {
 
 // ── Tarjeta de orden agrupada ─────────────────────────────────────────────────
 
-class _OrdenCard extends ConsumerStatefulWidget {
-  const _OrdenCard({
+class OrdenAgrupadaCard extends ConsumerStatefulWidget {
+  const OrdenAgrupadaCard({
     required this.orden,
     required this.perfumesMap,
     required this.seleccionado,
@@ -357,7 +319,7 @@ class _OrdenCard extends ConsumerStatefulWidget {
     required this.onLongPress,
     required this.onTapSeleccion,
   });
-  final _Orden               orden;
+  final OrdenAgrupada               orden;
   final Map<String, Perfume> perfumesMap;
   final bool                 seleccionado;
   final bool                 modoSeleccion;
@@ -365,10 +327,10 @@ class _OrdenCard extends ConsumerStatefulWidget {
   final VoidCallback         onTapSeleccion;
 
   @override
-  ConsumerState<_OrdenCard> createState() => _OrdenCardState();
+  ConsumerState<OrdenAgrupadaCard> createState() => OrdenAgrupadaCardState();
 }
 
-class _OrdenCardState extends ConsumerState<_OrdenCard> {
+class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
   Future<void> _cambiarEstado(String nuevoEstado) async {
     // Optimista: ocultar la tarjeta de inmediato
     ref.read(_pendientesRemovidosProvider.notifier)

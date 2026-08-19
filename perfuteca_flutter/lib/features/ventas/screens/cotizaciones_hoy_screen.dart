@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:perfuteca/features/cotizaciones/widgets/cotizacion_convertir_card.dart';
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart'
+    show nowPeru;
 import 'package:perfuteca/models/cotizacion.dart';
 import 'package:perfuteca/repositories/cotizaciones_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
@@ -16,7 +18,7 @@ import 'package:shimmer/shimmer.dart';
 
 final cotizacionesHoyProvider =
     FutureProvider<List<CotizacionResponse>>((ref) async {
-  final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  final today = DateFormat('yyyy-MM-dd').format(nowPeru());
   final page  = await ref.read(cotizacionesRepositoryProvider).getCotizaciones(
         limit: 100,
         fechaDesde: today,

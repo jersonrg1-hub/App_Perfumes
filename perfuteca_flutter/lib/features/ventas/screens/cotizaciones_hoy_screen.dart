@@ -9,6 +9,7 @@ import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:perfuteca/widgets/common/empty_state_widget.dart';
+import 'package:perfuteca/widgets/common/staggered_list_item.dart';
 import 'package:shimmer/shimmer.dart';
 
 // ── Provider: cotizaciones registradas hoy ────────────────────────────────────
@@ -28,11 +29,22 @@ final cotizacionesHoyProvider =
 
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 
-class CotizacionesHoyScreen extends ConsumerWidget {
+class CotizacionesHoyScreen extends ConsumerStatefulWidget {
   const CotizacionesHoyScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CotizacionesHoyScreen> createState() =>
+      _CotizacionesHoyScreenState();
+}
+
+class _CotizacionesHoyScreenState extends ConsumerState<CotizacionesHoyScreen> {
+  // Ids que ya reprodujeron su animación de entrada — persiste mientras la
+  // pantalla vive, así un pull-to-refresh no repite el fade/slide en cards
+  // que no cambiaron (antes se reanimaba todo en cada refresh).
+  final Set<String> _yaAnimadas = {};
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(cotizacionesHoyProvider);
 
     return async.when(
@@ -69,8 +81,10 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                         .length;
                     final pendientes = lista.length - convertidas - anuladas;
                     final totalS = lista.fold(0.0, (s, c) => s + (c.total ?? 0));
-                    return _AnimatedListItem(
-                      index: 0,
+                    return StaggeredListItem(
+                      id:         'metricas',
+                      index:      0,
+                      yaAnimadas: _yaAnimadas,
                       child: MetricasHoyGrid(
                         total:       totalS,
                         pendientes:  pendientes,
@@ -79,8 +93,11 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                     );
                   }
                   final c = lista[i - 1];
-                  return _AnimatedListItem(
-                    index: i,
+                  return StaggeredListItem(
+                    key:        ValueKey(c.idCotizacion),
+                    id:         c.idCotizacion,
+                    index:      i,
+                    yaAnimadas: _yaAnimadas,
                     child: CotizacionConvertirCard(
                       key: ValueKey(c.idCotizacion),
                       cotizacion: c,
@@ -223,51 +240,6 @@ class _MetricaCard extends StatelessWidget {
       ),
     );
   }
-}
-
-// ── Animación de entrada staggered ────────────────────────────────────────────
-
-class _AnimatedListItem extends StatefulWidget {
-  const _AnimatedListItem({required this.index, required this.child});
-  final int    index;
-  final Widget child;
-
-  @override
-  State<_AnimatedListItem> createState() => _AnimatedListItemState();
-}
-
-class _AnimatedListItemState extends State<_AnimatedListItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _opacity;
-  late final Animation<Offset> _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide   = Tween(begin: const Offset(0, 0.07), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    Future.delayed(Duration(milliseconds: (widget.index * 40).clamp(0, 320)), () {
-      if (mounted) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-        opacity: _opacity,
-        child: SlideTransition(position: _slide, child: widget.child),
-      );
 }
 
 // ── Shimmer de carga ──────────────────────────────────────────────────────────

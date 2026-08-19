@@ -561,6 +561,11 @@ class _Paso2State extends ConsumerState<_Paso2> {
       return p.nombre.toLowerCase().contains(q) ||
           p.marca.toLowerCase().contains(q);
     }).toList();
+    // Map en vez de indexWhere por fila — evita O(n·m) al renderizar la
+    // lista completa de perfumes contra la cesta en cada build.
+    final cestaPorPerfume = {
+      for (final item in state.cesta) item.perfume.idPerfume: item,
+    };
 
     return Column(
       children: [
@@ -652,11 +657,10 @@ class _Paso2State extends ConsumerState<_Paso2> {
                       itemCount: perfumes.length,
                       itemBuilder: (_, i) {
                         final p = perfumes[i];
-                        final idx = state.cesta.indexWhere(
-                            (item) => item.perfume.idPerfume == p.idPerfume);
+                        final itemEnCesta = cestaPorPerfume[p.idPerfume];
                         return _PerfumeRow(
                           perfume:     p,
-                          itemEnCesta: idx != -1 ? state.cesta[idx] : null,
+                          itemEnCesta: itemEnCesta,
                           onAgregar: (ml) {
                             HapticFeedback.lightImpact();
                             notifier.agregarItem(p, ml);
@@ -686,8 +690,8 @@ class _Paso2State extends ConsumerState<_Paso2> {
                                 ),
                               ));
                           },
-                          onQuitar: idx != -1
-                              ? () => notifier.quitarItem(idx)
+                          onQuitar: itemEnCesta != null
+                              ? () => notifier.quitarItemPorId(p.idPerfume)
                               : null,
                         );
                       },

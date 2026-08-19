@@ -9,6 +9,7 @@ import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/staggered_list_item.dart';
 import 'package:shimmer/shimmer.dart';
 
 // IDs de órdenes removidas optimísticamente antes de que el API confirme
@@ -276,19 +277,11 @@ class _ListaOrdenes extends StatelessWidget {
               itemCount: ordenes.length,
               itemBuilder: (_, i) {
                 final id = ordenes[i].idCompra;
-                // Anima solo la primera vez que se ve este id — sin importar
-                // cómo cambie su índice después. La mutación de yaAnimadas se
-                // difiere a post-frame para no mutar estado externo durante
-                // el build/layout pass de itemBuilder.
-                final animar = !yaAnimadas.contains(id);
-                if (animar) {
-                  WidgetsBinding.instance
-                      .addPostFrameCallback((_) => yaAnimadas.add(id));
-                }
-                return _AnimatedListItem(
-                  key:    ValueKey(id),
-                  animar: animar,
-                  index:  i,
+                return StaggeredListItem(
+                  key:        ValueKey(id),
+                  id:         id,
+                  index:      i,
+                  yaAnimadas: yaAnimadas,
                   child: _OrdenCard(
                     orden:          ordenes[i],
                     perfumesMap:    perfumesMap,
@@ -1017,73 +1010,6 @@ class _BarraSeleccion extends StatelessWidget {
       ],
     ),
   );
-}
-
-// ── Animación de entrada staggered ────────────────────────────────────────────
-
-class _AnimatedListItem extends StatelessWidget {
-  const _AnimatedListItem({
-    super.key,
-    required this.animar,
-    required this.index,
-    required this.child,
-  });
-  // Si esta orden ya animó su entrada antes (ver `_yaAnimadas` en
-  // _PendientesScreenState), se muestra directo — un id no debe volver a
-  // animarse solo porque su índice cambió al resolverse otras órdenes.
-  final bool   animar;
-  // Solo se usa para el retraso escalonado (cosmético); no decide si anima.
-  final int    index;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final card = RepaintBoundary(child: child);
-    return animar ? _StaggeredEntrance(index: index, child: card) : card;
-  }
-}
-
-class _StaggeredEntrance extends StatefulWidget {
-  const _StaggeredEntrance({required this.index, required this.child});
-  final int    index;
-  final Widget child;
-
-  @override
-  State<_StaggeredEntrance> createState() => _StaggeredEntranceState();
-}
-
-class _StaggeredEntranceState extends State<_StaggeredEntrance>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _opacity;
-  late final Animation<Offset> _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide   = Tween(begin: const Offset(0, 0.07), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    Future.delayed(Duration(milliseconds: (widget.index * 40).clamp(0, 320)), () {
-      if (mounted) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-        opacity: _opacity,
-        child: SlideTransition(position: _slide, child: widget.child),
-      );
 }
 
 // ── Shimmer de carga ──────────────────────────────────────────────────────────

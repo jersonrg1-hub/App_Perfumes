@@ -12,6 +12,9 @@ import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
+import 'package:perfuteca/widgets/common/empty_state_widget.dart';
+import 'package:perfuteca/widgets/common/orden_item_row.dart';
 import 'package:perfuteca/widgets/common/staggered_list_item.dart';
 import 'package:shimmer/shimmer.dart';
 
@@ -47,8 +50,10 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
 
     return async.when(
       loading: () => const _PendientesShimmer(),
-      error: (e, _) => _ErrorView(
-        mensaje: e.toString(),
+      error: (e, _) => AppErrorWidget(
+        error: e,
+        title: 'Error al cargar pendientes',
+        subtitle: 'No se pudo conectar. Verifica tu conexión e intenta de nuevo.',
         onRetry: () {
           ref.read(_pendientesRemovidosProvider.notifier).state = const {};
           ref.invalidate(pendientesProvider);
@@ -67,7 +72,24 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
 
         if (ordenes.isEmpty) {
           return RefreshIndicator(
-              onRefresh: onRefresh, child: const _EmptyView());
+            onRefresh: onRefresh,
+            // RefreshIndicator necesita un Scrollable descendiente para
+            // detectar el gesto de pull — EmptyStateWidget por sí solo
+            // (Center + Column) no lo tiene y el pull-to-refresh no dispara.
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: const EmptyStateWidget(
+                    icon: Icons.check_circle_outline_rounded,
+                    title: '¡Todo entregado!',
+                    subtitle: 'No hay órdenes pendientes',
+                  ),
+                ),
+              ),
+            ),
+          );
         }
 
         return _ListaOrdenes(
@@ -188,21 +210,43 @@ class OrdenAgrupadaCard extends ConsumerStatefulWidget {
   final Map<String, Perfume> perfumesMap;
 
   @override
-  ConsumerState<OrdenAgrupadaCard> createState() => OrdenAgrupadaCardState();
+  ConsumerState<OrdenAgrupadaCard> createState() => _OrdenAgrupadaCardState();
 }
 
-class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
+class _OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
+  // Evita doble-tap: sin esto, tocar "Anular"/"Entregado" dos veces (o ambos
+  // botones seguidos) antes de que responda el API dispara dos llamadas
+  // concurrentes a actualizarEstadoOrden para la misma orden. No hay feedback
+  // visual asociado porque el optimistic-hide de abajo desmonta la tarjeta
+  // en el mismo frame, así que un segundo tap ya no tiene botón que tocar;
+  // este flag solo cubre el reintento tras un fallo (la tarjeta se restaura).
+  bool _procesando = false;
+
   Future<void> _cambiarEstado(String nuevoEstado) async {
+    if (_procesando) return;
+    _procesando = true;
+
+    // Capturado antes del optimistic-hide: al agregar esta orden a
+    // _pendientesRemovidosProvider el ListView la excluye de inmediato y
+    // esta State se desmonta en el mismo frame, mucho antes de que resuelva
+    // el await de abajo. Llamar ref.read/ref.invalidate (WidgetRef) después
+    // de eso lanza StateError porque el ref queda ligado al ciclo de vida
+    // del widget — el container no, así que lo usamos para todo lo que
+    // ocurre tras el await.
+    final container = ProviderScope.containerOf(context, listen: false);
+
     // Optimista: ocultar la tarjeta de inmediato
-    ref
+    container
         .read(_pendientesRemovidosProvider.notifier)
         .update((s) => {...s, widget.orden.idCompra});
 
-    final ok = await ref.read(estadoVentaProvider.notifier).actualizar(
+    final ok = await container.read(estadoVentaProvider.notifier).actualizar(
           idVenta: widget.orden.idCompra,
           nuevoEstado: nuevoEstado,
           filasSheet: widget.orden.filas,
         );
+
+    _procesando = false;
 
     if (!ok) {
       // Restaurar si el API falló. actualizar() solo invalida
@@ -211,10 +255,10 @@ class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
       // backend responde 409/500), la lista en caché sigue mostrando el
       // estado viejo. Sin invalidar acá, restaurar la tarjeta la revive con
       // datos obsoletos en vez de reflejar la verdad del servidor.
-      ref
+      container
           .read(_pendientesRemovidosProvider.notifier)
           .update((s) => {...s}..remove(widget.orden.idCompra));
-      ref.invalidate(pendientesProvider);
+      container.invalidate(pendientesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -420,35 +464,13 @@ class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
                 final nombre = perfume != null
                     ? '${perfume.nombre} (${perfume.marca})'
                     : nombreFallbackItem(item);
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        decoration: const BoxDecoration(
-                          color: AppColors.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          '$nombre  ·  ${item.mlVendido ?? '?'} ml',
-                          style: AppTextStyles.body
-                              .copyWith(color: AppColors.textSecondary),
-                        ),
-                      ),
-                      Text(
-                        'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
-                        style: AppTextStyles.body.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryDark,
-                        ),
-                      ),
-                    ],
+                return OrdenItemRow(
+                  content: Text(
+                    '$nombre  ·  ${item.mlVendido ?? '?'} ml',
+                    style: AppTextStyles.body
+                        .copyWith(color: AppColors.textSecondary),
                   ),
+                  precio: item.precioCobrado ?? 0,
                 );
               }).toList(),
             ),
@@ -655,75 +677,6 @@ class _FechaAgeBadge extends StatelessWidget {
       return const SizedBox.shrink();
     }
   }
-}
-
-// ── Estados vacío / error ─────────────────────────────────────────────────────
-
-class _EmptyView extends StatelessWidget {
-  const _EmptyView();
-
-  @override
-  Widget build(BuildContext context) => CustomScrollView(
-        slivers: [
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.check_circle_outline_rounded,
-                      size: 64, color: AppColors.success),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    '¡Todo entregado!',
-                    style: AppTextStyles.body.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  const Text('No hay órdenes pendientes',
-                      style: AppTextStyles.bodySmall),
-                ],
-              ),
-            ),
-          ),
-        ],
-      );
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.mensaje, required this.onRetry});
-  final String mensaje;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off_rounded,
-                  size: 48, color: AppColors.textFaint),
-              const SizedBox(height: AppSpacing.md),
-              Text('Error al cargar pendientes',
-                  style: AppTextStyles.body
-                      .copyWith(color: AppColors.textPrimary)),
-              const SizedBox(height: AppSpacing.xs),
-              const Text(
-                  'No se pudo conectar. Verifica tu conexión e intenta de nuevo.',
-                  style: AppTextStyles.bodySmall,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: AppSpacing.lg),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
 }
 
 // ── Shimmer de carga ──────────────────────────────────────────────────────────

@@ -16,6 +16,7 @@ import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:perfuteca/widgets/common/empty_state_widget.dart';
+import 'package:perfuteca/widgets/common/orden_item_row.dart';
 
 // Agrupa órdenes por fecha
 Map<String, List<OrdenAgrupada>> _agruparPorFecha(List<VentaResponse> ventas) {
@@ -175,14 +176,26 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
       return state.ventas.isEmpty
           ? RefreshIndicator(
               onRefresh: onRefresh,
-              child: EmptyStateWidget(
-                icon: Icons.receipt_long_outlined,
-                title: 'Sin ventas registradas',
-                subtitle: 'Registra ventas desde la pestaña Nueva Venta',
-                action: OutlinedButton.icon(
-                  icon: const Icon(Icons.refresh_rounded, size: 16),
-                  label: const Text('Actualizar'),
-                  onPressed: onRefresh,
+              // RefreshIndicator necesita un Scrollable descendiente para
+              // detectar el gesto de pull — EmptyStateWidget por sí solo
+              // (Center + Column) no lo tiene y el pull-to-refresh no dispara.
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: EmptyStateWidget(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'Sin ventas registradas',
+                      subtitle: 'Registra ventas desde la pestaña Nueva Venta',
+                      action: OutlinedButton.icon(
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Actualizar'),
+                        onPressed: onRefresh,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             )
@@ -283,7 +296,7 @@ class _ListaHistorial extends StatelessWidget {
                 total: totalDia,
               ),
               ...ordenes.map((o) =>
-                  OrdenHistorialCard(orden: o, perfumesMap: perfumesMap)),
+                  _OrdenHistorialCard(orden: o, perfumesMap: perfumesMap)),
               const SizedBox(height: AppSpacing.sm),
             ],
           );
@@ -352,16 +365,16 @@ class _FechaHeader extends StatelessWidget {
 
 // ── Tarjeta expandible de orden ───────────────────────────────────────────────
 
-class OrdenHistorialCard extends StatefulWidget {
-  const OrdenHistorialCard({required this.orden, required this.perfumesMap});
+class _OrdenHistorialCard extends StatefulWidget {
+  const _OrdenHistorialCard({required this.orden, required this.perfumesMap});
   final OrdenAgrupada orden;
   final Map<String, Perfume> perfumesMap;
 
   @override
-  State<OrdenHistorialCard> createState() => OrdenHistorialCardState();
+  State<_OrdenHistorialCard> createState() => _OrdenHistorialCardState();
 }
 
-class OrdenHistorialCardState extends State<OrdenHistorialCard> {
+class _OrdenHistorialCardState extends State<_OrdenHistorialCard> {
   bool _expandido = false;
 
   Color _estadoColor(String? estado) => switch (estado?.toLowerCase()) {
@@ -544,57 +557,35 @@ class OrdenHistorialCardState extends State<OrdenHistorialCard> {
                                 perfume?.nombre ?? nombreFallbackItem(item);
                             final marca = perfume?.marca;
 
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 6),
-                              child: Row(
+                            return OrdenItemRow(
+                              precio: item.precioCobrado ?? 0,
+                              priceStyle: AppTextStyles.bodySmall.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryDark,
+                              ),
+                              content: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Container(
-                                    width: 6,
-                                    height: 6,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.primary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          nombre,
-                                          style:
-                                              AppTextStyles.bodySmall.copyWith(
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        if (marca != null)
-                                          Text(
-                                            '$marca  ·  ${item.mlVendido ?? '?'} ml',
-                                            style: AppTextStyles.bodySmall
-                                                .copyWith(
-                                                    color: AppColors.textMuted,
-                                                    fontSize: 10),
-                                          )
-                                        else
-                                          Text(
-                                            '${item.mlVendido ?? '?'} ml',
-                                            style: AppTextStyles.bodySmall
-                                                .copyWith(
-                                                    color: AppColors.textMuted),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
                                   Text(
-                                    'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
+                                    nombre,
                                     style: AppTextStyles.bodySmall.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primaryDark,
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  if (marca != null)
+                                    Text(
+                                      '$marca  ·  ${item.mlVendido ?? '?'} ml',
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                          color: AppColors.textMuted,
+                                          fontSize: 10),
+                                    )
+                                  else
+                                    Text(
+                                      '${item.mlVendido ?? '?'} ml',
+                                      style: AppTextStyles.bodySmall
+                                          .copyWith(color: AppColors.textMuted),
+                                    ),
                                 ],
                               ),
                             );

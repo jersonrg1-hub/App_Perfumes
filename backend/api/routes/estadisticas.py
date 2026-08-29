@@ -320,6 +320,21 @@ def _tamanios_por_ml(df: pd.DataFrame) -> List[dict]:
     ]
 
 
+def _tipos_envio(df: pd.DataFrame) -> List[dict]:
+    if df.empty or "Tipo_Envio" not in df.columns:
+        return []
+    g = (
+        df.groupby("Tipo_Envio")
+        .agg(cantidad=("Precio_Cobrado", "count"), total=("Precio_Cobrado", "sum"))
+        .reset_index()
+    )
+    return [
+        {"tipo": str(r.Tipo_Envio), "cantidad": int(r.cantidad), "total": float(r.total)}
+        for r in g.itertuples(index=False)
+        if str(r.Tipo_Envio).strip()
+    ]
+
+
 def _top_perfumes(df: pd.DataFrame, n: Optional[int] = None) -> List[dict]:
     if df.empty or "ID_Perfume" not in df.columns:
         return []
@@ -350,6 +365,7 @@ def _empty_historico() -> dict:
         "top_perfumes":      [],
         "ranking_distritos": [],
         "tamanios_total":    [],
+        "tipos_envio_total": [],
     }
 
 
@@ -377,6 +393,7 @@ def _compute_historico(df: pd.DataFrame) -> dict:
             "total_ml":     int(grupo["Ml_Vendido"].sum()),
             "top_perfumes": _top_perfumes(grupo, n=10),
             "tamanios":     _tamanios_por_ml(grupo),
+            "tipos_envio":  _tipos_envio(grupo),
         })
     por_mes.sort(key=lambda m: m["clave"])
 
@@ -416,6 +433,7 @@ def _compute_historico(df: pd.DataFrame) -> dict:
         "top_perfumes":      _top_perfumes(entregadas),
         "ranking_distritos": ranking_distritos,
         "tamanios_total":    _tamanios_por_ml(entregadas),
+        "tipos_envio_total": _tipos_envio(entregadas),
     }
 
 

@@ -24,6 +24,8 @@ from backend.api.dependencies import (
     get_image_url,
     df_to_json_list,
     paginate_df,
+    invalidar_cache_catalogo,
+    verify_api_key,
 )
 from backend.api.models import PerfumeResponse, Paginated
 from backend.repositories.sheets_repository import SheetsRepository
@@ -86,6 +88,21 @@ def listar_catalogo(
         raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
     return paginate_df(df, _serializar_catalogo, limit, offset)
+
+
+@router.post(
+    "/invalidar",
+    dependencies=[Depends(verify_api_key)],
+    summary="Forzar recarga del catálogo desde Google Sheets",
+)
+def invalidar_catalogo():
+    """
+    Limpia el cache de catálogo (TTL 30 min) para que la próxima lectura
+    traiga datos frescos de Sheets. Usado por el botón reload de Flutter
+    tras editar precios/perfumes directamente en Sheets.
+    """
+    invalidar_cache_catalogo()
+    return {"detail": "Cache de catalogo invalidado"}
 
 
 @router.get(

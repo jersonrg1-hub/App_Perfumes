@@ -196,6 +196,9 @@ class _HistoricoBody extends StatelessWidget {
             mejorMes: s.mejorMesClave,
           ),
 
+        const SizedBox(height: AppSpacing.lg),
+        const _DesgloseSection(),
+
         _TopPerfumesSection(masVendidos: s.masVendidosHistorico),
         _RankingDistritosSection(distritos: s.distritoRanking),
         const SizedBox(height: AppSpacing.xl),
@@ -722,6 +725,262 @@ String _fmtFecha(String fecha) {
     return '${d.day} ${meses[d.month]} ${d.year}';
   } catch (_) {
     return fecha;
+  }
+}
+
+// ── Desglose por tamaño / tipo de envío (con filtro de período) ────────────────
+
+class _DesgloseSection extends ConsumerStatefulWidget {
+  const _DesgloseSection();
+
+  @override
+  ConsumerState<_DesgloseSection> createState() => _DesgloseSectionState();
+}
+
+class _DesgloseSectionState extends ConsumerState<_DesgloseSection> {
+  // 'todo' | 'mes' | 'YYYY-MM'
+  String _filtro = 'todo';
+  bool   _porEnvio = false;
+
+  static const _mesesCortos = [
+    '', 'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+    'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
+  ];
+
+  String _labelFiltro(String key) {
+    if (key == 'todo') return 'Todo el tiempo';
+    if (key == 'mes')  return 'Este mes';
+    try {
+      final p = key.split('-');
+      return '${_mesesCortos[int.parse(p[1])]} ${p[0]}';
+    } catch (_) {
+      return key;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ref.watch(historicoBackendProvider).when(
+      loading: () => skeletonBox(height: 200, radius: AppSpacing.radiusMd),
+      error: (e, __) => const SizedBox.shrink(),
+      data: (data) {
+        final now       = nowPeru();
+        final mesActual =
+            '${now.year}-${now.month.toString().padLeft(2, '0')}';
+        final porMes = (data['por_mes'] as List<dynamic>? ?? [])
+            .cast<Map<String, dynamic>>();
+
+        final meses = porMes
+            .map((m) => m['clave'] as String)
+            .where((clave) => clave != mesActual)
+            .toList()
+          ..sort((a, b) => b.compareTo(a));
+
+        List<dynamic> raw;
+        final campoTotal = _porEnvio ? 'tipos_envio_total' : 'tamanios_total';
+        final campoMes   = _porEnvio ? 'tipos_envio'       : 'tamanios';
+        if (_filtro == 'todo') {
+          raw = data[campoTotal] as List<dynamic>? ?? [];
+        } else {
+          final clave = _filtro == 'mes' ? mesActual : _filtro;
+          final mes = porMes.cast<Map<String, dynamic>?>().firstWhere(
+                (m) => m?['clave'] == clave,
+                orElse: () => null,
+              );
+          raw = mes?[campoMes] as List<dynamic>? ?? [];
+        }
+
+        final items = _porEnvio ? tiposEnvioDesglose(raw) : tamaniosDesglose(raw);
+        final totalCount = items.fold(0, (s, t) => s + t.cantidad);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _porEnvio ? Icons.local_shipping_outlined : Icons.water_drop_outlined,
+                  size: 16, color: AppColors.textPrimary,
+                ),
+                const SizedBox(width: 6),
+                Text('Ventas por ${_porEnvio ? 'tipo de envío' : 'tamaño'}',
+                    style: AppTextStyles.heading2.copyWith(fontSize: 15)),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            // ── Toggle tamaño / tipo de envío ────────────────────────────
+            SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(
+                  value: false,
+                  icon: Icon(Icons.water_drop_outlined, size: 14),
+                  label: Text('Tamaño'),
+                ),
+                ButtonSegment(
+                  value: true,
+                  icon: Icon(Icons.local_shipping_outlined, size: 14),
+                  label: Text('Envío'),
+                ),
+              ],
+              selected: {_porEnvio},
+              onSelectionChanged: (s) => setState(() => _porEnvio = s.first),
+              style: SegmentedButton.styleFrom(
+                backgroundColor:         AppColors.background,
+                foregroundColor:         AppColors.textMuted,
+                selectedForegroundColor: AppColors.primaryDark,
+                selectedBackgroundColor: AppColors.primaryPale,
+                side: const BorderSide(color: AppColors.primaryLight),
+                textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            // ── Chips de período ──────────────────────────────────────────
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _FiltroChip(
+                    label:    'Todo el tiempo',
+                    selected: _filtro == 'todo',
+                    onTap:    () => setState(() => _filtro = 'todo'),
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  _FiltroChip(
+                    label:    'Este mes',
+                    selected: _filtro == 'mes',
+                    onTap:    () => setState(() => _filtro = 'mes'),
+                  ),
+                  ...meses.map((m) => Padding(
+                        padding: const EdgeInsets.only(left: AppSpacing.xs),
+                        child: _FiltroChip(
+                          label:    _labelFiltro(m),
+                          selected: _filtro == m,
+                          onTap:    () => setState(() => _filtro = m),
+                        ),
+                      )),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            if (items.isEmpty)
+              Center(
+                child: Text(
+                  'Sin ventas en este período',
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.textMuted),
+                ),
+              )
+            else
+              ...items.map((it) {
+                final pct = totalCount > 0 ? it.cantidad / totalCount : 0.0;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color:        AppColors.surface,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    border:       Border.all(color: AppColors.primaryLight),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            it.label,
+                            style: AppTextStyles.body.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color:      AppColors.textPrimary,
+                              fontSize:   15,
+                            ),
+                          ),
+                          Text(
+                            '${it.cantidad} venta${it.cantidad != 1 ? 's' : ''}'
+                            ' — S/ ${it.total.toStringAsFixed(2)}',
+                            style: AppTextStyles.bodySmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          height: 8,
+                          child: Stack(children: [
+                            Container(color: AppColors.primaryPale),
+                            FractionallySizedBox(
+                              widthFactor: pct,
+                              child: Container(
+                                decoration: const BoxDecoration(
+                                  gradient: LinearGradient(colors: [
+                                    AppColors.primary,
+                                    AppColors.primaryDark,
+                                  ]),
+                                ),
+                              ),
+                            ),
+                          ]),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '${(pct * 100).toStringAsFixed(1)}% del total',
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _FiltroChip extends StatelessWidget {
+  const _FiltroChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String       label;
+  final bool         selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.primaryLight,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize:   11,
+            fontWeight: FontWeight.w600,
+            color: selected ? AppColors.background : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
   }
 }
 

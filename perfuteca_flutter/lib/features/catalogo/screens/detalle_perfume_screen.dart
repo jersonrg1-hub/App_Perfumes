@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/notas/providers/notas_provider.dart';
 import 'package:perfuteca/models/app_config_model.dart';
 import 'package:perfuteca/models/perfume.dart';
@@ -179,6 +180,9 @@ class _DetalleBody extends ConsumerWidget {
                 const SizedBox(height: AppSpacing.xl),
               ],
 
+              // ── Ventas históricas ─────────────────────────────────────
+              _VentasHistoricasSection(idPerfume: perfume.idPerfume),
+
               // ── Notas ─────────────────────────────────────────────────
               if (perfume.notas != null && perfume.notas!.isNotEmpty) ...[
                 _SeccionLabel(
@@ -253,6 +257,94 @@ class _DetalleBody extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Ventas históricas de este perfume ───────────────────────────────────────
+// Búsqueda por nombre ya existe en Búsqueda/Catálogo — en vez de duplicar un
+// buscador dentro de EstadísticasHistorico, el historial de ventas de un
+// perfume puntual vive aquí, en su propio detalle.
+
+class _VentasHistoricasSection extends ConsumerWidget {
+  const _VentasHistoricasSection({required this.idPerfume});
+  final String idPerfume;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(historicoPorPerfumeProvider);
+    return async.when(
+      loading: () => const SizedBox.shrink(),
+      error:   (_, __) => const SizedBox.shrink(),
+      data: (mapa) {
+        // Normaliza igual que historicoPorPerfumeProvider — Sheets puede
+        // devolver ID_Perfume como float ("12.0") si la columna tiene celdas
+        // vacías, y Catalogo/Ventas no siempre coinciden en el formato.
+        final normId = double.tryParse(idPerfume)?.toInt().toString() ?? idPerfume;
+        final stat = mapa[normId];
+        if (stat == null || stat.totalMl == 0) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _SeccionLabel(
+              icon:  Icons.query_stats_rounded,
+              label: 'VENTAS HISTÓRICAS',
+              color: AppColors.primary,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              child: _SeccionCard(
+                padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Vendido', style: AppTextStyles.priceLabel),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${stat.totalMl} ml',
+                            style: AppTextStyles.price.copyWith(
+                              color: AppColors.primaryDark,
+                              fontSize: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 36,
+                      child: VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: AppColors.primaryLight,
+                      ),
+                    ),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text('Ingresos', style: AppTextStyles.priceLabel),
+                          const SizedBox(height: 4),
+                          Text(
+                            'S/ ${stat.totalSoles.toStringAsFixed(2)}',
+                            style: AppTextStyles.price.copyWith(
+                              color: AppColors.primaryDark,
+                              fontSize: 20,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+          ],
+        );
+      },
     );
   }
 }

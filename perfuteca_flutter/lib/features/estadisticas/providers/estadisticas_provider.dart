@@ -192,6 +192,43 @@ final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
   return tamaniosFromJson(data['tamanios'] as List<dynamic>? ?? []);
 });
 
+// ── Desglose genérico (tamaño / tipo de envío) — usado en HistoricoTab ────────
+
+class DesgloseItem {
+  const DesgloseItem({
+    required this.label,
+    required this.cantidad,
+    required this.total,
+  });
+  final String label;
+  final int    cantidad;
+  final double total;
+}
+
+List<DesgloseItem> tamaniosDesglose(List<dynamic> raw) {
+  return tamaniosFromJson(raw)
+      .map((t) => DesgloseItem(
+            label:    '${t.ml} ml',
+            cantidad: t.cantidad,
+            total:    t.total,
+          ))
+      .toList();
+}
+
+List<DesgloseItem> tiposEnvioDesglose(List<dynamic> raw) {
+  return raw
+      .map((e) {
+        final m = e as Map<String, dynamic>;
+        return DesgloseItem(
+          label:    m['tipo'] as String? ?? '',
+          cantidad: (m['cantidad'] as num?)?.toInt()    ?? 0,
+          total:    (m['total']    as num?)?.toDouble() ?? 0,
+        );
+      })
+      .toList()
+    ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
+}
+
 // ── Semanal ───────────────────────────────────────────────────────────────────
 
 class DiaStat {
@@ -350,6 +387,36 @@ final ventasClienteProvider =
   (ref, celular) =>
       ref.watch(ventasRepositoryProvider).getVentasCliente(celular),
 );
+
+// ── Histórico por perfume individual (usado en DetallePerfumeScreen) ─────────
+// Reusa /historico (ya cargado en el resto de estadísticas) — evita un
+// endpoint dedicado. `top_perfumes` ahí trae TODOS los perfumes vendidos
+// alguna vez (sin cap de n), así que sirve como índice completo por id.
+
+class PerfumeHistoricoStat {
+  const PerfumeHistoricoStat({required this.totalMl, required this.totalSoles});
+  final int    totalMl;
+  final double totalSoles;
+}
+
+final historicoPorPerfumeProvider =
+    FutureProvider<Map<String, PerfumeHistoricoStat>>((ref) async {
+  ref.keepAlive();
+  final data = await ref.watch(historicoBackendProvider.future);
+  final raw  = data['top_perfumes'] as List<dynamic>? ?? [];
+
+  final map = <String, PerfumeHistoricoStat>{};
+  for (final e in raw) {
+    final m     = e as Map<String, dynamic>;
+    final id    = m['id_perfume']?.toString() ?? '';
+    final normId = double.tryParse(id)?.toInt().toString() ?? id;
+    map[normId] = PerfumeHistoricoStat(
+      totalMl:    (m['total_ml']    as num?)?.toInt()    ?? 0,
+      totalSoles: (m['total_soles'] as num?)?.toDouble() ?? 0,
+    );
+  }
+  return map;
+});
 
 // ── Historial global (todo el tiempo) ─────────────────────────────────────────
 

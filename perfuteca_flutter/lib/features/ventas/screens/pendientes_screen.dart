@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
     show perfumesMapProvider;
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart'
+    show nowPeru;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/models/orden_agrupada.dart';
 import 'package:perfuteca/models/perfume.dart';
@@ -32,120 +34,16 @@ class PendientesScreen extends ConsumerStatefulWidget {
 }
 
 class _PendientesScreenState extends ConsumerState<PendientesScreen> {
-  Set<String>  _seleccionados   = {};
   // Órdenes que ya reprodujeron su animación de entrada — persiste mientras
   // la pantalla vive, así una tarjeta no vuelve a animarse solo porque su
   // índice cambió al resolverse otras órdenes por encima de ella.
   final Set<String> _yaAnimadas = {};
 
-  bool get _modoSeleccion => _seleccionados.isNotEmpty;
-
-  void _iniciarSeleccion(String idCompra) {
-    setState(() => _seleccionados = {idCompra});
-  }
-
-  void _toggleSeleccion(String idCompra) {
-    setState(() {
-      if (_seleccionados.contains(idCompra)) {
-        _seleccionados = Set.from(_seleccionados)..remove(idCompra);
-      } else {
-        _seleccionados = {..._seleccionados, idCompra};
-      }
-    });
-  }
-
-  void _cancelarSeleccion() {
-    setState(() => _seleccionados = {});
-  }
-
-  Future<void> _marcarSeleccionadosEntregados() async {
-    final seleccionados = Set<String>.from(_seleccionados);
-
-    // Derivar ordenes desde el provider — evita captura de estado stale
-    final ventas   = ref.read(pendientesProvider).valueOrNull ?? [];
-    final removidos = ref.read(_pendientesRemovidosProvider);
-    final ordenes  = _agrupar(ventas)
-        .where((o) =>
-            seleccionados.contains(o.idCompra) &&
-            !removidos.contains(o.idCompra))
-        .toList();
-
-    if (ordenes.isEmpty) return;
-
-    _cancelarSeleccion();
-
-    // Optimista: ocultar inmediatamente
-    ref
-        .read(_pendientesRemovidosProvider.notifier)
-        .update((s) => {...s, ...seleccionados});
-
-    try {
-      final resultados = await Future.wait(
-        ordenes.map(
-          (orden) => ref.read(estadoVentaProvider.notifier).actualizar(
-                idVenta:     orden.idCompra,
-                nuevoEstado: 'Entregado',
-                filasSheet:  orden.filas,
-              ),
-        ),
-      );
-
-      final fallidos = <String>{
-        for (var i = 0; i < ordenes.length; i++)
-          if (!resultados[i]) ordenes[i].idCompra,
-      };
-      final exitosos = seleccionados.length - fallidos.length;
-
-      if (fallidos.isNotEmpty) {
-        // Restaurar solo los que fallaron — los exitosos quedan ocultos.
-        // Invalidar acá porque un fallo (409 por conflicto, etc.) puede
-        // significar que el estado real ya cambió por otra vía — sin
-        // refrescar, la tarjeta restaurada muestra datos obsoletos.
-        ref
-            .read(_pendientesRemovidosProvider.notifier)
-            .update((s) => s.difference(fallidos));
-        ref.invalidate(pendientesProvider);
-      }
-
-      if (mounted) {
-        final ok = exitosos > 0;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              fallidos.isEmpty
-                  ? '$exitosos pedido${exitosos != 1 ? "s" : ""} '
-                      'marcado${exitosos != 1 ? "s" : ""} como entregado${exitosos != 1 ? "s" : ""}'
-                  : '$exitosos de ${seleccionados.length} marcados. '
-                      '${fallidos.length} fallaron, intenta de nuevo.',
-            ),
-            backgroundColor: ok ? AppColors.success : AppColors.error,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (_) {
-      // Restaurar items que fallaron
-      ref
-          .read(_pendientesRemovidosProvider.notifier)
-          .update((s) => s.difference(seleccionados));
-      ref.invalidate(pendientesProvider);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error al actualizar. Intenta de nuevo.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final async       = ref.watch(pendientesProvider);
+    final async = ref.watch(pendientesProvider);
     final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
-    final removidos   = ref.watch(_pendientesRemovidosProvider);
+    final removidos = ref.watch(_pendientesRemovidosProvider);
 
     return async.when(
       loading: () => const _PendientesShimmer(),
@@ -172,29 +70,11 @@ class _PendientesScreenState extends ConsumerState<PendientesScreen> {
               onRefresh: onRefresh, child: const _EmptyView());
         }
 
-        return Stack(
-          children: [
-            _ListaOrdenes(
-              ordenes:       ordenes,
-              perfumesMap:   perfumesMap,
-              onRefresh:     onRefresh,
-              seleccionados: _seleccionados,
-              yaAnimadas:    _yaAnimadas,
-              onLongPress:   _iniciarSeleccion,
-              onToggle:      _toggleSeleccion,
-            ),
-            if (_modoSeleccion)
-              Positioned(
-                bottom: AppSpacing.lg,
-                left:   AppSpacing.lg,
-                right:  AppSpacing.lg,
-                child: _BarraSeleccion(
-                  count:      _seleccionados.length,
-                  onEntregar: _marcarSeleccionadosEntregados,
-                  onCancelar: _cancelarSeleccion,
-                ),
-              ),
-          ],
+        return _ListaOrdenes(
+          ordenes: ordenes,
+          perfumesMap: perfumesMap,
+          onRefresh: onRefresh,
+          yaAnimadas: _yaAnimadas,
         );
       },
     );
@@ -208,18 +88,12 @@ class _ListaOrdenes extends StatelessWidget {
     required this.ordenes,
     required this.perfumesMap,
     required this.onRefresh,
-    required this.seleccionados,
     required this.yaAnimadas,
-    required this.onLongPress,
-    required this.onToggle,
   });
-  final List<OrdenAgrupada>            ordenes;
-  final Map<String, Perfume>    perfumesMap;
+  final List<OrdenAgrupada> ordenes;
+  final Map<String, Perfume> perfumesMap;
   final Future<void> Function() onRefresh;
-  final Set<String>             seleccionados;
-  final Set<String>             yaAnimadas;
-  final void Function(String)   onLongPress;
-  final void Function(String)   onToggle;
+  final Set<String> yaAnimadas;
 
   @override
   Widget build(BuildContext context) {
@@ -240,17 +114,13 @@ class _ListaOrdenes extends StatelessWidget {
               itemBuilder: (_, i) {
                 final id = ordenes[i].idCompra;
                 return StaggeredListItem(
-                  key:        ValueKey(id),
-                  id:         id,
-                  index:      i,
+                  key: ValueKey(id),
+                  id: id,
+                  index: i,
                   yaAnimadas: yaAnimadas,
                   child: OrdenAgrupadaCard(
-                    orden:          ordenes[i],
-                    perfumesMap:    perfumesMap,
-                    seleccionado:   seleccionados.contains(id),
-                    modoSeleccion:  seleccionados.isNotEmpty,
-                    onLongPress:    () => onLongPress(id),
-                    onTapSeleccion: () => onToggle(id),
+                    orden: ordenes[i],
+                    perfumesMap: perfumesMap,
                   ),
                 );
               },
@@ -266,7 +136,7 @@ class _ListaOrdenes extends StatelessWidget {
 
 class _ResumenBanner extends StatelessWidget {
   const _ResumenBanner({required this.cantidad, required this.total});
-  final int    cantidad;
+  final int cantidad;
   final double total;
 
   @override
@@ -280,8 +150,7 @@ class _ResumenBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.warningSurface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border:
-            Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -314,17 +183,9 @@ class OrdenAgrupadaCard extends ConsumerStatefulWidget {
   const OrdenAgrupadaCard({
     required this.orden,
     required this.perfumesMap,
-    required this.seleccionado,
-    required this.modoSeleccion,
-    required this.onLongPress,
-    required this.onTapSeleccion,
   });
-  final OrdenAgrupada               orden;
+  final OrdenAgrupada orden;
   final Map<String, Perfume> perfumesMap;
-  final bool                 seleccionado;
-  final bool                 modoSeleccion;
-  final VoidCallback         onLongPress;
-  final VoidCallback         onTapSeleccion;
 
   @override
   ConsumerState<OrdenAgrupadaCard> createState() => OrdenAgrupadaCardState();
@@ -333,13 +194,14 @@ class OrdenAgrupadaCard extends ConsumerStatefulWidget {
 class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
   Future<void> _cambiarEstado(String nuevoEstado) async {
     // Optimista: ocultar la tarjeta de inmediato
-    ref.read(_pendientesRemovidosProvider.notifier)
+    ref
+        .read(_pendientesRemovidosProvider.notifier)
         .update((s) => {...s, widget.orden.idCompra});
 
     final ok = await ref.read(estadoVentaProvider.notifier).actualizar(
-          idVenta:     widget.orden.idCompra,
+          idVenta: widget.orden.idCompra,
           nuevoEstado: nuevoEstado,
-          filasSheet:  widget.orden.filas,
+          filasSheet: widget.orden.filas,
         );
 
     if (!ok) {
@@ -349,7 +211,8 @@ class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
       // backend responde 409/500), la lista en caché sigue mostrando el
       // estado viejo. Sin invalidar acá, restaurar la tarjeta la revive con
       // datos obsoletos en vez de reflejar la verdad del servidor.
-      ref.read(_pendientesRemovidosProvider.notifier)
+      ref
+          .read(_pendientesRemovidosProvider.notifier)
           .update((s) => {...s}..remove(widget.orden.idCompra));
       ref.invalidate(pendientesProvider);
       if (mounted) {
@@ -368,13 +231,12 @@ class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
     const sep = '────────────────────';
 
     final itemsLineas = orden.itemsConNormId.asMap().entries.map((entry) {
-      final idx     = entry.key + 1;
-      final item    = entry.value.item;
-      final normId  = entry.value.normId;
-      final perfume = normId != null ? widget.perfumesMap[normId] : null;
+      final idx = entry.key + 1;
+      final item = entry.value.item;
+      final perfume = perfumeDeItem(entry.value, widget.perfumesMap);
       final nombre = perfume != null
           ? '${perfume.marca} — ${perfume.nombre}'
-          : (item.idPerfume != null ? 'Perfume #${item.idPerfume}' : '—');
+          : nombreFallbackItem(item);
       return '  *$idx.* *$nombre* ${item.mlVendido ?? '?'}ml — S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}';
     }).join('\n');
 
@@ -385,16 +247,15 @@ class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
         ? '\n🗺️ *Distrito:* ${orden.distrito}'
         : '';
 
-    final msg =
-      '📦 *Perfuteca — Pedido ${orden.idCompra}*\n$sep\n'
-      '👤 *Cliente:* ${orden.comprador ?? '—'}\n'
-      '📱 *Celular:* ${orden.celular ?? '—'}\n'
-      '🚚 *Envío:* ${orden.tipoEnvio ?? '—'}$dirLinea$distLinea\n'
-      '$sep\n'
-      '🌸 *Perfumes:*\n$itemsLineas\n'
-      '$sep\n'
-      '💰 *Total: S/ ${orden.total.toStringAsFixed(2)}*\n'
-      '💳 *Pago:* ${orden.metodoPago ?? '—'}';
+    final msg = '📦 *Perfuteca — Pedido ${orden.idCompra}*\n$sep\n'
+        '👤 *Cliente:* ${orden.comprador ?? '—'}\n'
+        '📱 *Celular:* ${orden.celular ?? '—'}\n'
+        '🚚 *Envío:* ${orden.tipoEnvio ?? '—'}$dirLinea$distLinea\n'
+        '$sep\n'
+        '🌸 *Perfumes:*\n$itemsLineas\n'
+        '$sep\n'
+        '💰 *Total: S/ ${orden.total.toStringAsFixed(2)}*\n'
+        '💳 *Pago:* ${orden.metodoPago ?? '—'}';
     await abrirWhatsAppBusiness(mensaje: msg);
   }
 
@@ -417,8 +278,7 @@ class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: AppColors.success),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.success),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Confirmar'),
           ),
@@ -448,8 +308,7 @@ class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: AppColors.error),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Anular'),
           ),
@@ -464,298 +323,250 @@ class OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
   Widget build(BuildContext context) {
     final orden = widget.orden;
 
-    return GestureDetector(
-      // Si ya hay una selección activa, long-press debe sumar/quitar este
-      // ítem (igual que el tap), no reiniciar la selección a solo este —
-      // _iniciarSeleccion reemplaza el set entero y borraba en silencio
-      // lo ya elegido.
-      onLongPress:
-          widget.modoSeleccion ? widget.onTapSeleccion : widget.onLongPress,
-      onTap: widget.modoSeleccion ? widget.onTapSeleccion : null,
-      child: Stack(
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: AppColors.primaryLight),
+        boxShadow: const [
+          BoxShadow(
+              color: AppColors.shadowColor,
+              blurRadius: 4,
+              offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header ──────────────────────────────────────────
           Container(
-            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-            decoration: BoxDecoration(
-              color: widget.seleccionado
-                  ? AppColors.primaryPale
-                  : AppColors.surface,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(
-                color: widget.seleccionado
-                    ? AppColors.primary
-                    : AppColors.primaryLight,
-                width: widget.seleccionado ? 2 : 1,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                    color: AppColors.shadowColor,
-                    blurRadius: 4,
-                    offset: Offset(0, 2)),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+            decoration: const BoxDecoration(
+              color: AppColors.primaryPale,
+              borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(AppSpacing.radiusMd)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '#${orden.idCompra}',
+                            style: AppTextStyles.priceLabel.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${orden.items.length} ítem${orden.items.length != 1 ? 's' : ''}',
+                              style: AppTextStyles.priceLabel
+                                  .copyWith(color: AppColors.primaryDark),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        orden.comprador ?? '—',
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (orden.celular != null)
+                        Text(orden.celular!, style: AppTextStyles.bodySmall),
+                      if (orden.fecha != null) ...[
+                        const SizedBox(height: 3),
+                        _FechaAgeBadge(fecha: orden.fecha!),
+                      ],
+                    ],
+                  ),
+                ),
+                Text(
+                  'S/ ${orden.total.toStringAsFixed(2)}',
+                  style: AppTextStyles.price.copyWith(
+                    fontSize: 20,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
               ],
             ),
+          ),
+
+          // ── Lista de ítems ────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Header ──────────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-                  decoration: const BoxDecoration(
-                    color: AppColors.primaryPale,
-                    borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(AppSpacing.radiusMd)),
-                  ),
+              children: orden.itemsConNormId.map((entry) {
+                final item = entry.item;
+                final perfume = perfumeDeItem(entry, widget.perfumesMap);
+                final nombre = perfume != null
+                    ? '${perfume.nombre} (${perfume.marca})'
+                    : nombreFallbackItem(item);
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
                   child: Row(
                     children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  '#${orden.idCompra}',
-                                  style: AppTextStyles.priceLabel.copyWith(
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(width: AppSpacing.sm),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryLight,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    '${orden.items.length} ítem${orden.items.length != 1 ? 's' : ''}',
-                                    style: AppTextStyles.priceLabel.copyWith(
-                                        color: AppColors.primaryDark),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              orden.comprador ?? '—',
-                              style: AppTextStyles.body.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (orden.celular != null)
-                              Text(orden.celular!,
-                                  style: AppTextStyles.bodySmall),
-                            if (orden.fecha != null) ...[
-                              const SizedBox(height: 3),
-                              _FechaAgeBadge(fecha: orden.fecha!),
-                            ],
-                          ],
+                        child: Text(
+                          '$nombre  ·  ${item.mlVendido ?? '?'} ml',
+                          style: AppTextStyles.body
+                              .copyWith(color: AppColors.textSecondary),
                         ),
                       ),
                       Text(
-                        'S/ ${orden.total.toStringAsFixed(2)}',
-                        style: AppTextStyles.price.copyWith(
-                          fontSize: 20,
+                        'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
                           color: AppColors.primaryDark,
                         ),
                       ),
                     ],
                   ),
-                ),
+                );
+              }).toList(),
+            ),
+          ),
 
-                // ── Lista de ítems ────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-                  child: Column(
-                    children: orden.itemsConNormId.map((entry) {
-                      final item   = entry.item;
-                      final normId = entry.normId;
-                      final perfume = normId != null
-                          ? widget.perfumesMap[normId]
-                          : null;
-                      final nombre = perfume != null
-                          ? '${perfume.nombre} (${perfume.marca})'
-                          : (item.idPerfume != null
-                              ? 'Perfume #${item.idPerfume}'
-                              : '—');
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 6, height: 6,
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                '$nombre  ·  ${item.mlVendido ?? '?'} ml',
-                                style: AppTextStyles.body.copyWith(
-                                    color: AppColors.textSecondary),
-                              ),
-                            ),
-                            Text(
-                              'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
-                              style: AppTextStyles.body.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primaryDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Divider(height: AppSpacing.md),
+          ),
 
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  child: Divider(height: AppSpacing.md),
+          // ── Info logística ────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    _InfoChip(
+                      icon: Icons.local_shipping_outlined,
+                      label: orden.tipoEnvio ?? '—',
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    _InfoChip(
+                      icon: Icons.payment_outlined,
+                      label: orden.metodoPago ?? '—',
+                      color: AppColors.goldLight,
+                      textColor: AppColors.gold,
+                    ),
+                  ],
                 ),
-
-                // ── Info logística ────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  child: Column(
+                const SizedBox(height: AppSpacing.xs + 2),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 13, color: AppColors.textMuted),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        orden.direccion ?? '—',
+                        style: AppTextStyles.bodySmall,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                if (orden.distrito?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: AppSpacing.xs),
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          _InfoChip(
-                            icon: Icons.local_shipping_outlined,
-                            label: orden.tipoEnvio ?? '—',
-                          ),
-                          const SizedBox(width: AppSpacing.sm),
-                          _InfoChip(
-                            icon: Icons.payment_outlined,
-                            label: orden.metodoPago ?? '—',
-                            color: AppColors.goldLight,
-                            textColor: AppColors.gold,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: AppSpacing.xs + 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.location_on_outlined,
-                              size: 13, color: AppColors.textMuted),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              orden.direccion ?? '—',
-                              style: AppTextStyles.bodySmall,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (orden.distrito?.trim().isNotEmpty == true) ...[
-                        const SizedBox(height: AppSpacing.xs),
-                        Row(
-                          children: [
-                            const Icon(Icons.map_outlined,
-                                size: 13, color: AppColors.textMuted),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                orden.distrito!,
-                                style: AppTextStyles.bodySmall,
-                              ),
-                            ),
-                          ],
+                      const Icon(Icons.map_outlined,
+                          size: 13, color: AppColors.textMuted),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          orden.distrito!,
+                          style: AppTextStyles.bodySmall,
                         ),
-                      ],
+                      ),
                     ],
                   ),
-                ),
-
-                // ── Acciones (ocultas en modo selección) ──────────
-                if (!widget.modoSeleccion)
-                  Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _enviarComunidad,
-                            icon: const Icon(Icons.groups_rounded, size: 16),
-                            label: const Text('Enviar pedido a comunidad'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.whatsappDark,
-                              side: const BorderSide(
-                                  color: AppColors.whatsappDark),
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: AppSpacing.md),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Row(
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: _confirmarAnular,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.error,
-                                side: const BorderSide(color: AppColors.error),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: AppSpacing.md,
-                                    vertical: AppSpacing.md),
-                              ),
-                              icon: const Icon(Icons.cancel_outlined, size: 16),
-                              label: const Text('Anular'),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: FilledButton.icon(
-                                onPressed: _confirmarEntregado,
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.success,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: AppSpacing.md),
-                                ),
-                                icon: const Icon(
-                                    Icons.check_circle_outline_rounded,
-                                    size: 16),
-                                label: const Text('Marcar entregado'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                ],
               ],
             ),
           ),
 
-          // Checkbox de selección
-          if (widget.seleccionado)
-            Positioned(
-              top: 8,
-              right: 8,
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
+          // ── Acciones ───────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _enviarComunidad,
+                    icon: const Icon(Icons.groups_rounded, size: 16),
+                    label: const Text('Enviar pedido a comunidad'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.whatsappDark,
+                      side: const BorderSide(color: AppColors.whatsappDark),
+                      padding:
+                          const EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    ),
+                  ),
                 ),
-                padding: const EdgeInsets.all(2),
-                child: const Icon(
-                  Icons.check_rounded,
-                  color: Colors.white,
-                  size: 16,
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _confirmarAnular,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(color: AppColors.error),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md, vertical: AppSpacing.md),
+                      ),
+                      icon: const Icon(Icons.cancel_outlined, size: 16),
+                      label: const Text('Anular'),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: _confirmarEntregado,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.success,
+                          padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.md),
+                        ),
+                        icon: const Icon(Icons.check_circle_outline_rounded,
+                            size: 16),
+                        label: const Text('Marcar entregado'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -772,13 +583,14 @@ class _InfoChip extends StatelessWidget {
     this.textColor = AppColors.primaryDark,
   });
   final IconData icon;
-  final String   label;
-  final Color    color;
-  final Color    textColor;
+  final String label;
+  final Color color;
+  final Color textColor;
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -790,8 +602,8 @@ class _InfoChip extends StatelessWidget {
             const SizedBox(width: 4),
             Text(
               label,
-              style: AppTextStyles.priceLabel
-                  .copyWith(color: textColor, fontWeight: FontWeight.w700, fontSize: 11),
+              style: AppTextStyles.priceLabel.copyWith(
+                  color: textColor, fontWeight: FontWeight.w700, fontSize: 11),
             ),
           ],
         ),
@@ -807,8 +619,9 @@ class _FechaAgeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     try {
-      final d    = DateTime.parse(fecha);
-      final days = DateTime.now().difference(DateTime(d.year, d.month, d.day)).inDays;
+      final d = DateTime.parse(fecha);
+      final days =
+          nowPeru().difference(DateTime(d.year, d.month, d.day)).inDays;
 
       final Color color;
       final String label;
@@ -833,7 +646,8 @@ class _FechaAgeBadge extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: AppTextStyles.notasLabel.copyWith(color: color, fontSize: 11),
+            style:
+                AppTextStyles.notasLabel.copyWith(color: color, fontSize: 11),
           ),
         ],
       );
@@ -879,7 +693,7 @@ class _EmptyView extends StatelessWidget {
 
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.mensaje, required this.onRetry});
-  final String       mensaje;
+  final String mensaje;
   final VoidCallback onRetry;
 
   @override
@@ -912,68 +726,6 @@ class _ErrorView extends StatelessWidget {
       );
 }
 
-// ── Barra flotante de selección múltiple ──────────────────────────────────────
-
-class _BarraSeleccion extends StatelessWidget {
-  const _BarraSeleccion({
-    required this.count,
-    required this.onEntregar,
-    required this.onCancelar,
-  });
-  final int          count;
-  final VoidCallback onEntregar;
-  final VoidCallback onCancelar;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-    decoration: BoxDecoration(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      border: Border.all(color: AppColors.primaryLight),
-      boxShadow: const [
-        BoxShadow(
-          color: AppColors.shadowColor,
-          blurRadius: 12,
-          offset: Offset(0, -2),
-        ),
-      ],
-    ),
-    child: Row(
-      children: [
-        IconButton(
-          onPressed: onCancelar,
-          icon: const Icon(Icons.close_rounded),
-          color: AppColors.textMuted,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: Text(
-            '$count seleccionado${count != 1 ? "s" : ""}',
-            style: AppTextStyles.body.copyWith(
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-        FilledButton.icon(
-          onPressed: onEntregar,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.success,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-          ),
-          icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-          label: Text('Entregar ($count)'),
-        ),
-      ],
-    ),
-  );
-}
-
 // ── Shimmer de carga ──────────────────────────────────────────────────────────
 
 class _PendientesShimmer extends StatelessWidget {
@@ -981,7 +733,7 @@ class _PendientesShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Shimmer.fromColors(
-        baseColor:      AppColors.primaryLight,
+        baseColor: AppColors.primaryLight,
         highlightColor: AppColors.primaryPale,
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(

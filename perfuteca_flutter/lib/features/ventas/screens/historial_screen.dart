@@ -70,14 +70,14 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
     return ventas.where((v) {
       if (v.fecha == null) return false;
       try {
-        final d     = DateTime.parse(v.fecha!);
+        final d = DateTime.parse(v.fecha!);
         final fecha = DateTime(d.year, d.month, d.day);
         return switch (_filtro) {
-          _FiltroFecha.hoy    => fecha == hoy,
-          _FiltroFecha.semana => !fecha.isBefore(
-              hoy.subtract(Duration(days: hoy.weekday - 1))),
-          _FiltroFecha.mes    => d.year == now.year && d.month == now.month,
-          _FiltroFecha.todo   => true,
+          _FiltroFecha.hoy => fecha == hoy,
+          _FiltroFecha.semana =>
+            !fecha.isBefore(hoy.subtract(Duration(days: hoy.weekday - 1))),
+          _FiltroFecha.mes => d.year == now.year && d.month == now.month,
+          _FiltroFecha.todo => true,
         };
       } catch (_) {
         return false;
@@ -87,14 +87,14 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state       = ref.watch(historialProvider);
+    final state = ref.watch(historialProvider);
     final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
 
     const opciones = [
-      (_FiltroFecha.todo,   'Todo'),
-      (_FiltroFecha.hoy,    'Hoy'),
+      (_FiltroFecha.todo, 'Todo'),
+      (_FiltroFecha.hoy, 'Hoy'),
       (_FiltroFecha.semana, 'Esta semana'),
-      (_FiltroFecha.mes,    'Este mes'),
+      (_FiltroFecha.mes, 'Este mes'),
     ];
 
     return Column(
@@ -129,8 +129,8 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
                       child: AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 200),
                         style: TextStyle(
-                          color:      sel ? Colors.white : AppColors.textMuted,
-                          fontSize:   12,
+                          color: sel ? Colors.white : AppColors.textMuted,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                         child: Text(label),
@@ -195,8 +195,8 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     'Sin ventas en este período',
-                    style: AppTextStyles.body
-                        .copyWith(color: AppColors.textMuted),
+                    style:
+                        AppTextStyles.body.copyWith(color: AppColors.textMuted),
                   ),
                 ],
               ),
@@ -204,16 +204,15 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
     }
 
     final porFecha = _agruparPorFecha(filtradas);
-    final fechas   = porFecha.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
+    final fechas = porFecha.keys.toList()..sort((a, b) => b.compareTo(a));
     return _ListaHistorial(
       scrollController: _scroll,
-      porFecha:         porFecha,
-      fechas:           fechas,
-      perfumesMap:      perfumesMap,
-      onRefresh:        onRefresh,
-      isLoadingMore:    state.isLoadingMore,
-      hasMore:          state.hasMore,
+      porFecha: porFecha,
+      fechas: fechas,
+      perfumesMap: perfumesMap,
+      onRefresh: onRefresh,
+      isLoadingMore: state.isLoadingMore,
+      hasMore: state.hasMore,
     );
   }
 }
@@ -230,13 +229,13 @@ class _ListaHistorial extends StatelessWidget {
     required this.isLoadingMore,
     required this.hasMore,
   });
-  final ScrollController           scrollController;
-  final Map<String, List<OrdenAgrupada>>  porFecha;
-  final List<String>               fechas;
-  final Map<String, Perfume>       perfumesMap;
-  final Future<void> Function()    onRefresh;
-  final bool                       isLoadingMore;
-  final bool                       hasMore;
+  final ScrollController scrollController;
+  final Map<String, List<OrdenAgrupada>> porFecha;
+  final List<String> fechas;
+  final Map<String, Perfume> perfumesMap;
+  final Future<void> Function() onRefresh;
+  final bool isLoadingMore;
+  final bool hasMore;
 
   String _formatFecha(String raw) {
     try {
@@ -263,26 +262,28 @@ class _ListaHistorial extends StatelessWidget {
               child: Center(
                 child: isLoadingMore
                     ? const SizedBox(
-                        width: 22, height: 22,
+                        width: 22,
+                        height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const SizedBox.shrink(),
               ),
             );
           }
-          final fecha    = fechas[i];
-          final ordenes  = porFecha[fecha]!;
+          final fecha = fechas[i];
+          final ordenes = porFecha[fecha]!;
           final totalDia = ordenes.fold(0.0, (s, o) => s + o.total);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _FechaHeader(
-                label:    _formatFecha(fecha),
+                label: _formatFecha(fecha),
                 cantidad: ordenes.length,
-                total:    totalDia,
+                total: totalDia,
               ),
-              ...ordenes.map((o) => OrdenHistorialCard(orden: o, perfumesMap: perfumesMap)),
+              ...ordenes.map((o) =>
+                  OrdenHistorialCard(orden: o, perfumesMap: perfumesMap)),
               const SizedBox(height: AppSpacing.sm),
             ],
           );
@@ -301,7 +302,7 @@ class _FechaHeader extends StatelessWidget {
     required this.total,
   });
   final String label;
-  final int    cantidad;
+  final int cantidad;
   final double total;
 
   @override
@@ -311,7 +312,8 @@ class _FechaHeader extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 3, height: 18,
+            width: 3,
+            height: 18,
             decoration: BoxDecoration(
               color: AppColors.primary,
               borderRadius: BorderRadius.circular(2),
@@ -352,7 +354,7 @@ class _FechaHeader extends StatelessWidget {
 
 class OrdenHistorialCard extends StatefulWidget {
   const OrdenHistorialCard({required this.orden, required this.perfumesMap});
-  final OrdenAgrupada               orden;
+  final OrdenAgrupada orden;
   final Map<String, Perfume> perfumesMap;
 
   @override
@@ -363,22 +365,22 @@ class OrdenHistorialCardState extends State<OrdenHistorialCard> {
   bool _expandido = false;
 
   Color _estadoColor(String? estado) => switch (estado?.toLowerCase()) {
-    'entregado' => AppColors.success,
-    'anulado'   => AppColors.error,
-    _           => AppColors.warning,
-  };
+        'entregado' => AppColors.success,
+        'anulado' => AppColors.error,
+        _ => AppColors.warning,
+      };
 
   IconData _estadoIcon(String? estado) => switch (estado?.toLowerCase()) {
-    'entregado' => Icons.check_circle_rounded,
-    'anulado'   => Icons.cancel_rounded,
-    _           => Icons.schedule_rounded,
-  };
+        'entregado' => Icons.check_circle_rounded,
+        'anulado' => Icons.cancel_rounded,
+        _ => Icons.schedule_rounded,
+      };
 
   @override
   Widget build(BuildContext context) {
-    final orden  = widget.orden;
-    final color  = _estadoColor(orden.estado);
-    final icon   = _estadoIcon(orden.estado);
+    final orden = widget.orden;
+    final color = _estadoColor(orden.estado);
+    final icon = _estadoIcon(orden.estado);
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -413,7 +415,6 @@ class OrdenHistorialCardState extends State<OrdenHistorialCard> {
                 children: [
                   Icon(icon, size: 18, color: color),
                   const SizedBox(width: AppSpacing.sm),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,7 +493,6 @@ class OrdenHistorialCardState extends State<OrdenHistorialCard> {
                       ],
                     ),
                   ),
-
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -521,86 +521,88 @@ class OrdenHistorialCardState extends State<OrdenHistorialCard> {
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
-              child: _expandido ? Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryPale,
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(AppSpacing.radiusMd),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Divider(height: AppSpacing.md),
-                    ...orden.itemsConNormId.map((entry) {
-                      final item   = entry.item;
-                      final normId = entry.normId;
-                      final perfume = normId != null
-                          ? widget.perfumesMap[normId]
-                          : null;
-                      final nombre = perfume != null
-                          ? perfume.nombre
-                          : (item.idPerfume != null
-                              ? 'Perfume #${item.idPerfume}'
-                              : '—');
-                      final marca = perfume?.marca;
+              child: _expandido
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPale,
+                        borderRadius: BorderRadius.vertical(
+                          bottom: Radius.circular(AppSpacing.radiusMd),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Divider(height: AppSpacing.md),
+                          ...orden.itemsConNormId.map((entry) {
+                            final item = entry.item;
+                            final perfume =
+                                perfumeDeItem(entry, widget.perfumesMap);
+                            final nombre =
+                                perfume?.nombre ?? nombreFallbackItem(item);
+                            final marca = perfume?.marca;
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 6, height: 6,
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 6),
+                              child: Row(
                                 children: [
-                                  Text(
-                                    nombre,
-                                    style: AppTextStyles.bodySmall.copyWith(
-                                      color: AppColors.textPrimary,
-                                      fontWeight: FontWeight.w600,
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.primary,
+                                      shape: BoxShape.circle,
                                     ),
                                   ),
-                                  if (marca != null)
-                                    Text(
-                                      '$marca  ·  ${item.mlVendido ?? '?'} ml',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                          color: AppColors.textMuted,
-                                          fontSize: 10),
-                                    )
-                                  else
-                                    Text(
-                                      '${item.mlVendido ?? '?'} ml',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                          color: AppColors.textMuted),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          nombre,
+                                          style:
+                                              AppTextStyles.bodySmall.copyWith(
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        if (marca != null)
+                                          Text(
+                                            '$marca  ·  ${item.mlVendido ?? '?'} ml',
+                                            style: AppTextStyles.bodySmall
+                                                .copyWith(
+                                                    color: AppColors.textMuted,
+                                                    fontSize: 10),
+                                          )
+                                        else
+                                          Text(
+                                            '${item.mlVendido ?? '?'} ml',
+                                            style: AppTextStyles.bodySmall
+                                                .copyWith(
+                                                    color: AppColors.textMuted),
+                                          ),
+                                      ],
                                     ),
+                                  ),
+                                  Text(
+                                    'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primaryDark,
+                                    ),
+                                  ),
                                 ],
                               ),
-                            ),
-                            Text(
-                              'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
-                              style: AppTextStyles.bodySmall.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ) : const SizedBox.shrink(),
+                            );
+                          }),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),

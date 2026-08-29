@@ -80,6 +80,16 @@ class CatalogoRepository {
     }
   }
 
+  /// Invalida el cache de catálogo en el backend (30 min TTL) para forzar
+  /// que la próxima lectura traiga datos frescos de Google Sheets.
+  Future<void> invalidarCache() async {
+    try {
+      await _dio.post(ApiConstants.catalogoInvalidar);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
   Future<Perfume> getDetalle(String idPerfume) async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(

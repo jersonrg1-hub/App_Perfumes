@@ -2,6 +2,7 @@ abstract class ApiConstants {
   static const String catalogo      = '/api/v1/catalogo/';
   static const String catalogoBuscar = '/api/v1/catalogo/buscar';
   static const String catalogoMarcas = '/api/v1/catalogo/marcas';
+  static const String catalogoInvalidar = '/api/v1/catalogo/invalidar';
   static const String ventas        = '/api/v1/ventas/';
   static const String cotizaciones  = '/api/v1/cotizaciones/';
   static const String estadisticasResumen   = '/api/v1/estadisticas/resumen';

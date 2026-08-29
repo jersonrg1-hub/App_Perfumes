@@ -91,7 +91,18 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
     }
   }
 
-  Future<void> refresh() => load();
+  /// Botón reload: invalida el cache del backend (Sheets → API) y recarga.
+  /// Sin esto, load() solo saltaba el cache HTTP local — el backend seguía
+  /// sirviendo el catálogo cacheado hasta 30 min tras editar Sheets.
+  Future<void> refresh() async {
+    try {
+      await _repo.invalidarCache();
+    } catch (_) {
+      // Si falla la invalidación (offline, key no configurada), igual
+      // intentamos recargar — puede que el cache ya haya expirado solo.
+    }
+    await load();
+  }
 
   /// Refresca desde la página 1 (bypassCache) pero restaura la profundidad
   /// ya cargada antes de publicar el nuevo estado, en un solo cambio de

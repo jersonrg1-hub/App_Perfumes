@@ -16,6 +16,7 @@ Flujo de POST /cotizaciones/:
 """
 from typing import Optional
 
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.api.dependencies import (
@@ -70,7 +71,7 @@ def listar_cotizaciones(
         df = df[df["Estado"] == estado]
 
     if not df.empty and fecha_desde and "Fecha" in df.columns:
-        df = df[df["Fecha"].astype(str) >= fecha_desde]
+        df = df[df["Fecha"] >= pd.to_datetime(fecha_desde, errors="coerce")]
 
     if not df.empty and "Fecha" in df.columns:
         df = df.sort_values("Fecha", ascending=False, na_position="last")

@@ -52,6 +52,30 @@ _anulacion_lock     = threading.Lock()   # serializa check-update en anulaciones
 _conversion_lock    = threading.Lock()   # serializa check-y-crea al convertir cotización en venta
 
 
+def _registrar_venta_o_advertir(repo: SheetsRepository, cesta: list, cliente: dict) -> tuple[str, bool]:
+    """Registra la venta. Si falla el descuento de stock (StockUpdateError),
+    la venta ya quedó guardada — no se relanza como 500 para no inducir
+    un reintento que la duplicaría; se retorna stock_ok=False en su lugar.
+    """
+    try:
+        id_compra = repo.register_complete_sale(cesta, cliente, MERMA_PCT)
+        return id_compra, True
+    except StockUpdateError as e:
+        return e.id_compra, False
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al registrar venta: {e}")
+
+
+def _invalidar_caches_venta(*, catalogo: bool, cotizaciones: bool) -> None:
+    invalidar_cache_ventas()
+    if catalogo:
+        invalidar_cache_catalogo()
+    if cotizaciones:
+        invalidar_cache_cotizaciones()
+    _estadisticas_mod._invalidar_cache_stats()
+    _estadisticas_mod._invalidar_cache_clientes()
+
+
 @router.get(
     "/",
     response_model=Paginated[VentaResponse],
@@ -229,45 +253,20 @@ def registrar_venta(body: VentaRequest, repo: SheetsRepository = Depends(get_rep
                         f"{body.id_cotizacion} como aceptada — verifícalo manualmente."
                     )
 
-            try:
-                id_compra = repo.register_complete_sale(cesta, cliente, MERMA_PCT)
-            except StockUpdateError as e:
+            id_compra, stock_ok = _registrar_venta_o_advertir(repo, cesta, cliente)
+            if stock_ok:
+                warning = _marcar_aceptada_o_advertir("Venta registrada.")
+            else:
                 warning = _marcar_aceptada_o_advertir(
                     "Venta guardada pero el stock no pudo actualizarse."
                 ) or "Venta guardada pero el stock no pudo actualizarse"
-                invalidar_cache_ventas()
-                invalidar_cache_cotizaciones()
-                _estadisticas_mod._invalidar_cache_stats()
-                _estadisticas_mod._invalidar_cache_clientes()
-                return VentaRegistrada(id_compra=e.id_compra, warning=warning)
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=f"Error al registrar venta: {e}")
-
-            warning = _marcar_aceptada_o_advertir("Venta registrada.")
-            invalidar_cache_ventas()
-            invalidar_cache_catalogo()
-            invalidar_cache_cotizaciones()
-            _estadisticas_mod._invalidar_cache_stats()
-            _estadisticas_mod._invalidar_cache_clientes()
+            _invalidar_caches_venta(catalogo=stock_ok, cotizaciones=True)
             return VentaRegistrada(id_compra=id_compra, warning=warning)
 
-    try:
-        id_compra = repo.register_complete_sale(cesta, cliente, MERMA_PCT)
-        invalidar_cache_ventas()
-        invalidar_cache_catalogo()
-        _estadisticas_mod._invalidar_cache_stats()
-        _estadisticas_mod._invalidar_cache_clientes()
-        return VentaRegistrada(id_compra=id_compra)
-    except StockUpdateError as e:
-        invalidar_cache_ventas()
-        _estadisticas_mod._invalidar_cache_stats()
-        _estadisticas_mod._invalidar_cache_clientes()
-        return VentaRegistrada(
-            id_compra=e.id_compra,
-            warning="Venta guardada pero el stock no pudo actualizarse",
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al registrar venta: {e}")
+    id_compra, stock_ok = _registrar_venta_o_advertir(repo, cesta, cliente)
+    _invalidar_caches_venta(catalogo=stock_ok, cotizaciones=False)
+    warning = None if stock_ok else "Venta guardada pero el stock no pudo actualizarse"
+    return VentaRegistrada(id_compra=id_compra, warning=warning)
 
 
 @router.put(

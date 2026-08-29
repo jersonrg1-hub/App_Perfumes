@@ -282,7 +282,7 @@ class _ListaHistorial extends StatelessWidget {
                 cantidad: ordenes.length,
                 total:    totalDia,
               ),
-              ...ordenes.map((o) => OrdenAgrupadaCard(orden: o, perfumesMap: perfumesMap)),
+              ...ordenes.map((o) => OrdenHistorialCard(orden: o, perfumesMap: perfumesMap)),
               const SizedBox(height: AppSpacing.sm),
             ],
           );
@@ -350,16 +350,16 @@ class _FechaHeader extends StatelessWidget {
 
 // ── Tarjeta expandible de orden ───────────────────────────────────────────────
 
-class OrdenAgrupadaCard extends StatefulWidget {
-  const OrdenAgrupadaCard({required this.orden, required this.perfumesMap});
+class OrdenHistorialCard extends StatefulWidget {
+  const OrdenHistorialCard({required this.orden, required this.perfumesMap});
   final OrdenAgrupada               orden;
   final Map<String, Perfume> perfumesMap;
 
   @override
-  State<OrdenAgrupadaCard> createState() => OrdenAgrupadaCardState();
+  State<OrdenHistorialCard> createState() => OrdenHistorialCardState();
 }
 
-class OrdenAgrupadaCardState extends State<OrdenAgrupadaCard> {
+class OrdenHistorialCardState extends State<OrdenHistorialCard> {
   bool _expandido = false;
 
   Color _estadoColor(String? estado) => switch (estado?.toLowerCase()) {

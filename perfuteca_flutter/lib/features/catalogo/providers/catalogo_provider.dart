@@ -43,6 +43,9 @@ class CatalogoState {
 
 class CatalogoNotifier extends Notifier<CatalogoState> {
   static const _pageSize = 50;
+  static const _invalidarCooldown = Duration(seconds: 10);
+
+  DateTime? _ultimaInvalidacion;
 
   @override
   CatalogoState build() {
@@ -94,12 +97,22 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
   /// Botón reload: invalida el cache del backend (Sheets → API) y recarga.
   /// Sin esto, load() solo saltaba el cache HTTP local — el backend seguía
   /// sirviendo el catálogo cacheado hasta 30 min tras editar Sheets.
+  ///
+  /// Cooldown de 10s: pull-to-refresh también dispara refresh() (RefreshIndicator
+  /// en catalogo_screen), así que sin límite cada pull repetido pega directo a
+  /// Sheets saltándose el TTL de 30 min que existe para acotar llamadas a la API.
   Future<void> refresh() async {
-    try {
-      await _repo.invalidarCache();
-    } catch (_) {
-      // Si falla la invalidación (offline, key no configurada), igual
-      // intentamos recargar — puede que el cache ya haya expirado solo.
+    final ahora = DateTime.now();
+    final reciente = _ultimaInvalidacion != null &&
+        ahora.difference(_ultimaInvalidacion!) < _invalidarCooldown;
+    if (!reciente) {
+      _ultimaInvalidacion = ahora;
+      try {
+        await _repo.invalidarCache();
+      } catch (_) {
+        // Si falla la invalidación (offline, key no configurada), igual
+        // intentamos recargar — puede que el cache ya haya expirado solo.
+      }
     }
     await load();
   }

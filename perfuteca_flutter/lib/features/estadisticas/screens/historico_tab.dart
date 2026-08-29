@@ -842,9 +842,14 @@ class _ComparaMesesSectionState extends ConsumerState<_ComparaMesesSection> {
     final meses    = ref.watch(mesesDisponiblesProvider).valueOrNull ?? [];
     final statsMap = ref.watch(mesStatsMapProvider).valueOrNull ?? {};
 
+    // Re-validar contra la lista actual, no solo inicializar una vez: si
+    // 'meses' cambia tras un refresh y el valor guardado ya no está en la
+    // lista, DropdownButton lanza un assertion error (value no en items).
     if (meses.isNotEmpty) {
-      _mes1 ??= meses.last;
-      _mes2 ??= meses.length >= 2 ? meses[meses.length - 2] : meses.last;
+      if (_mes1 == null || !meses.contains(_mes1)) _mes1 = meses.last;
+      if (_mes2 == null || !meses.contains(_mes2)) {
+        _mes2 = meses.length >= 2 ? meses[meses.length - 2] : meses.last;
+      }
     }
 
     return Column(

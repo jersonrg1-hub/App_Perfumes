@@ -76,45 +76,11 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
         _valid & (_fechas_date >= inicio_ant) & (_fechas_date <= fin_ant)
     ]
 
-    # Tamaños del mes (no de todo el tiempo)
-    tamanios = []
-    if "Ml_Vendido" in mes_df.columns and not mes_df.empty:
-        tam_group = (
-            mes_df.groupby("Ml_Vendido")
-            .agg(
-                cantidad=("Precio_Cobrado", "count"),
-                total=("Precio_Cobrado", "sum"),
-            )
-            .reset_index()
-        )
-        tamanios = [
-            {"ml": int(r.Ml_Vendido), "cantidad": int(r.cantidad), "total": float(r.total)}
-            for r in tam_group.itertuples(index=False)
-        ]
-
-    # Top perfumes del mes
-    top_perfumes = []
-    if "ID_Perfume" in mes_df.columns and not mes_df.empty:
-        top_group = (
-            mes_df.groupby("ID_Perfume")
-            .agg(
-                total_ml=("Ml_Vendido", "sum"),
-                total_soles=("Precio_Cobrado", "sum"),
-                cantidad=("Precio_Cobrado", "count"),
-            )
-            .sort_values("total_ml", ascending=False)
-            .head(10)
-            .reset_index()
-        )
-        top_perfumes = [
-            {
-                "id_perfume": str(r.ID_Perfume),
-                "total_ml": int(r.total_ml),
-                "total_soles": float(r.total_soles),
-                "cantidad": int(r.cantidad),
-            }
-            for r in top_group.itertuples(index=False)
-        ]
+    # Tamaños y top perfumes del mes — mismos helpers que /historico, así
+    # ambos endpoints agregan Ml_Vendido/ID_Perfume de forma idéntica y no
+    # pueden divergir en un fix futuro.
+    tamanios = _tamanios_por_ml(mes_df)
+    top_perfumes = _top_perfumes(mes_df, n=10)
 
     # Clientes top del mes
     clientes_top = []

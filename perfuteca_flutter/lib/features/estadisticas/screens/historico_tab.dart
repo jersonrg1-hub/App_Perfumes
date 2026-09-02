@@ -986,13 +986,36 @@ class _FiltroChip extends StatelessWidget {
 
 // ── Top perfumes ──────────────────────────────────────────────────────────────
 
-class _TopPerfumesSection extends StatelessWidget {
+class _TopPerfumesSection extends StatefulWidget {
   const _TopPerfumesSection({required this.masVendidos});
   final List<TopPerfume> masVendidos;
 
   @override
+  State<_TopPerfumesSection> createState() => _TopPerfumesSectionState();
+}
+
+class _TopPerfumesSectionState extends State<_TopPerfumesSection> {
+  final _buscarCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _buscarCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (masVendidos.isEmpty) return const SizedBox.shrink();
+    if (widget.masVendidos.isEmpty) return const SizedBox.shrink();
+
+    final q = _query.trim().toLowerCase();
+    final filtrados = q.isEmpty
+        ? widget.masVendidos
+        : widget.masVendidos
+            .where((p) =>
+                p.nombre.toLowerCase().contains(q) ||
+                p.marca.toLowerCase().contains(q))
+            .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1008,11 +1031,63 @@ class _TopPerfumesSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpacing.sm),
-        _ExpandableRankedList<TopPerfume>(
-          items: masVendidos,
-          paso: 5,
-          itemBuilder: (pos, item) => _TopPerfumeRow(pos: pos, item: item),
+        TextField(
+          controller: _buscarCtrl,
+          onChanged: (v) => setState(() => _query = v),
+          style: AppTextStyles.bodySmall,
+          decoration: InputDecoration(
+            hintText: 'Buscar perfume o marca...',
+            hintStyle: AppTextStyles.bodySmall
+                .copyWith(color: AppColors.textMuted),
+            isDense: true,
+            filled: true,
+            fillColor: AppColors.background,
+            prefixIcon: const Icon(Icons.search_rounded,
+                size: 18, color: AppColors.textMuted),
+            suffixIcon: q.isEmpty
+                ? null
+                : IconButton(
+                    icon: const Icon(Icons.close_rounded,
+                        size: 16, color: AppColors.textMuted),
+                    onPressed: () => setState(() {
+                      _buscarCtrl.clear();
+                      _query = '';
+                    }),
+                  ),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 8),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              borderSide: const BorderSide(color: AppColors.primaryLight),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              borderSide: const BorderSide(color: AppColors.primaryLight),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              borderSide: const BorderSide(color: AppColors.primary),
+            ),
+          ),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        if (filtrados.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Text(
+                'Sin resultados para "$q"',
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.textMuted),
+              ),
+            ),
+          )
+        else
+          _ExpandableRankedList<TopPerfume>(
+            items: filtrados,
+            paso: 5,
+            itemBuilder: (pos, item) => _TopPerfumeRow(pos: pos, item: item),
+          ),
       ],
     );
   }

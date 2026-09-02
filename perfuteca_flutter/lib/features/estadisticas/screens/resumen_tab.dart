@@ -132,7 +132,7 @@ class _ResumenBody extends ConsumerWidget {
         const SizedBox(height: AppSpacing.sm),
 
         // ── Esta semana ───────────────────────────────────────────────────────
-        _SeccionLabel('Esta semana', icono: Icons.calendar_view_week_rounded),
+        const _SeccionLabel('Esta semana', icono: Icons.calendar_view_week_rounded),
         const SizedBox(height: AppSpacing.sm),
         semana.when(
           loading: () => _skeletonBox(h: 100),
@@ -143,7 +143,7 @@ class _ResumenBody extends ConsumerWidget {
 
         // ── Más vendidos del mes ──────────────────────────────────────────────
         if (s.masVendidos.isNotEmpty) ...[
-          _SeccionLabel('Más vendidos del mes', icono: Icons.star_rounded),
+          const _SeccionLabel('Más vendidos del mes', icono: Icons.star_rounded),
           const SizedBox(height: AppSpacing.sm),
           _TopPerfumesCard(perfumes: s.masVendidos.take(5).toList()),
           const SizedBox(height: AppSpacing.sm),
@@ -159,7 +159,7 @@ class _ResumenBody extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _SeccionLabel('Mix del mes', icono: Icons.water_drop_outlined),
+                  const _SeccionLabel('Mix del mes', icono: Icons.water_drop_outlined),
                   TextButton(
                     onPressed: () => showModalBottomSheet<void>(
                       context: context,
@@ -1170,7 +1170,7 @@ class _TamaniosChips extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.water_drop_outlined, size: 11, color: AppColors.primary),
+              const Icon(Icons.water_drop_outlined, size: 11, color: AppColors.primary),
               const SizedBox(width: 4),
               Text(
                 '${t.ml}ml',

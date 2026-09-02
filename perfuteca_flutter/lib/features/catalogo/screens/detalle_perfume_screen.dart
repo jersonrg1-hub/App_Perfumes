@@ -116,7 +116,7 @@ class _DetalleBody extends ConsumerWidget {
 
               // ── Precios ───────────────────────────────────────────────
               if (perfume.precios.isNotEmpty) ...[
-                _SeccionLabel(
+                const _SeccionLabel(
                   icon:  Icons.sell_outlined,
                   label: 'PRECIOS',
                   color: AppColors.primary,
@@ -132,7 +132,7 @@ class _DetalleBody extends ConsumerWidget {
                       children: [
                         for (final (i, e) in perfume.precios.entries.indexed) ...[
                           if (i > 0)
-                            SizedBox(
+                            const SizedBox(
                               height: 36,
                               child: VerticalDivider(
                                 width: 1,
@@ -185,7 +185,7 @@ class _DetalleBody extends ConsumerWidget {
 
               // ── Notas ─────────────────────────────────────────────────
               if (perfume.notas != null && perfume.notas!.isNotEmpty) ...[
-                _SeccionLabel(
+                const _SeccionLabel(
                   icon:  Icons.spa_outlined,
                   label: 'NOTAS OLFATIVAS',
                   color: AppColors.primary,
@@ -212,7 +212,7 @@ class _DetalleBody extends ConsumerWidget {
               // ── Perfil olfativo ───────────────────────────────────────
               if (perfume.perfilOlfativo != null &&
                   perfume.perfilOlfativo!.isNotEmpty) ...[
-                _SeccionLabel(
+                const _SeccionLabel(
                   icon:  Icons.auto_awesome_outlined,
                   label: 'PERFIL OLFATIVO',
                   color: AppColors.gold,
@@ -235,7 +235,7 @@ class _DetalleBody extends ConsumerWidget {
 
               // ── Detalles adicionales (ocasión / estación / hora) ──────
               if (_tieneDetalles(perfume)) ...[
-                _SeccionLabel(
+                const _SeccionLabel(
                   icon:  Icons.info_outline_rounded,
                   label: 'DETALLES',
                   color: AppColors.primary,

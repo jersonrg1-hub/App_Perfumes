@@ -539,7 +539,7 @@ class _OrdenHistorialCardState extends State<_OrdenHistorialCard> {
                       width: double.infinity,
                       padding: const EdgeInsets.fromLTRB(
                           AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: AppColors.primaryPale,
                         borderRadius: BorderRadius.vertical(
                           bottom: Radius.circular(AppSpacing.radiusMd),

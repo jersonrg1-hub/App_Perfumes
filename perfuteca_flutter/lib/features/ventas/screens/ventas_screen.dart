@@ -72,18 +72,18 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
           labelStyle: AppTextStyles.button.copyWith(fontSize: 11),
           unselectedLabelStyle: const TextStyle(
               fontSize: 11, fontWeight: FontWeight.w500),
-          tabs: [
-            const Tab(
+          tabs: const [
+            Tab(
               icon: Icon(Icons.today_rounded, size: 18),
               text: 'Hoy',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
-            const Tab(
+            Tab(
               icon: Icon(Icons.request_quote_outlined, size: 18),
               text: 'Cotización',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
-            const Tab(
+            Tab(
               iconMargin: EdgeInsets.only(bottom: 2),
               text: 'Pendientes',
               icon: _PendientesBadge(),

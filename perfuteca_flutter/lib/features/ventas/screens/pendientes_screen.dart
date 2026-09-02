@@ -203,6 +203,7 @@ class _ResumenBanner extends StatelessWidget {
 
 class OrdenAgrupadaCard extends ConsumerStatefulWidget {
   const OrdenAgrupadaCard({
+    super.key,
     required this.orden,
     required this.perfumesMap,
   });

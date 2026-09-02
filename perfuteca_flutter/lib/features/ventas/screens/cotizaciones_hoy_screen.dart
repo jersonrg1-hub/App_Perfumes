@@ -48,14 +48,26 @@ class _CotizacionesHoyScreenState extends ConsumerState<CotizacionesHoyScreen> {
   @override
   Widget build(BuildContext context) {
     final async = ref.watch(cotizacionesHoyProvider);
+    // No usar async.when(loading:...) directo: cada refresh (pull-to-refresh
+    // accidental, o el invalidate tras registrar otra venta/cotización) pone
+    // el provider en AsyncLoading y reemplazaba TODO el ListView por el
+    // shimmer, destruyendo el State de las cards — incluida la que el
+    // usuario tenía expandida escribiendo los datos de la venta. Con
+    // valueOrNull, mientras haya datos previos, el refresh corre en el
+    // fondo y el ListView (con sus keys) nunca se desmonta.
+    final lista = async.valueOrNull;
 
-    return async.when(
-      loading: () => const _CotizacionesShimmer(),
-      error: (error, __) => AppErrorWidget(
-        error: error,
-        onRetry: () => ref.invalidate(cotizacionesHoyProvider),
-      ),
-      data: (lista) => lista.isEmpty
+    if (lista == null) {
+      if (async.hasError) {
+        return AppErrorWidget(
+          error: async.error!,
+          onRetry: () => ref.invalidate(cotizacionesHoyProvider),
+        );
+      }
+      return const _CotizacionesShimmer();
+    }
+
+    return lista.isEmpty
           ? EmptyStateWidget(
               icon: Icons.receipt_long_outlined,
               title: 'Sin cotizaciones hoy',
@@ -107,8 +119,7 @@ class _CotizacionesHoyScreenState extends ConsumerState<CotizacionesHoyScreen> {
                   );
                 },
               ),
-            ),
-    );
+            );
   }
 }
 

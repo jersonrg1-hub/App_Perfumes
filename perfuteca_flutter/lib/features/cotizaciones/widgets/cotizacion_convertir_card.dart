@@ -74,6 +74,16 @@ class _CotizacionConvertirCardState
   bool    _buscandoCliente = false;
   bool    _clienteNuevo    = false;
   bool    _confirmando     = false;
+  // true solo si el usuario editó algo a mano (TextField.onChanged / Chips)
+  // — a diferencia del listener de los controllers, NO se dispara cuando
+  // _cargarDatosCliente() autocompleta un cliente conocido vía `.text = `.
+  // Sin esta distinción, PopScope bloqueaba el back y mostraba "¿Descartar
+  // datos?" solo por abrir la card de un cliente ya conocido, sin que el
+  // usuario hubiera tocado nada.
+  bool    _tocado          = false;
+  // Evita apilar diálogos si el usuario dispara el back dos veces seguidas
+  // (doble swipe desde el borde) antes de que el primero se resuelva.
+  bool    _mostrandoConfirmSalida = false;
   String?          _error;
 
   final _compradorCtrl     = TextEditingController();
@@ -108,6 +118,12 @@ class _CotizacionConvertirCardState
           ? '@${_sinArroba(widget.cotizacion.alias!)}'
           : '');
 
+  // true si el usuario tiene el form abierto con datos que se perderían si
+  // el back (botón o swipe desde el borde) saca de esta pantalla — usado
+  // para bloquear ese pop con PopScope y no perder la venta a medio llenar.
+  bool get _tieneCambiosSinGuardar =>
+      _expandido && !_registrando && (_tocado || _confirmando);
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +137,13 @@ class _CotizacionConvertirCardState
     _direccionCtrl.addListener(_checkForm);
     _distritoCtrl.addListener(_checkForm);
     _celularNuevoCtrl.addListener(_checkForm);
+  }
+
+  // Solo edición real del usuario debe activar el guard de PopScope — se
+  // pasa como onChanged de los TextField (no se dispara con `.text = ` de
+  // _cargarDatosCliente) y desde los onSelect explícitos de los Chips.
+  void _marcarTocado() {
+    if (!_tocado) setState(() => _tocado = true);
   }
 
   void _checkForm() {
@@ -267,7 +290,18 @@ class _CotizacionConvertirCardState
       // Solo la UI local depende de mounted — el resto (invalidar listas)
       // debe correr siempre, la venta YA existe en el backend aunque esta
       // tarjeta ya no esté en pantalla.
-      if (mounted) setState(() { _registrando = false; });
+      // Además de _registrando, apagar _confirmando/_tocado: si no, esta
+      // card queda con _tieneCambiosSinGuardar=true después de una venta ya
+      // registrada con éxito — PopScope seguiría bloqueando el back con
+      // "¿Descartar datos?" aunque no haya nada que descartar (el banner de
+      // "ya fue convertida" ya reemplaza al formulario).
+      if (mounted) {
+        setState(() {
+          _registrando = false;
+          _confirmando = false;
+          _tocado      = false;
+        });
+      }
       // Mostrar la confirmación (con el botón "Enviar a comunidad") en un
       // diálogo aparte del árbol de esta card, SIEMPRE — no solo cuando
       // mounted. ListView.builder reutiliza sus elementos por índice (no
@@ -305,6 +339,7 @@ class _CotizacionConvertirCardState
       container.invalidate(historicoBackendProvider);
       container.invalidate(historialGlobalProvider);
     } catch (e) {
+      var yaConvertida = false;
       if (e is ServerException && e.statusCode == 409) {
         // El back también devuelve 409 para una cotización 'Anulado' (no
         // convertible) — no solo para una ya 'Aceptada'. Solo la primera
@@ -314,6 +349,7 @@ class _CotizacionConvertirCardState
         // distingue por el mensaje porque el status code es el mismo para
         // ambos casos.
         if (e.message.contains('ya fue convertida')) {
+          yaConvertida = true;
           container.read(cotizacionesAceptadasSesionProvider.notifier)
               .update((s) => {...s, widget.cotizacion.idCotizacion});
         }
@@ -323,8 +359,16 @@ class _CotizacionConvertirCardState
         container.invalidate(cotizaciones14dProvider);
       }
       if (!mounted) return;
-      setState(
-          () { _registrando = false; _error = e.toString(); _confirmando = false; });
+      setState(() {
+        _registrando = false;
+        _error       = e.toString();
+        _confirmando = false;
+        // Si ya existe una venta para esta cotización (la ganó otro
+        // registro concurrente), no dejar _tocado=true — si no, PopScope
+        // seguiría pidiendo "¿Descartar datos?" sobre un formulario que ya
+        // no se muestra (el banner de "aceptada" ocupa su lugar).
+        if (yaConvertida) _tocado = false;
+      });
     }
   }
 
@@ -382,6 +426,55 @@ class _CotizacionConvertirCardState
     );
   }
 
+  // Confirma antes de descartar datos sin guardar si el back (botón o swipe
+  // desde el borde) intenta sacar de esta pantalla con la card expandida.
+  Future<void> _onPopInvoked(bool didPop, Object? result) async {
+    if (didPop || _mostrandoConfirmSalida) return;
+    _mostrandoConfirmSalida = true;
+    final bool? descartar;
+    try {
+      descartar = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('¿Descartar datos?'),
+          content: const Text(
+              'Tienes datos sin guardar de esta venta. Si sales ahora se perderán.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Seguir editando'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Descartar y salir'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      _mostrandoConfirmSalida = false;
+    }
+    if (descartar != true || !mounted) return;
+    setState(() {
+      _expandido   = false;
+      _confirmando = false;
+      _tocado      = false;
+      _compradorCtrl.clear();
+      _direccionCtrl.clear();
+      _distritoCtrl.clear();
+      _celularNuevoCtrl.clear();
+      _tipoEnvio = '';
+    });
+    // setState solo agenda el rebuild — si se llama maybePop() ya mismo, el
+    // PopScope de este frame todavía tiene canPop:false (calculado con los
+    // campos viejos) y bloquea el segundo intento, mostrando el diálogo de
+    // nuevo. Se espera al post-frame callback para que el rebuild ya haya
+    // corrido y canPop refleje los campos ya vacíos.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final esAceptada =
@@ -390,7 +483,17 @@ class _CotizacionConvertirCardState
             widget.cotizacion.estado?.toLowerCase().startsWith('aceptad') ==
                 true;
 
-    return AnimatedSize(
+    return PopScope(
+      // esAceptada cubre el caso general (no solo los paths que ya
+      // resetean _tocado a mano arriba): esta misma cotización puede
+      // convertirse desde OTRA card — ej. la de CotizacionesTab en
+      // Estadísticas, si ambas pantallas están vivas a la vez por el
+      // IndexedStack del shell — mientras esta sigue expandida con
+      // _tocado=true. Sin esto, PopScope seguiría pidiendo "¿Descartar
+      // datos?" sobre una venta que ya quedó guardada por el otro lado.
+      canPop: esAceptada || !_tieneCambiosSinGuardar,
+      onPopInvokedWithResult: _onPopInvoked,
+      child: AnimatedSize(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOutCubic,
       child: Container(
@@ -640,6 +743,7 @@ class _CotizacionConvertirCardState
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                   ],
+                                  onChanged: (_) => _marcarTocado(),
                                 ),
                               ],
                               const _FieldLabel(
@@ -649,6 +753,7 @@ class _CotizacionConvertirCardState
                                 controller: _compradorCtrl,
                                 hint: 'Nombre completo',
                                 capitalization: TextCapitalization.words,
+                                onChanged: (_) => _marcarTocado(),
                               ),
                               const _FieldLabel(
                                   'Dirección de entrega',
@@ -657,6 +762,7 @@ class _CotizacionConvertirCardState
                                 controller: _direccionCtrl,
                                 hint: 'Jr. Los Jardines 123',
                                 capitalization: TextCapitalization.words,
+                                onChanged: (_) => _marcarTocado(),
                               ),
                               const _FieldLabel(
                                   'Distrito/Provincia', Icons.map_outlined),
@@ -664,6 +770,7 @@ class _CotizacionConvertirCardState
                                 controller: _distritoCtrl,
                                 hint: 'Ej: Lima, Arequipa',
                                 capitalization: TextCapitalization.words,
+                                onChanged: (_) => _marcarTocado(),
                               ),
                               const _FieldLabel(
                                   'Tipo de envío',
@@ -672,7 +779,7 @@ class _CotizacionConvertirCardState
                                 opciones: const ['Shalom', 'Motorizado'],
                                 valor: _tipoEnvio,
                                 onSelect: (v) {
-                                  setState(() => _tipoEnvio = v);
+                                  setState(() { _tipoEnvio = v; _tocado = true; });
                                   _checkForm();
                                 },
                               ),
@@ -684,7 +791,7 @@ class _CotizacionConvertirCardState
                                 ],
                                 valor: _metodoPago,
                                 onSelect: (v) =>
-                                    setState(() => _metodoPago = v),
+                                    setState(() { _metodoPago = v; _tocado = true; }),
                               ),
                               const SizedBox(height: AppSpacing.md),
                               ValueListenableBuilder<bool>(
@@ -723,6 +830,7 @@ class _CotizacionConvertirCardState
             ],
           ],
         ),
+      ),
       ),
     );
   }
@@ -1178,10 +1286,12 @@ class _Field extends StatelessWidget {
     this.keyboardType,
     this.maxLength,
     this.inputFormatters,
+    this.onChanged,
   });
   final TextEditingController controller;
   final String                hint;
   final TextCapitalization    capitalization;
+  final ValueChanged<String>?       onChanged;
   final TextInputType?              keyboardType;
   final int?                        maxLength;
   final List<TextInputFormatter>?   inputFormatters;
@@ -1196,6 +1306,7 @@ class _Field extends StatelessWidget {
           keyboardType:       keyboardType,
           maxLength:          maxLength,
           inputFormatters:    inputFormatters,
+          onChanged:          onChanged,
           decoration: InputDecoration(
             counterText: maxLength != null ? '' : null,
             hintText:  hint,

@@ -77,6 +77,14 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
   bool get wantKeepAlive => true;
 
   @override
+  void initState() {
+    super.initState();
+    // catalogoProvider pagina de a 50 — sin esto, este tab solo veía
+    // la primera página del catálogo y "perdía" perfumes tras el #50.
+    Future.microtask(() => ref.read(catalogoProvider.notifier).loadAll());
+  }
+
+  @override
   void dispose() {
     _debounce.dispose();
     _buscarCtrl.dispose();
@@ -248,24 +256,10 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
       const SizedBox(height: AppSpacing.sm),
     ];
 
-    if (lista.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        children: [
-          ...header,
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.xl),
-              child: Text(
-                'No hay perfumes en esta categoría',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
+    // Siempre CustomScrollView (incluso lista vacía) — antes el caso vacío
+    // usaba un ListView aparte, y ese cambio de tipo de widget en la raíz
+    // destruía el árbol completo (TextField incluido), cerrando el teclado
+    // cada vez que el filtro/búsqueda quedaba momentáneamente sin resultados.
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -275,19 +269,36 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
             delegate: SliverChildListDelegate(header),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
-          sliver: SliverList.builder(
-            itemCount: lista.length,
-            itemBuilder: (_, i) => _StockRow(
-              perfume: lista[i],
-              maxStock: maxStock,
-              critico: critico,
-              bajo: bajo,
+        if (lista.isEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
+            sliver: SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xl),
+                child: Center(
+                  child: Text(
+                    'No hay perfumes en esta categoría',
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
+            sliver: SliverList.builder(
+              itemCount: lista.length,
+              itemBuilder: (_, i) => _StockRow(
+                perfume: lista[i],
+                maxStock: maxStock,
+                critico: critico,
+                bajo: bajo,
+              ),
             ),
           ),
-        ),
       ],
     );
   }

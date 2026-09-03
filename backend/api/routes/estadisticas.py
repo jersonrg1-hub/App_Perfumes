@@ -198,7 +198,7 @@ def _compute_clientes(df: pd.DataFrame) -> List[dict]:
     if df.empty:
         return []
 
-    entregadas = df[df["Estado"] == "Entregado"]
+    entregadas = df[df["Estado"].isin(["Entregado", "Pendiente"])]
     # Pre-agrupar entregadas por celular una sola vez — evita O(n_clientes × n_ventas)
     ent_por_cel = {cel: g for cel, g in entregadas.groupby("Celular")} if not entregadas.empty else {}
 

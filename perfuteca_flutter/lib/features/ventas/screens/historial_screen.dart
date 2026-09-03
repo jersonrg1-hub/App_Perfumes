@@ -490,9 +490,20 @@ class _OrdenHistorialCardState extends State<_OrdenHistorialCard> {
                                 ),
                               ),
                             if (orden.tipoEnvio != null)
-                              Text(
-                                orden.tipoEnvio!,
-                                style: AppTextStyles.priceLabel,
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  orden.tipoEnvio!,
+                                  style: AppTextStyles.priceLabel.copyWith(
+                                    color: AppColors.primaryDark,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
                           ],
                         ),
@@ -541,6 +552,45 @@ class _OrdenHistorialCardState extends State<_OrdenHistorialCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          () {
+                            final celular = orden.celular?.trim();
+                            final direccion = orden.direccion?.trim();
+                            final distrito = orden.distrito?.trim();
+                            final tieneCelular =
+                                celular != null && celular.isNotEmpty;
+                            final ubicacion = [direccion, distrito]
+                                .where((s) => s != null && s.isNotEmpty)
+                                .join(', ');
+                            if (!tieneCelular && ubicacion.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.only(top: AppSpacing.sm),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'ENTREGA',
+                                    style: AppTextStyles.priceLabel.copyWith(
+                                      color: AppColors.textFaint,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  if (tieneCelular)
+                                    _InfoRow(
+                                      icon: Icons.phone_rounded,
+                                      texto: celular,
+                                    ),
+                                  if (ubicacion.isNotEmpty)
+                                    _InfoRow(
+                                      icon: Icons.location_on_rounded,
+                                      texto: ubicacion,
+                                    ),
+                                ],
+                              ),
+                            );
+                          }(),
                           const Divider(height: AppSpacing.md),
                           ...orden.itemsConNormId.map((entry) {
                             final item = entry.item;
@@ -590,6 +640,46 @@ class _OrdenHistorialCardState extends State<_OrdenHistorialCard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Fila de info (celular/dirección) ──────────────────────────────────────────
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.texto});
+  final IconData icon;
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 12, color: AppColors.primaryDark),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              texto,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

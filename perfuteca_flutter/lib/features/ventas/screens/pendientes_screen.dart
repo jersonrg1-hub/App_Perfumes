@@ -27,6 +27,18 @@ List<OrdenAgrupada> _agrupar(List<VentaResponse> ventas) {
     ..sort((a, b) => (a.fecha ?? '').compareTo(b.fecha ?? ''));
 }
 
+// Días desde la fecha de la orden hasta hoy (Perú) — null si la fecha no
+// parsea. Compartido entre el borde de urgencia de la card y su badge.
+int? _diasPendiente(String? fecha) {
+  if (fecha == null) return null;
+  try {
+    final d = DateTime.parse(fecha);
+    return nowPeru().difference(DateTime(d.year, d.month, d.day)).inDays;
+  } catch (_) {
+    return null;
+  }
+}
+
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 
 class PendientesScreen extends ConsumerStatefulWidget {
@@ -126,6 +138,7 @@ class _ListaOrdenes extends StatelessWidget {
         _ResumenBanner(cantidad: ordenes.length, total: totalPendiente),
         Expanded(
           child: RefreshIndicator(
+            color: AppColors.primary,
             onRefresh: onRefresh,
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(
@@ -156,13 +169,30 @@ class _ListaOrdenes extends StatelessWidget {
 
 // ── Banner resumen ────────────────────────────────────────────────────────────
 
-class _ResumenBanner extends StatelessWidget {
+class _ResumenBanner extends StatefulWidget {
   const _ResumenBanner({required this.cantidad, required this.total});
   final int cantidad;
   final double total;
 
   @override
+  State<_ResumenBanner> createState() => _ResumenBannerState();
+}
+
+class _ResumenBannerState extends State<_ResumenBanner> {
+  // Arranca en 0 solo la primera vez — en refreshes posteriores anima desde
+  // el valor previo, igual que MetricasHoyGrid/_MetricasRow, así el conteo
+  // no vuelve a 0 en cada pull-to-refresh sin motivo.
+  double _totalPrevio = 0;
+
+  @override
+  void didUpdateWidget(covariant _ResumenBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _totalPrevio = oldWidget.total;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cantidad = widget.cantidad;
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.fromLTRB(
@@ -188,10 +218,15 @@ class _ResumenBanner extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            'S/ ${total.toStringAsFixed(2)}',
-            style: AppTextStyles.price
-                .copyWith(fontSize: 16, color: AppColors.warning),
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: _totalPrevio, end: widget.total),
+            duration: const Duration(milliseconds: 600),
+            curve: Curves.easeOutCubic,
+            builder: (context, v, _) => Text(
+              'S/ ${v.toStringAsFixed(2)}',
+              style: AppTextStyles.price
+                  .copyWith(fontSize: 16, color: AppColors.warning),
+            ),
           ),
         ],
       ),
@@ -312,7 +347,12 @@ class _OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         ),
         backgroundColor: AppColors.surface,
-        title: const Text('Confirmar entrega'),
+        title: const Row(children: [
+          Icon(Icons.check_circle_outline_rounded,
+              color: AppColors.success, size: 20),
+          SizedBox(width: AppSpacing.sm),
+          Text('Confirmar entrega'),
+        ]),
         content: Text(
           '¿Marcar como entregada la orden #${widget.orden.idCompra} '
           'de ${widget.orden.comprador ?? '—'}?',
@@ -342,7 +382,11 @@ class _OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         ),
         backgroundColor: AppColors.surface,
-        title: const Text('Anular orden'),
+        title: const Row(children: [
+          Icon(Icons.cancel_outlined, color: AppColors.error, size: 20),
+          SizedBox(width: AppSpacing.sm),
+          Text('Anular orden'),
+        ]),
         content: Text(
           '¿Anular la orden #${widget.orden.idCompra} de ${widget.orden.comprador ?? '—'}?\n'
           'Se anularán los ${widget.orden.items.length} ítems.',
@@ -367,13 +411,27 @@ class _OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
   @override
   Widget build(BuildContext context) {
     final orden = widget.orden;
+    // Refuerza visualmente la antigüedad más allá del texto chico del
+    // badge — una orden atrasada 4+ días es la que más urge resolver y
+    // antes se perdía entre las demás en una lista larga.
+    final diasAtraso = _diasPendiente(orden.fecha);
+    final Color bordeUrgencia = diasAtraso == null
+        ? AppColors.primaryLight
+        : diasAtraso >= 4
+            ? AppColors.error
+            : diasAtraso >= 2
+                ? AppColors.warning
+                : AppColors.primaryLight;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.primaryLight),
+        border: Border.all(
+          color: bordeUrgencia,
+          width: diasAtraso != null && diasAtraso >= 4 ? 1.5 : 1,
+        ),
         boxShadow: const [
           BoxShadow(
               color: AppColors.shadowColor,
@@ -560,19 +618,22 @@ class _OrdenAgrupadaCardState extends ConsumerState<OrdenAgrupadaCard> {
                 const SizedBox(height: AppSpacing.sm),
                 Row(
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: _confirmarAnular,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: const BorderSide(color: AppColors.error),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md, vertical: AppSpacing.md),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _confirmarAnular,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.error,
+                          side: const BorderSide(color: AppColors.error),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: AppSpacing.md),
+                        ),
+                        icon: const Icon(Icons.cancel_outlined, size: 16),
+                        label: const Text('Anular'),
                       ),
-                      icon: const Icon(Icons.cancel_outlined, size: 16),
-                      label: const Text('Anular'),
                     ),
                     const SizedBox(width: AppSpacing.sm),
                     Expanded(
+                      flex: 2,
                       child: FilledButton.icon(
                         onPressed: _confirmarEntregado,
                         style: FilledButton.styleFrom(
@@ -641,42 +702,37 @@ class _FechaAgeBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    try {
-      final d = DateTime.parse(fecha);
-      final days =
-          nowPeru().difference(DateTime(d.year, d.month, d.day)).inDays;
+    final days = _diasPendiente(fecha);
+    if (days == null) return const SizedBox.shrink();
 
-      final Color color;
-      final String label;
-      if (days == 0) {
-        color = AppColors.stockOk;
-        label = 'Hoy';
-      } else if (days == 1) {
-        color = AppColors.stockOk;
-        label = 'Ayer';
-      } else if (days <= 3) {
-        color = AppColors.warning;
-        label = 'Hace $days días';
-      } else {
-        color = AppColors.stockCritical;
-        label = 'Hace $days días';
-      }
-
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.schedule_rounded, size: 11, color: color),
-          const SizedBox(width: AppSpacing.xs),
-          Text(
-            label,
-            style:
-                AppTextStyles.notasLabel.copyWith(color: color, fontSize: 11),
-          ),
-        ],
-      );
-    } catch (_) {
-      return const SizedBox.shrink();
+    final Color color;
+    final String label;
+    if (days == 0) {
+      color = AppColors.stockOk;
+      label = 'Hoy';
+    } else if (days == 1) {
+      color = AppColors.stockOk;
+      label = 'Ayer';
+    } else if (days <= 3) {
+      color = AppColors.warning;
+      label = 'Hace $days días';
+    } else {
+      color = AppColors.stockCritical;
+      label = 'Hace $days días';
     }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.schedule_rounded, size: 11, color: color),
+        const SizedBox(width: AppSpacing.xs),
+        Text(
+          label,
+          style:
+              AppTextStyles.notasLabel.copyWith(color: color, fontSize: 11),
+        ),
+      ],
+    );
   }
 }
 
@@ -693,9 +749,12 @@ class _PendientesShimmer extends StatelessWidget {
           padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md, vertical: AppSpacing.sm),
           itemCount: 4,
-          itemBuilder: (_, __) => Container(
+          itemBuilder: (_, i) => Container(
             margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-            height: 160,
+            // Alterna alto/bajo para acercarse a la variación real de las
+            // cards (1 ítem vs 5+) — antes un alto fijo daba un salto de
+            // layout brusco al terminar de cargar.
+            height: i.isEven ? 200 : 150,
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),

@@ -29,6 +29,11 @@ abstract class AppColors {
   static const error   = Color(0xFFCC3333);
   static const info    = gold; // sin uso standalone; alias a gold
 
+  // Variante clara de success — mismo contraste que Material green[300],
+  // usada sobre fondos oscuros (ej. resumen de total en primaryDark) donde
+  // el success normal pierde legibilidad.
+  static const successOnDark = Color(0xFF81C784);
+
   // Superficies semánticas (fills de cards/banners — evita inline withValues)
   static const successSurface = Color(0xFFEAF4EA);
   static const warningSurface = Color(0xFFFFF3E0);

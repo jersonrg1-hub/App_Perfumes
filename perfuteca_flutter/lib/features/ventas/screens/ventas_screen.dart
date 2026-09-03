@@ -19,10 +19,18 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
 
+  static const _subtitulos = ['Hoy', 'Cotización', 'Pendientes'];
+
   @override
   void initState() {
     super.initState();
     _tab = TabController(length: 3, vsync: this);
+    // Repinta el título con el sub-tab activo también cuando el usuario
+    // cambia de tab con swipe (ventasTabProvider solo cubre el cambio
+    // programático vía animateTo).
+    _tab.addListener(() {
+      if (!_tab.indexIsChanging) setState(() {});
+    });
   }
 
   @override
@@ -44,7 +52,7 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
           const Icon(Icons.receipt_long_rounded,
               color: AppColors.primary, size: 20),
           const SizedBox(width: AppSpacing.sm),
-          Text('Ventas',
+          Text('Ventas · ${_subtitulos[_tab.index]}',
               style: AppTextStyles.heading2.copyWith(fontSize: 18)),
         ]),
         actions: [
@@ -116,6 +124,7 @@ class _PendientesBadge extends ConsumerWidget {
     ));
     return Badge(
       isLabelVisible: count > 0,
+      backgroundColor: AppColors.warning,
       label: Text('$count'),
       child: const Icon(Icons.schedule_rounded, size: 18),
     );

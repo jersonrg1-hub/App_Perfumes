@@ -294,7 +294,11 @@ class _CotizShimmer extends StatelessWidget {
           itemCount: 5,
           itemBuilder: (_, i) => Container(
             margin: const EdgeInsets.only(bottom: AppSpacing.md),
-            height: i == 0 ? 80 : 100,
+            // Alterna alto/bajo para acercarse a la variación real de las
+            // cards (colapsada ~90px vs con varias líneas de perfume
+            // ~140px+) — antes un alto fijo daba un salto de layout brusco
+            // al terminar de cargar.
+            height: i == 0 ? 80 : (i.isEven ? 140 : 96),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),

@@ -536,6 +536,9 @@ class _CotizacionConvertirCardState
                         });
                         if (abriendo) _cargarDatosCliente();
                       },
+                mouseCursor: esAceptada
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
                 splashColor: AppColors.primaryLight,
                 highlightColor: AppColors.primaryPale,
                 borderRadius: _expandido
@@ -606,8 +609,9 @@ class _CotizacionConvertirCardState
                                 color: AppColors.textMuted),
                           ),
                       ]),
-                      // Perfumes de la cotización
-                      if (_lineas.isNotEmpty) ...[
+                      // Perfumes de la cotización — solo colapsada: expandida
+                      // ya los repite _MiniResumen dentro del formulario.
+                      if (_lineas.isNotEmpty && !_expandido) ...[
                         const SizedBox(height: AppSpacing.xs + 2),
                         ..._lineas.map((l) => Padding(
                               padding: const EdgeInsets.only(bottom: 2),
@@ -647,12 +651,14 @@ class _CotizacionConvertirCardState
             // ── Formulario expandible ───────────────────────────────────
             if (_expandido) ...[
               const Divider(height: 1, color: AppColors.primaryLight),
-              if (_buscandoCliente)
+              if (_buscandoCliente) ...[
+                const SizedBox(height: 3),
                 const LinearProgressIndicator(
                   minHeight: 2,
                   backgroundColor: AppColors.primaryPale,
                   color: AppColors.primary,
                 ),
+              ],
               const SizedBox(height: AppSpacing.sm),
               _MiniResumen(lineas: _lineas, total: widget.cotizacion.total),
               if (!_buscandoCliente && _clienteNuevo) ...[
@@ -798,23 +804,26 @@ class _CotizacionConvertirCardState
                                 valueListenable: _formValidoNotifier,
                                 builder: (context, formValido, _) =>
                                     Row(key: _botonKey, children: [
-                                  OutlinedButton(
-                                    onPressed: _registrando
-                                        ? null
-                                        : () => setState(() {
-                                              _expandido   = false;
-                                              _confirmando = false;
-                                              _error       = null;
-                                            }),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: AppColors.textMuted,
-                                      side: const BorderSide(
-                                          color: AppColors.primaryLight),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: _registrando
+                                          ? null
+                                          : () => setState(() {
+                                                _expandido   = false;
+                                                _confirmando = false;
+                                                _error       = null;
+                                              }),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.textMuted,
+                                        side: const BorderSide(
+                                            color: AppColors.primaryLight),
+                                      ),
+                                      child: const Text('Cancelar'),
                                     ),
-                                    child: const Text('Cancelar'),
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
                                   Expanded(
+                                    flex: 2,
                                     child: BotonRevisarPedido(
                                       habilitado: formValido && !_registrando,
                                       onPressed: () =>
@@ -919,17 +928,20 @@ class _ConfirmacionInline extends StatelessWidget {
             ],
             const SizedBox(height: AppSpacing.md),
             Row(key: botonKey, children: [
-              OutlinedButton(
-                onPressed: registrando ? null : onEditar,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textMuted,
-                  side:
-                      const BorderSide(color: AppColors.primaryLight),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: registrando ? null : onEditar,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textMuted,
+                    side:
+                        const BorderSide(color: AppColors.primaryLight),
+                  ),
+                  child: const Text('Editar'),
                 ),
-                child: const Text('Editar'),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
+                flex: 2,
                 child: FilledButton.icon(
                   onPressed: registrando ? null : onConfirmar,
                   icon: registrando
@@ -1216,18 +1228,38 @@ class _BotonRevisarPedidoState extends State<BotonRevisarPedido> {
 
 // ── Pill de estado (esperando / aceptada) ─────────────────────────────────────
 
-class EstadoPill extends StatelessWidget {
+class EstadoPill extends StatefulWidget {
   const EstadoPill({super.key, required this.aceptada});
   final bool aceptada;
 
   @override
+  State<EstadoPill> createState() => _EstadoPillState();
+}
+
+class _EstadoPillState extends State<EstadoPill> {
+  // Solo re-dispara el bote elástico cuando aceptada cambia de verdad — no
+  // en cada rebuild del ListView (scroll/reorder), que antes lo hacía
+  // rebotar sin que el estado real hubiera cambiado.
+  int _bounceKey = 0;
+
+  @override
+  void didUpdateWidget(covariant EstadoPill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.aceptada != widget.aceptada) {
+      setState(() => _bounceKey++);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final aceptada   = widget.aceptada;
     final color      = aceptada ? AppColors.stockOk : AppColors.gold;
     final background = aceptada ? AppColors.successSurface : AppColors.goldLight;
     final icon       = aceptada ? Icons.check_circle_rounded : Icons.schedule_rounded;
     final label       = aceptada ? 'Aceptada' : 'Esperando';
 
     return TweenAnimationBuilder<double>(
+      key: ValueKey(_bounceKey),
       tween: Tween(begin: 0.6, end: 1.0),
       duration: const Duration(milliseconds: 350),
       curve: Curves.elasticOut,
@@ -1267,13 +1299,13 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: 4),
         child: Row(children: [
-          Icon(icon, size: 12, color: AppColors.primary),
-          const SizedBox(width: 4),
+          Icon(icon, size: 13, color: AppColors.primary),
+          const SizedBox(width: 5),
           Text(text,
               style: AppTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                  fontSize: 11)),
+                  color: AppColors.textPrimary,
+                  fontSize: 12)),
         ]),
       );
 }

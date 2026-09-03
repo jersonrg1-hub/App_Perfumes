@@ -196,8 +196,19 @@ class _Dot extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: GestureDetector(
+  Widget build(BuildContext context) {
+    final estado = actual
+        ? 'en edición'
+        : activo
+            ? 'completado'
+            : 'pendiente';
+    return Expanded(
+        child: Semantics(
+          button: onTap != null,
+          label: 'Paso $n: $label, $estado'
+              '${sublabel != null ? ' — $sublabel' : ''}'
+              '${onTap != null ? '. Toca para editar' : ''}',
+          child: GestureDetector(
           onTap: onTap,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -254,7 +265,9 @@ class _Dot extends StatelessWidget {
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _Linea extends StatelessWidget {
@@ -318,29 +331,34 @@ class _ModoBoton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: AnimatedContainer(
-          duration: _kFast,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: activo ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 15,
-                  color: activo ? Colors.white : AppColors.textMuted),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                    fontSize:   13,
-                    fontWeight: FontWeight.w700,
-                    color: activo ? Colors.white : AppColors.textMuted,
-                  )),
-            ],
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: activo,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          child: AnimatedContainer(
+            duration: _kFast,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: activo ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 15,
+                    color: activo ? Colors.white : AppColors.textMuted),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: TextStyle(
+                      fontSize:   13,
+                      fontWeight: FontWeight.w700,
+                      color: activo ? Colors.white : AppColors.textMuted,
+                    )),
+              ],
+            ),
           ),
         ),
       );
@@ -482,6 +500,7 @@ class _Paso1State extends ConsumerState<_Paso1> {
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
                 hintText: '@perfutecalima',
+                helperText: 'Sin espacios, tal como aparece en WhatsApp',
                 filled: true,
                 fillColor: AppColors.primaryPale,
                 border: OutlineInputBorder(
@@ -678,7 +697,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
                                     ),
                                   ),
                                 ]),
-                                duration: const Duration(seconds: 1),
+                                duration: const Duration(milliseconds: 1600),
                                 behavior: SnackBarBehavior.floating,
                                 backgroundColor: AppColors.success,
                                 margin: const EdgeInsets.fromLTRB(
@@ -703,12 +722,16 @@ class _Paso2State extends ConsumerState<_Paso2> {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              OutlinedButton(
-                onPressed: widget.onAnterior,
-                child: const Text('Atrás'),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: widget.onAnterior,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Atrás'),
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
+                flex: 2,
                 child: FilledButton.icon(
                   onPressed: state.cestaValida ? widget.onSiguiente : null,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
@@ -784,7 +807,11 @@ class _PerfumeRow extends StatelessWidget {
 
           // Chip en cesta o botones ml (B: Wrap para responsividad)
           if (itemEnCesta != null)
-            ClipRRect(
+            Semantics(
+              button: true,
+              label:
+                  '${itemEnCesta!.ml}ml agregado por S/${_fmtPrecio(itemEnCesta!.precio)}. Toca para quitar del pedido',
+              child: ClipRRect(
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               child: InkWell(
                 onTap: onQuitar,
@@ -816,6 +843,7 @@ class _PerfumeRow extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
             )
           else
               Row(
@@ -878,7 +906,10 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(left: AppSpacing.sm),
-        child: GestureDetector(
+        child: Semantics(
+          button: true,
+          label: 'Agregar ${widget.ml}ml por S/${_fmtPrecio(widget.precio)}',
+          child: GestureDetector(
           onTap: _onTap,
           child: ScaleTransition(
             scale: _scale,
@@ -919,6 +950,7 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
               ),
             ),
           ),
+        ),
         ),
       );
 }
@@ -1223,8 +1255,15 @@ class _Paso3State extends ConsumerState<_Paso3> {
 
           const SizedBox(height: AppSpacing.sm),
 
-          // Total
-          Container(
+          // Total — AnimatedSize porque el bloque DESCUENTO/DELIVERY
+          // aparece o desaparece según los toggles de arriba; sin esto el
+          // alto del resumen saltaba de golpe en vez de acompañar la
+          // transición suave que ya tienen esos toggles.
+          AnimatedSize(
+            duration: _kNormal,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -1277,7 +1316,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                       Text(
                         '-S/ ${state.ahorro.toStringAsFixed(2)}',
                         style: const TextStyle(
-                          color: Color(0xFF81C784),
+                          color: AppColors.successOnDark,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1336,6 +1375,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                 ),
               ],
             ),
+            ),
           ),
 
           if (state.error != null) ...[
@@ -1345,10 +1385,23 @@ class _Paso3State extends ConsumerState<_Paso3> {
               decoration: BoxDecoration(
                 color: AppColors.errorSurface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.3)),
               ),
-              child: Text(
-                state.error!,
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      size: 16, color: AppColors.error),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      state.error!,
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.error),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1357,12 +1410,16 @@ class _Paso3State extends ConsumerState<_Paso3> {
 
           Row(
             children: [
-              OutlinedButton(
-                onPressed: state.registrando ? null : widget.onAnterior,
-                child: const Text('Editar'),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: state.registrando ? null : widget.onAnterior,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Editar'),
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
+                flex: 2,
                 child: FilledButton.icon(
                   onPressed: state.registrando || !state.cestaValida
                       ? null
@@ -1504,7 +1561,15 @@ class _TicketExitoState extends State<_TicketExito>
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
     try {
       await abrirWhatsAppBusiness(celular: numero, alias: widget.alias, mensaje: texto);
-    } catch (_) {}
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo abrir WhatsApp'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -1770,8 +1835,8 @@ class _ReceiptCard extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.surface,
         boxShadow: [
-          BoxShadow(color: Color(0x28000000), blurRadius: 20, offset: Offset(0, 6)),
-          BoxShadow(color: Color(0x0F000000), blurRadius: 4,  offset: Offset(0, 2)),
+          BoxShadow(color: AppColors.shadowColor, blurRadius: 20, offset: Offset(0, 6)),
+          BoxShadow(color: AppColors.shadowColor, blurRadius: 4,  offset: Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1978,8 +2043,8 @@ class _PerforatedEdge extends StatelessWidget {
                 count,
                 (_) => Container(
                   width: 10, height: 10,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
+                  decoration: const BoxDecoration(
+                    color: AppColors.background,
                     shape: BoxShape.circle,
                   ),
                 ),

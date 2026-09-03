@@ -79,6 +79,7 @@ class _CotizacionesHoyScreenState extends ConsumerState<CotizacionesHoyScreen> {
               ),
             )
           : RefreshIndicator(
+              color: AppColors.primary,
               onRefresh: () async => ref.invalidate(cotizacionesHoyProvider),
               child: ListView.builder(
                 padding: EdgeInsets.fromLTRB(
@@ -192,7 +193,7 @@ class MetricasHoyGrid extends StatelessWidget {
   }
 }
 
-class _MetricaCard extends StatelessWidget {
+class _MetricaCard extends StatefulWidget {
   const _MetricaCard({
     super.key,
     required this.label,
@@ -210,7 +211,31 @@ class _MetricaCard extends StatelessWidget {
   final Color  valueColor;
 
   @override
+  State<_MetricaCard> createState() => _MetricaCardState();
+}
+
+class _MetricaCardState extends State<_MetricaCard> {
+  // Arranca en 0 solo en el primer montaje. En cada rebuild posterior
+  // (pull-to-refresh, invalidate tras registrar venta) anima desde el
+  // valor previo — antes el Tween siempre partía de 0, así el número no
+  // hubiera cambiado, y el contador saltaba a 0 y volvía a subir en cada
+  // refresh.
+  double _previous = 0;
+
+  @override
+  void didUpdateWidget(covariant _MetricaCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _previous = oldWidget.numericValue;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final label = widget.label;
+    final numericValue = widget.numericValue;
+    final isMoney = widget.isMoney;
+    final background = widget.background;
+    final borderColor = widget.borderColor;
+    final valueColor = widget.valueColor;
     return Container(
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm, vertical: AppSpacing.md),
@@ -231,7 +256,7 @@ class _MetricaCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: numericValue),
+            tween: Tween(begin: _previous, end: numericValue),
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeOutCubic,
             builder: (context, v, _) => FittedBox(
@@ -270,7 +295,10 @@ class _CotizacionesShimmer extends StatelessWidget {
           itemCount: 5,
           itemBuilder: (_, i) => Container(
             margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-            height: i == 0 ? 64 : 88,
+            // Alterna alto/bajo para acercarse a la variación real de las
+            // cards — antes un alto fijo daba un salto de layout brusco al
+            // terminar de cargar.
+            height: i == 0 ? 64 : (i.isEven ? 128 : 84),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),

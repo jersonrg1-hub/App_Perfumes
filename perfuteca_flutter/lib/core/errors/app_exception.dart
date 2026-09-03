@@ -43,3 +43,9 @@ class ValidationException extends AppException {
 class UnknownException extends AppException {
   const UnknownException([super.message = 'Error inesperado. Intenta nuevamente.']);
 }
+
+/// Extrae un mensaje de usuario de cualquier error capturado.
+/// AppException expone su .message; cualquier otro tipo usa [fallback]
+/// (por defecto, e.toString()).
+String appErrorMessage(Object e, [String? fallback]) =>
+    e is AppException ? e.message : (fallback ?? e.toString());

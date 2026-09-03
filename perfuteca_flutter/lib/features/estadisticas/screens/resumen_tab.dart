@@ -36,7 +36,7 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
       error:   (e, _) => AppErrorWidget(
         error: e,
         title: 'Error al cargar estadísticas',
-        subtitle: e is AppException ? e.message : e.toString(),
+        subtitle: appErrorMessage(e),
         icon: Icons.wifi_off_rounded,
         subtle: true,
         onRetry: () {

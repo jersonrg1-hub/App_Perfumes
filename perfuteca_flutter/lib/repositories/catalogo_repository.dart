@@ -90,6 +90,20 @@ class CatalogoRepository {
     }
   }
 
+  /// Ajusta Stock_ml de un perfume. mlDelta positivo agrega, negativo quita.
+  /// Retorna el stock_ml nuevo tras el ajuste.
+  Future<double> ajustarStock(String idPerfume, double mlDelta) async {
+    try {
+      final res = await _dio.put<Map<String, dynamic>>(
+        ApiConstants.catalogoStock(idPerfume),
+        data: {'ml_delta': mlDelta},
+      );
+      return (res.data!['stock_ml_nuevo'] as num).toDouble();
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
   Future<Perfume> getDetalle(String idPerfume) async {
     try {
       final res = await _dio.get<Map<String, dynamic>>(

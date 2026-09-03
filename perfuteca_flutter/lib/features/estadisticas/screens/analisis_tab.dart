@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/errors/app_exception.dart';
 import 'package:perfuteca/core/utils/debouncer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
@@ -296,6 +297,8 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
                 maxStock: maxStock,
                 critico: critico,
                 bajo: bajo,
+                onAjustado: () =>
+                    ref.read(catalogoProvider.notifier).refreshPreservandoProfundidad(),
               ),
             ),
           ),
@@ -361,13 +364,15 @@ class _StockRow extends StatelessWidget {
     required this.maxStock,
     required this.critico,
     required this.bajo,
+    required this.onAjustado,
   });
   final Perfume perfume;
   final double  maxStock;
   final double  critico;
   final double  bajo;
+  final VoidCallback onAjustado;
 
-  Color get _barColor {
+  Color _barColor() {
     final s = perfume.stockMl ?? 0;
     if (s <= critico) return AppColors.stockCritical;
     if (s <= bajo)     return AppColors.stockLow;
@@ -379,7 +384,12 @@ class _StockRow extends StatelessWidget {
     final stock = perfume.stockMl ?? 0;
     final pct   = maxStock > 0 ? (stock / maxStock).clamp(0.0, 1.0) : 0.0;
 
-    return Container(
+    return GestureDetector(
+      onLongPress: () => showDialog<void>(
+        context: context,
+        builder: (_) => _ReponerStockDialog(perfume: perfume, onAjustado: onAjustado),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm - 2),
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
@@ -434,8 +444,8 @@ class _StockRow extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            _barColor.withValues(alpha: 0.7),
-                            _barColor,
+                            _barColor().withValues(alpha: 0.7),
+                            _barColor(),
                           ],
                         ),
                       ),
@@ -446,6 +456,7 @@ class _StockRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -549,6 +560,116 @@ class _StockBadge extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Modal reponer stock ───────────────────────────────────────────────────────
+
+class _ReponerStockDialog extends ConsumerStatefulWidget {
+  const _ReponerStockDialog({required this.perfume, required this.onAjustado});
+  final Perfume     perfume;
+  final VoidCallback onAjustado;
+
+  @override
+  ConsumerState<_ReponerStockDialog> createState() => _ReponerStockDialogState();
+}
+
+class _ReponerStockDialogState extends ConsumerState<_ReponerStockDialog> {
+  bool _agregar = true;
+  final _ctrl = TextEditingController();
+  bool   _enviando = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmar() async {
+    final valor = double.tryParse(_ctrl.text.replaceAll(',', '.'));
+    if (valor == null) {
+      setState(() => _error = 'Ingresa una cantidad válida');
+      return;
+    }
+
+    setState(() { _enviando = true; _error = null; });
+    // Captura el messenger ANTES de cerrar el dialog — tras pop(), el context
+    // del dialog queda desactivado y ScaffoldMessenger.of(context) fallaría.
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final nuevo = await ref.read(catalogoProvider.notifier).ajustarStock(
+        idPerfume: widget.perfume.idPerfume,
+        stockActual: widget.perfume.stockMl ?? 0,
+        agregar: _agregar,
+        valorIngresado: valor,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onAjustado();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Stock actualizado a ${nuevo.toStringAsFixed(0)} ml')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _enviando = false; _error = appErrorMessage(e, 'Error al ajustar stock'); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stockActual = widget.perfume.stockMl ?? 0;
+
+    return AlertDialog(
+      title: Text(widget.perfume.nombre, maxLines: 1, overflow: TextOverflow.ellipsis),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Stock actual: ${stockActual.toStringAsFixed(0)} ml',
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: true,  label: Text('Agregar'), icon: Icon(Icons.add)),
+              ButtonSegment(value: false, label: Text('Quitar'),  icon: Icon(Icons.remove)),
+            ],
+            selected: {_agregar},
+            onSelectionChanged: (s) => setState(() { _agregar = s.first; _error = null; }),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Cantidad (ml)',
+              errorText: _error,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) { if (_error != null) setState(() => _error = null); },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _enviando ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _enviando ? null : _confirmar,
+          child: _enviando
+              ? const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Confirmar'),
+        ),
+      ],
     );
   }
 }

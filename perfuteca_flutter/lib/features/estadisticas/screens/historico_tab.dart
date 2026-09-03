@@ -30,7 +30,7 @@ class _HistoricoTabState extends ConsumerState<HistoricoTab>
       error:   (e, _) => AppErrorWidget(
         error: e,
         title: 'Error al cargar historial',
-        subtitle: e is AppException ? e.message : e.toString(),
+        subtitle: appErrorMessage(e),
         icon: Icons.wifi_off_rounded,
         subtle: true,
         onRetry: () {

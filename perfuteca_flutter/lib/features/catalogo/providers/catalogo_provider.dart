@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/errors/app_exception.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/repositories/catalogo_repository.dart';
 
@@ -140,6 +141,29 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
     } catch (e) {
       state = state.copyWith(error: e);
     }
+  }
+
+  /// Reponer/quitar stock desde el tab Análisis. Valida la cantidad y arma
+  /// el delta con signo — el screen solo pasa el modo (agregar/quitar) y el
+  /// valor ingresado, sin decidir reglas de negocio.
+  /// Lanza ValidationException si la cantidad es inválida o excede el stock
+  /// actual (al quitar). Retorna el stock_ml nuevo tras el ajuste.
+  Future<double> ajustarStock({
+    required String idPerfume,
+    required double stockActual,
+    required bool agregar,
+    required double valorIngresado,
+  }) {
+    if (valorIngresado <= 0) {
+      throw const ValidationException('Ingresa una cantidad válida');
+    }
+    if (!agregar && valorIngresado > stockActual) {
+      throw ValidationException(
+        'No puede quitar más del stock actual (${stockActual.toStringAsFixed(0)} ml)',
+      );
+    }
+    final delta = agregar ? valorIngresado : -valorIngresado;
+    return _repo.ajustarStock(idPerfume, delta);
   }
 
   /// Carga todas las páginas restantes (usado por selectores que necesitan

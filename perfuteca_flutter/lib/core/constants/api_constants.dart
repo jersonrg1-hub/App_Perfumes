@@ -13,6 +13,7 @@ abstract class ApiConstants {
   static const String health        = '/health';
 
   static String catalogoDetalle(String id) => '/api/v1/catalogo/$id';
+  static String catalogoStock(String id) => '/api/v1/catalogo/$id/stock';
   static String ventasCliente(String celular) => '/api/v1/ventas/cliente/$celular';
   static String cotizacionesCliente(String celular) => '/api/v1/cotizaciones/cliente/$celular';
   static String ventaEstado(String idVenta) => '/api/v1/ventas/$idVenta/estado';

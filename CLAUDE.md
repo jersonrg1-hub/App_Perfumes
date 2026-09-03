@@ -24,7 +24,8 @@ Spreadsheet: **"PERFUMES PYTHON"**
 ## Auth API
 
 Endpoints protegidos requieren header `X-API-Key: <valor>`.
-Catálogo es público (sin key).
+Catálogo es público para lectura (GET, sin key); escritura (`POST /invalidar`,
+`PUT /{id}/stock`) requiere key.
 
 ## Variables de entorno
 
@@ -66,6 +67,7 @@ TZ_PERU = pytz.timezone("America/Lima")
 | GET | `/api/v1/catalogo/marcas` | NO | Lista de marcas distintas |
 | GET | `/api/v1/catalogo/buscar` | NO | Búsqueda de perfumes paginada |
 | GET | `/api/v1/catalogo/{id_perfume}` | NO | Detalle de un perfume |
+| PUT | `/api/v1/catalogo/{id_perfume}/stock` | X-API-Key | Ajustar Stock_ml (ml_delta +agrega/-quita, clamp a 0) |
 | GET | `/api/v1/ventas/` | X-API-Key | Lista ventas paginada (limit/offset/estado) |
 | GET | `/api/v1/ventas/pendientes` | X-API-Key | Solo ventas con Estado=Pendiente |
 | GET | `/api/v1/ventas/cliente/{celular}` | X-API-Key | Historial + datos cliente para autocompletar |

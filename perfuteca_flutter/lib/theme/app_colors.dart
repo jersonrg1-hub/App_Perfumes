@@ -11,6 +11,9 @@ abstract class AppColors {
   // Dorado (perfil olfativo / acento)
   static const gold         = Color(0xFFC9A96E);
   static const goldLight    = Color(0xFFF5EDD8);
+  // Texto/ícono dorado sobre goldLight — gold base no da contraste
+  // suficiente (~2.5:1) para texto pequeño sobre ese fondo claro.
+  static const goldDark     = Color(0xFF8A6D2F);
 
   // Fondos
   static const background     = Color(0xFFFAF5F0);
@@ -43,6 +46,32 @@ abstract class AppColors {
   static const stockOk       = success;
   static const stockLow      = warning;
   static const stockCritical = error;
+
+  // Hero histórico — gradiente oscuro deliberadamente fuera de la paleta
+  // terracota, usado solo en el card de total acumulado desde el inicio.
+  static const heroGradientStart = Color(0xFF1A0A04);
+  static const heroGradientEnd   = Color(0xFF4A2810);
+  static const heroShadow        = Color(0x402C1A0E);
+  static const heroTextPrimary   = Color(0xFFF5E6D8);
+
+  // Trophy — dorado más intenso que gold base, usado solo para resaltar
+  // el "mejor mes" dentro del timeline de histórico.
+  static const trophy      = Color(0xFFD4A017);
+  static const trophyDark  = Color(0xFF7A5C00);
+  static const trophyLight = Color(0xFFF0C040);
+  static const trophyBg    = Color(0xFFFFF9E6);
+  static const trophyBarBg = Color(0xFFF5DFA0);
+
+  // Paleta de avatares con iniciales — variedad cromática deliberada, ajena
+  // a la paleta terracota, para diferenciar clientes visualmente.
+  static const avatarPalette = [
+    Color(0xFFC8956C),
+    Color(0xFFC9A96E),
+    Color(0xFF7B9EC8),
+    Color(0xFF8B9E76),
+    Color(0xFFB07BB0),
+    Color(0xFF9E887B),
+  ];
 
   // Sombras
   static const shadowColor = Color(0x1A2C1A0E);

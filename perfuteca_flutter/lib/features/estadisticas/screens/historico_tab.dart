@@ -65,14 +65,14 @@ class _HistoricoBody extends StatelessWidget {
   // vez en vez de reconstruir gradient/boxShadow en cada rebuild de la tab.
   static const _heroDecoration = BoxDecoration(
     gradient: LinearGradient(
-      colors: [Color(0xFF1a0a04), Color(0xFF4a2810)],
+      colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
       begin: Alignment.topLeft,
       end:   Alignment.bottomRight,
     ),
     borderRadius: BorderRadius.all(Radius.circular(AppSpacing.radiusLg)),
     boxShadow: [
       BoxShadow(
-        color:      Color(0x402C1A0E),
+        color:      AppColors.heroShadow,
         blurRadius: 12,
         offset:     Offset(0, 4),
       ),
@@ -96,7 +96,7 @@ class _HistoricoBody extends StatelessWidget {
               const Text(
                 'DESDE EL INICIO',
                 style: TextStyle(
-                  color:         Color(0xFFD4A882),
+                  color:         AppColors.gold,
                   fontSize:      11,
                   fontWeight:    FontWeight.w700,
                   letterSpacing: 1.5,
@@ -106,7 +106,7 @@ class _HistoricoBody extends StatelessWidget {
               Text(
                 'S/ ${formatMonto(s.totalIngresos)}',
                 style: const TextStyle(
-                  color:         Color(0xFFF5E6D8),
+                  color:         AppColors.heroTextPrimary,
                   fontSize:      34,
                   fontWeight:    FontWeight.w800,
                   letterSpacing: -0.5,
@@ -117,13 +117,13 @@ class _HistoricoBody extends StatelessWidget {
                 spacing:    10,
                 runSpacing: 4,
                 children: [
-                  _HeroChip(Icons.receipt_long_rounded,
+                  StatChip(Icons.receipt_long_rounded,
                       '${s.totalVentas} ventas'),
-                  _HeroChip(Icons.water_drop_outlined,
+                  StatChip(Icons.water_drop_outlined,
                       '${s.totalMl} ml'),
-                  _HeroChip(Icons.group_outlined,
+                  StatChip(Icons.group_outlined,
                       '${s.clientesUnicos} clientes'),
-                  _HeroChip(Icons.calendar_today_rounded,
+                  StatChip(Icons.calendar_today_rounded,
                       '${s.diasActivo} días activo'),
                 ],
               ),
@@ -238,10 +238,10 @@ class _TimelineMesesState extends State<_TimelineMeses> {
         return Container(
           margin: const EdgeInsets.only(bottom: AppSpacing.sm),
           decoration: BoxDecoration(
-            color: esMejor ? const Color(0xFFFFF9E6) : AppColors.surface,
+            color: esMejor ? AppColors.trophyBg : AppColors.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             border: Border.all(
-              color: esMejor ? const Color(0xFFD4A017) : AppColors.primaryLight,
+              color: esMejor ? AppColors.trophy : AppColors.primaryLight,
               width: esMejor ? 1.5 : 1,
             ),
           ),
@@ -274,16 +274,16 @@ class _TimelineMesesState extends State<_TimelineMeses> {
                                 style: TextStyle(
                                   fontSize:   11,
                                   fontWeight: FontWeight.w700,
-                                  color: esMejor ? const Color(0xFF7A5C00) : AppColors.textPrimary,
+                                  color: esMejor ? AppColors.trophyDark : AppColors.textPrimary,
                                 ),
                               ),
                               if (esMejor)
                                 const Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Icon(Icons.emoji_events_rounded, size: 9, color: Color(0xFF7A5C00)),
+                                    Icon(Icons.emoji_events_rounded, size: 9, color: AppColors.trophyDark),
                                     SizedBox(width: 2),
-                                    Text('mejor', style: TextStyle(fontSize: 9, color: Color(0xFF7A5C00), fontWeight: FontWeight.w700)),
+                                    Text('mejor', style: TextStyle(fontSize: 9, color: AppColors.trophyDark, fontWeight: FontWeight.w700)),
                                   ],
                                 ),
                             ],
@@ -296,14 +296,14 @@ class _TimelineMesesState extends State<_TimelineMeses> {
                               height: 8,
                               child: Stack(
                                 children: [
-                                  Container(color: esMejor ? const Color(0xFFF5DFA0) : AppColors.primaryPale),
+                                  Container(color: esMejor ? AppColors.trophyBarBg : AppColors.primaryPale),
                                   FractionallySizedBox(
                                     widthFactor: barPct,
                                     child: Container(
                                       decoration: BoxDecoration(
                                         gradient: LinearGradient(
                                           colors: esMejor
-                                              ? [const Color(0xFFD4A017), const Color(0xFFF0C040)]
+                                              ? [AppColors.trophy, AppColors.trophyLight]
                                               : [AppColors.primary, AppColors.primaryDark],
                                         ),
                                       ),
@@ -320,7 +320,7 @@ class _TimelineMesesState extends State<_TimelineMeses> {
                           style: TextStyle(
                             fontSize:   12,
                             fontWeight: FontWeight.w700,
-                            color: esMejor ? const Color(0xFF7A5C00) : AppColors.primaryDark,
+                            color: esMejor ? AppColors.trophyDark : AppColors.primaryDark,
                           ),
                         ),
                         if (hasTop) ...[
@@ -343,15 +343,27 @@ class _TimelineMesesState extends State<_TimelineMeses> {
                         ),
                       ],
                     ),
-                    if (isOpen && hasTop) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      const Divider(color: AppColors.primaryLight, height: 1),
-                      const SizedBox(height: AppSpacing.sm),
-                      ...m.topPerfumes.asMap().entries.map((e) => _TopPerfumeMesRow(
-                            pos:  e.key + 1,
-                            item: e.value,
-                          )),
-                    ],
+                    if (hasTop)
+                      AnimatedCrossFade(
+                        duration: const Duration(milliseconds: 200),
+                        sizeCurve: Curves.easeOut,
+                        crossFadeState: isOpen
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        firstChild: const SizedBox(width: double.infinity),
+                        secondChild: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: AppSpacing.sm),
+                            const Divider(color: AppColors.primaryLight, height: 1),
+                            const SizedBox(height: AppSpacing.sm),
+                            ...m.topPerfumes.asMap().entries.map((e) => _TopPerfumeMesRow(
+                                  pos:  e.key + 1,
+                                  item: e.value,
+                                )),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -410,28 +422,6 @@ class _TopPerfumeMesRow extends StatelessWidget {
 }
 
 // ── Widgets auxiliares ────────────────────────────────────────────────────────
-
-class _HeroChip extends StatelessWidget {
-  const _HeroChip(this.icon, this.label);
-  final IconData icon;
-  final String   label;
-
-  @override
-  Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: const Color(0xFFD4A882)),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              color:    Color(0xFFD4A882),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      );
-}
 
 class _MiniCard extends StatelessWidget {
   const _MiniCard({
@@ -685,10 +675,13 @@ class _ExpandableRankedListState<T> extends State<_ExpandableRankedList<T>> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ...mostrados
-            .asMap()
-            .entries
-            .map((e) => widget.itemBuilder(e.key + 1, e.value)),
+        ...mostrados.asMap().entries.map((e) {
+          final item = widget.itemBuilder(e.key + 1, e.value);
+          final esNuevo = e.key >= _visible - widget.paso;
+          return esNuevo
+              ? FadeSlideListItem(index: e.key - (_visible - widget.paso), child: item)
+              : item;
+        }),
         if (quedan > 0)
           Center(
             child: TextButton.icon(
@@ -762,7 +755,35 @@ class _DesgloseSectionState extends ConsumerState<_DesgloseSection> {
   Widget build(BuildContext context) {
     return ref.watch(historicoBackendProvider).when(
       loading: () => skeletonBox(height: 200, radius: AppSpacing.radiusMd),
-      error: (e, __) => const SizedBox.shrink(),
+      error: (e, __) => Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.errorSurface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 18, color: AppColors.error),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'No se pudo cargar el desglose por tamaño/envío',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+              ),
+            ),
+            TextButton(
+              onPressed: () => ref.invalidate(historicoBackendProvider),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.error,
+                padding: EdgeInsets.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      ),
       data: (data) {
         final now       = nowPeru();
         final mesActual =

@@ -1,6 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:perfuteca/theme/app_colors.dart';
 
 final _milesRegExp = RegExp(r'(\d)(?=(\d{3})+\.)');
+
+/// Chip inline de ícono + texto para sub-métricas (usado en hero cards de
+/// resumen e histórico).
+class StatChip extends StatelessWidget {
+  const StatChip(this.icon, this.label, {this.color = AppColors.gold, super.key});
+  final IconData icon;
+  final String   label;
+  final Color    color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 3),
+          Text(label, style: TextStyle(color: color, fontSize: 12)),
+        ],
+      );
+}
 
 /// Formatea un monto con separador de miles a partir de 1000 (sin símbolo de moneda).
 String formatMonto(double v) {

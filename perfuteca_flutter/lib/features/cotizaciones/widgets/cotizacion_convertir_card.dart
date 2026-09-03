@@ -403,6 +403,7 @@ class _CotizacionConvertirCardState
           children: [
             IconButton(
               icon: const Icon(Icons.close_rounded, color: Colors.white),
+              tooltip: 'Cerrar',
               onPressed: () => Navigator.of(ctx).pop(),
             ),
             _ExitoDialogContent(
@@ -573,16 +574,24 @@ class _CotizacionConvertirCardState
                           const Icon(Icons.phone_outlined,
                               size: 12, color: AppColors.textMuted),
                           const SizedBox(width: AppSpacing.xs),
-                          Text(widget.cotizacion.celular,
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textSecondary)),
+                          Flexible(
+                            child: Text(widget.cotizacion.celular,
+                                style: AppTextStyles.bodySmall
+                                    .copyWith(color: AppColors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
                         ] else if ((widget.cotizacion.alias ?? '').isNotEmpty) ...[
                           const Icon(Icons.alternate_email_rounded,
                               size: 12, color: AppColors.textMuted),
                           const SizedBox(width: AppSpacing.xs),
-                          Text(widget.cotizacion.alias!,
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textSecondary)),
+                          Flexible(
+                            child: Text(widget.cotizacion.alias!,
+                                style: AppTextStyles.bodySmall
+                                    .copyWith(color: AppColors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
                         ],
                         const Spacer(),
                         EstadoPill(aceptada: esAceptada),
@@ -1253,7 +1262,7 @@ class _EstadoPillState extends State<EstadoPill> {
   @override
   Widget build(BuildContext context) {
     final aceptada   = widget.aceptada;
-    final color      = aceptada ? AppColors.stockOk : AppColors.gold;
+    final color      = aceptada ? AppColors.stockOk : AppColors.goldDark;
     final background = aceptada ? AppColors.successSurface : AppColors.goldLight;
     final icon       = aceptada ? Icons.check_circle_rounded : Icons.schedule_rounded;
     final label       = aceptada ? 'Aceptada' : 'Esperando';

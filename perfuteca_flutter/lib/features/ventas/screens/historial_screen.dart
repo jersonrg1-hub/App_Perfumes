@@ -199,19 +199,13 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
                 ),
               ),
             )
-          : Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.search_off_rounded,
-                      size: 48, color: AppColors.textFaint),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Sin ventas en este período',
-                    style:
-                        AppTextStyles.body.copyWith(color: AppColors.textMuted),
-                  ),
-                ],
+          : EmptyStateWidget(
+              icon: Icons.search_off_rounded,
+              title: 'Sin ventas en este período',
+              subtitle: 'Prueba con otro filtro de fecha',
+              action: TextButton(
+                onPressed: () => setState(() => _filtro = _FiltroFecha.todo),
+                child: const Text('Ver todo'),
               ),
             );
     }
@@ -470,14 +464,16 @@ class _OrdenHistorialCardState extends State<_OrdenHistorialCard> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 2,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               '${orden.items.length} ítem${orden.items.length != 1 ? 's' : ''}',
                               style: AppTextStyles.bodySmall,
                             ),
-                            if (orden.metodoPago != null) ...[
-                              const SizedBox(width: 6),
+                            if (orden.metodoPago != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 5, vertical: 1),
@@ -493,14 +489,11 @@ class _OrdenHistorialCardState extends State<_OrdenHistorialCard> {
                                   ),
                                 ),
                               ),
-                            ],
-                            if (orden.tipoEnvio != null) ...[
-                              const SizedBox(width: 6),
+                            if (orden.tipoEnvio != null)
                               Text(
                                 orden.tipoEnvio!,
                                 style: AppTextStyles.priceLabel,
                               ),
-                            ],
                           ],
                         ),
                       ],
@@ -660,9 +653,9 @@ class _HistorialSkeleton extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _box(w: 80, h: 11),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: AppSpacing.xs),
                           _box(w: 130, h: 13),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: AppSpacing.xs),
                           _box(w: 90, h: 10),
                         ],
                       ),

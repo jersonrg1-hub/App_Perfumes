@@ -1,5 +1,7 @@
 """
-backend/api/routes/catalogo.py — Endpoints del catálogo. Públicos, sin autenticación.
+backend/api/routes/catalogo.py — Endpoints del catálogo.
+Lectura (GET) pública, sin autenticación. Escritura (POST /invalidar,
+PUT /{id}/stock) requiere X-API-Key.
 
 Cambios para Flutter:
   - Todas las respuestas en snake_case (snake=True en df_to_json_list)
@@ -14,6 +16,7 @@ Flujo de GET /buscar?q=noir:
         → _serializar_catalogo(df)    ← snake_case + image_url
           → Paginated[PerfumeResponse]
 """
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -27,10 +30,13 @@ from backend.api.dependencies import (
     invalidar_cache_catalogo,
     verify_api_key,
 )
-from backend.api.models import PerfumeResponse, Paginated
-from backend.repositories.sheets_repository import SheetsRepository
+from backend.api.models import (
+    PerfumeResponse, Paginated, AjusteStockRequest, AjusteStockResponse,
+)
+from backend.repositories.sheets_repository import SheetsRepository, PerfumeNoEncontradoError
 from backend.services.venta_service import filtrar_catalogo
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Columnas a exponer — excluye internas: Nombre_lower, fila_sheet, Notas_set, etc.
@@ -148,6 +154,37 @@ def buscar_perfumes(
 
     resultado = filtrar_catalogo(df, texto=q, marca=marca or "")
     return paginate_df(resultado, _serializar_catalogo, limit, offset)
+
+
+@router.put(
+    "/{id_perfume}/stock",
+    response_model=AjusteStockResponse,
+    dependencies=[Depends(verify_api_key)],
+    summary="Ajustar stock de un perfume (agregar/quitar ml)",
+)
+def ajustar_stock(
+    id_perfume: str,
+    body: AjusteStockRequest,
+    repo: SheetsRepository = Depends(get_repo),
+):
+    """
+    Reponer stock rápido desde el tab Stock de Flutter. ml_delta positivo
+    agrega, negativo quita (clampeado a 0 mínimo). Invalida cache de
+    catálogo para que el próximo GET refleje el nuevo valor.
+    """
+    try:
+        nuevo_stock = repo.add_stock(id_perfume, body.ml_delta)
+    except PerfumeNoEncontradoError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        logger.error(f"[ajustar_stock] Catálogo inválido: {e}")
+        raise HTTPException(status_code=503, detail="Catálogo no disponible. Intenta nuevamente.")
+    except Exception as e:
+        logger.error(f"[ajustar_stock] {type(e).__name__}: {e}")
+        raise HTTPException(status_code=503, detail="Error al ajustar stock. Intenta nuevamente.")
+
+    invalidar_cache_catalogo()
+    return AjusteStockResponse(id_perfume=id_perfume, stock_ml_nuevo=nuevo_stock)
 
 
 @router.get(

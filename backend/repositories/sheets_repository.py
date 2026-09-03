@@ -40,6 +40,10 @@ class StockUpdateError(Exception):
         super().__init__(str(causa))
 
 
+class PerfumeNoEncontradoError(Exception):
+    """ID_Perfume no existe en el catálogo — distinto de un catálogo mal formado/vacío."""
+
+
 class SheetsRepository:
     """
     Encapsula todo el acceso a datos de Google Sheets.
@@ -156,8 +160,13 @@ class SheetsRepository:
 
     # ── Lecturas ──────────────────────────────────────────────────────────────
 
-    def fetch_catalog(self) -> pd.DataFrame:
-        """Carga el catálogo completo y lo enriquece con columnas pre-computadas."""
+    def fetch_catalog(self, enrich: bool = True) -> pd.DataFrame:
+        """
+        Carga el catálogo completo. Por defecto lo enriquece con columnas
+        pre-computadas para filtrado (búsqueda, tags). enrich=False evita ese
+        costo cuando solo se necesitan columnas crudas (ej. localizar una fila
+        por ID_Perfume para un ajuste puntual de Stock_ml).
+        """
         def _fetch():
             return self._get_worksheet(WORKSHEET_CATALOGO).get_all_records(
                 value_render_option="UNFORMATTED_VALUE"
@@ -172,16 +181,17 @@ class SheetsRepository:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
 
-            # Columnas pre-computadas para filtrado eficiente
-            if "Nombre" in df.columns:
-                df["Nombre_lower"] = df["Nombre"].str.lower().fillna("")
-            if "Marca" in df.columns:
-                df["Marca_lower"] = df["Marca"].str.lower().fillna("")
-                df["Marca_limpia"] = df["Marca"].str.strip().str.strip("*").str.strip()
+            if enrich:
+                # Columnas pre-computadas para filtrado eficiente
+                if "Nombre" in df.columns:
+                    df["Nombre_lower"] = df["Nombre"].str.lower().fillna("")
+                if "Marca" in df.columns:
+                    df["Marca_lower"] = df["Marca"].str.lower().fillna("")
+                    df["Marca_limpia"] = df["Marca"].str.strip().str.strip("*").str.strip()
 
-            for col in ["Notas", "Perfil_Olfativo", "ocasion", "estacion", "hora"]:
-                if col in df.columns:
-                    df[f"{col}_set"] = df[col].apply(self._make_tag_set)
+                for col in ["Notas", "Perfil_Olfativo", "ocasion", "estacion", "hora"]:
+                    if col in df.columns:
+                        df[f"{col}_set"] = df[col].apply(self._make_tag_set)
 
         return df
 
@@ -315,6 +325,18 @@ class SheetsRepository:
         self._ejecutar_con_reintento(_write, "save_quote")
         return id_cotizacion
 
+    @staticmethod
+    def _col_stock(df_catalogo: pd.DataFrame) -> int:
+        """Índice de columna (1-based, para rowcol_to_a1) de Stock_ml en la hoja Catalogo."""
+        sheet_cols = [c for c in df_catalogo.columns if c != "fila_sheet"]
+        return sheet_cols.index("Stock_ml") + 1
+
+    @staticmethod
+    def _clamp_stock(valor_actual: float, delta: float) -> tuple[float, bool]:
+        """Aplica delta a valor_actual y clampea a 0 mínimo. Retorna (nuevo_valor, hubiera_sido_negativo)."""
+        nuevo = valor_actual + delta
+        return max(0.0, nuevo), nuevo < 0
+
     def update_stock_batch(
         self, items_vendidos: list[dict], merma_pct: float, df_catalogo: pd.DataFrame
     ) -> None:
@@ -325,8 +347,7 @@ class SheetsRepository:
         if not {"Stock_ml", "ID_Perfume"}.issubset(df_cat.columns):
             raise ValueError("Faltan columnas ID_Perfume o Stock_ml en Catalogo")
 
-        sheet_cols = [c for c in df_cat.columns if c != "fila_sheet"]
-        col_stock = sheet_cols.index("Stock_ml") + 1
+        col_stock = self._col_stock(df_cat)
 
         ml_por_id: dict[str, float] = {}
         for item in items_vendidos:
@@ -338,12 +359,12 @@ class SheetsRepository:
             id_fila = str(row["ID_Perfume"])
             valor_actual = float(row["Stock_ml"]) if row["Stock_ml"] else 0.0
             ml_necesario = ml_por_id[id_fila]
-            if valor_actual < ml_necesario:
+            nuevo_valor, insuficiente = self._clamp_stock(valor_actual, -ml_necesario)
+            if insuficiente:
                 logger.warning(
                     f"Stock insuficiente ID {id_fila}: disponible={valor_actual}ml, "
                     f"vendido={ml_necesario}ml (incl. merma {merma_pct:.0%}) — fijando en 0"
                 )
-            nuevo_valor = max(0.0, valor_actual - ml_necesario)
             peticiones.append({
                 "range": gspread.utils.rowcol_to_a1(int(row["fila_sheet"]), col_stock),
                 "values": [[nuevo_valor]],
@@ -360,6 +381,51 @@ class SheetsRepository:
         ml_float = float(ml_vendido)
         ml_base  = ML_BASE_DISPENSACION.get(int(ml_float), ml_float)
         return ml_base * (1 + merma_pct)
+
+    def add_stock(self, id_perfume: str, ml_delta: float) -> float:
+        """
+        Ajusta Stock_ml de un perfume (positivo agrega, negativo quita).
+        Clampea a 0 mínimo — mismo criterio que update_stock_batch.
+
+        A diferencia de update_stock_batch/restore_stock_batch (que reciben
+        df_catalogo del caller, normalmente el cache de 30 min), este método
+        hace su propio fetch_catalog(enrich=False) sin cache justo antes de
+        escribir — igual que register_complete_sale — para minimizar la
+        ventana de carrera entre lectura y escritura en un ajuste manual
+        puntual. enrich=False evita construir columnas de búsqueda (Nombre_lower,
+        tags, etc.) que este método no usa, solo para localizar una fila.
+
+        Lanza PerfumeNoEncontradoError si id_perfume no existe (→ 404 en la API).
+        Lanza ValueError si el catálogo está vacío o mal formado (→ 503, problema
+        de datos/infra, no de que el perfume no exista).
+        """
+        df_cat = self.fetch_catalog(enrich=False)
+        if df_cat.empty or "fila_sheet" not in df_cat.columns:
+            raise ValueError("Catálogo vacío o sin fila_sheet")
+        if not {"Stock_ml", "ID_Perfume"}.issubset(df_cat.columns):
+            raise ValueError("Faltan columnas ID_Perfume o Stock_ml en Catalogo")
+
+        fila = df_cat[df_cat["ID_Perfume"].astype(str) == str(id_perfume)]
+        if fila.empty:
+            raise PerfumeNoEncontradoError(f"ID_Perfume '{id_perfume}' no encontrado en el catalogo")
+
+        row = fila.iloc[0]
+        col_stock = self._col_stock(df_cat)
+
+        stock_actual = float(row["Stock_ml"])
+        nuevo_valor, hubiera_sido_negativo = self._clamp_stock(stock_actual, float(ml_delta))
+        if hubiera_sido_negativo:
+            logger.warning(
+                f"[add_stock] ID {id_perfume}: {stock_actual}ml {ml_delta:+.1f}ml "
+                f"resultaría negativo — fijando en 0"
+            )
+
+        celda = gspread.utils.rowcol_to_a1(int(row["fila_sheet"]), col_stock)
+        def _write():
+            self._get_worksheet(WORKSHEET_CATALOGO).update(celda, [[nuevo_valor]])
+        self._ejecutar_con_reintento(_write, "add_stock")
+
+        return nuevo_valor
 
     def get_sale_row(self, fila_sheet: int) -> dict:
         """Lee una fila cruda de Ventas_Pendientes por número de fila (para anulación)."""
@@ -386,8 +452,7 @@ class SheetsRepository:
         if not {"Stock_ml", "ID_Perfume"}.issubset(df_cat.columns):
             raise ValueError("Faltan columnas ID_Perfume o Stock_ml en Catalogo")
 
-        sheet_cols = [c for c in df_cat.columns if c != "fila_sheet"]
-        col_stock = sheet_cols.index("Stock_ml") + 1
+        col_stock = self._col_stock(df_cat)
 
         ml_por_id: dict[str, float] = {}
         for item in items_anulados:

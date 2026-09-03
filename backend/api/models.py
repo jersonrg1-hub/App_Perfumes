@@ -138,6 +138,25 @@ class AppConfig(BaseModel):
     version: str
 
 
+# ── Catálogo — Requests ───────────────────────────────────────────────────────
+
+class AjusteStockRequest(BaseModel):
+    """Body de PUT /catalogo/{id_perfume}/stock. Positivo agrega, negativo quita."""
+    ml_delta: float = Field(..., description="ml a sumar (+) o restar (-) del stock actual")
+
+    @field_validator("ml_delta")
+    @classmethod
+    def _no_cero(cls, v):
+        if v == 0:
+            raise ValueError("ml_delta no puede ser 0")
+        return v
+
+
+class AjusteStockResponse(BaseModel):
+    id_perfume: str
+    stock_ml_nuevo: float
+
+
 # ── Ventas — Requests ─────────────────────────────────────────────────────────
 
 class ItemCestaAPI(BaseModel):

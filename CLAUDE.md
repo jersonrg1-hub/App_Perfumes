@@ -23,7 +23,7 @@ pythonProject/
 │       ├── dependencies.py         # Singleton repo, TTLCache x3, auth X-API-Key, df_to_json
 │       ├── models.py               # Pydantic: VentaRequest, CotizacionRequest, etc.
 │       └── routes/
-│           ├── catalogo.py         # GET /api/v1/catalogo/* — PÚBLICO
+│           ├── catalogo.py         # GET /api/v1/catalogo/* PÚBLICO; POST /invalidar y PUT /{id}/stock X-API-Key
 │           ├── ventas.py           # GET/POST/PUT /api/v1/ventas/* — X-API-Key
 │           ├── cotizaciones.py     # GET/POST/PUT /api/v1/cotizaciones/* — X-API-Key
 │           └── estadisticas.py     # GET /api/v1/estadisticas/* — X-API-Key
@@ -50,7 +50,8 @@ Spreadsheet: **"PERFUMES PYTHON"**
 ## Auth API
 
 Endpoints protegidos requieren header `X-API-Key: <valor>`.
-Catálogo es público (sin key).
+Catálogo es público para lectura (GET, sin key); escritura (`POST /invalidar`,
+`PUT /{id}/stock`) requiere key igual que ventas/cotizaciones/estadísticas.
 
 ## Variables de entorno
 
@@ -92,6 +93,7 @@ TZ_PERU = pytz.timezone("America/Lima")
 | GET | `/api/v1/catalogo/marcas` | NO | Lista de marcas únicas |
 | GET | `/api/v1/catalogo/buscar` | NO | Buscar por texto/marca |
 | GET | `/api/v1/catalogo/{id}` | NO | Detalle de un perfume |
+| PUT | `/api/v1/catalogo/{id}/stock` | X-API-Key | Ajustar Stock_ml (ml_delta +agrega/-quita, clamp a 0) |
 | GET | `/api/v1/ventas/` | X-API-Key | Lista ventas paginada (limit/offset/estado) |
 | GET | `/api/v1/ventas/pendientes` | X-API-Key | Solo ventas con Estado=Pendiente |
 | GET | `/api/v1/ventas/cliente/{celular}` | X-API-Key | Historial + datos cliente para autocompletar |

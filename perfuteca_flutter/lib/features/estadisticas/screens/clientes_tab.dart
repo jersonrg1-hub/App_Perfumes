@@ -95,41 +95,8 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
                 c.direccion.toLowerCase().contains(q),
               ).toList();
 
-        // Stats para chips
-        final top        = clientes.isNotEmpty ? clientes.first : null;
-        final totalSum   = clientes.fold(0.0, (s, c) => s + c.totalGastado);
-
         return Column(
           children: [
-            // ── Resumen rápido ─────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-              child: Row(
-                children: [
-                  _ResumenChip(
-                    label: 'Clientes',
-                    valor: '${clientes.length}',
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _ResumenChip(
-                      label: 'Top · ${top?.nombre.split(' ').first ?? '—'}',
-                      valor: top != null
-                          ? 'S/ ${top.totalGastado.toStringAsFixed(0)}'
-                          : '—',
-                      destacado: true,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  _ResumenChip(
-                    label: 'Total ventas',
-                    valor: 'S/ ${totalSum.toStringAsFixed(0)}',
-                  ),
-                ],
-              ),
-            ),
-
             // ── Buscador ───────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
@@ -235,62 +202,6 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
           ],
         );
       },
-    );
-  }
-}
-
-// ── Chip de resumen ───────────────────────────────────────────────────────────
-
-class _ResumenChip extends StatelessWidget {
-  const _ResumenChip({
-    required this.label,
-    required this.valor,
-    this.destacado = false,
-  });
-  final String label;
-  final String valor;
-  final bool   destacado;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: destacado
-            ? AppColors.gold.withValues(alpha: 0.12)
-            : AppColors.primaryPale,
-        borderRadius: BorderRadius.circular(10),
-        border: destacado
-            ? Border.all(color: AppColors.gold.withValues(alpha: 0.35))
-            : null,
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: destacado ? AppColors.gold : AppColors.textMuted,
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            valor,
-            style: AppTextStyles.body.copyWith(
-              color: destacado ? AppColors.gold : AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -813,18 +724,6 @@ class _ClientesSkeleton extends StatelessWidget {
       highlightColor: AppColors.surface,
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-            child: Row(children: [
-              skeletonBox(width: 88, height: 44, radius: 10),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(child: skeletonBox(height: 44, radius: 10)),
-              const SizedBox(width: AppSpacing.sm),
-              skeletonBox(width: 88, height: 44, radius: 10),
-            ]),
-          ),
-          const SizedBox(height: AppSpacing.sm),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: skeletonBox(height: 44, radius: AppSpacing.radiusMd),

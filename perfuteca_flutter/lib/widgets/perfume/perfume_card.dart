@@ -155,7 +155,7 @@ class _PrecioChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final precios = perfume.precios;
     if (precios.isEmpty) {
-      return Text('Sin precio', style: AppTextStyles.bodySmall);
+      return const Text('Sin precio', style: AppTextStyles.bodySmall);
     }
 
     final minPrecio = precios.values.reduce((a, b) => a < b ? a : b);

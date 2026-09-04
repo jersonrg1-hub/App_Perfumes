@@ -74,6 +74,16 @@ class _CotizacionConvertirCardState
   bool    _buscandoCliente = false;
   bool    _clienteNuevo    = false;
   bool    _confirmando     = false;
+  // true solo si el usuario editó algo a mano (TextField.onChanged / Chips)
+  // — a diferencia del listener de los controllers, NO se dispara cuando
+  // _cargarDatosCliente() autocompleta un cliente conocido vía `.text = `.
+  // Sin esta distinción, PopScope bloqueaba el back y mostraba "¿Descartar
+  // datos?" solo por abrir la card de un cliente ya conocido, sin que el
+  // usuario hubiera tocado nada.
+  bool    _tocado          = false;
+  // Evita apilar diálogos si el usuario dispara el back dos veces seguidas
+  // (doble swipe desde el borde) antes de que el primero se resuelva.
+  bool    _mostrandoConfirmSalida = false;
   String?          _error;
 
   final _compradorCtrl     = TextEditingController();
@@ -108,6 +118,12 @@ class _CotizacionConvertirCardState
           ? '@${_sinArroba(widget.cotizacion.alias!)}'
           : '');
 
+  // true si el usuario tiene el form abierto con datos que se perderían si
+  // el back (botón o swipe desde el borde) saca de esta pantalla — usado
+  // para bloquear ese pop con PopScope y no perder la venta a medio llenar.
+  bool get _tieneCambiosSinGuardar =>
+      _expandido && !_registrando && (_tocado || _confirmando);
+
   @override
   void initState() {
     super.initState();
@@ -121,6 +137,13 @@ class _CotizacionConvertirCardState
     _direccionCtrl.addListener(_checkForm);
     _distritoCtrl.addListener(_checkForm);
     _celularNuevoCtrl.addListener(_checkForm);
+  }
+
+  // Solo edición real del usuario debe activar el guard de PopScope — se
+  // pasa como onChanged de los TextField (no se dispara con `.text = ` de
+  // _cargarDatosCliente) y desde los onSelect explícitos de los Chips.
+  void _marcarTocado() {
+    if (!_tocado) setState(() => _tocado = true);
   }
 
   void _checkForm() {
@@ -267,7 +290,18 @@ class _CotizacionConvertirCardState
       // Solo la UI local depende de mounted — el resto (invalidar listas)
       // debe correr siempre, la venta YA existe en el backend aunque esta
       // tarjeta ya no esté en pantalla.
-      if (mounted) setState(() { _registrando = false; });
+      // Además de _registrando, apagar _confirmando/_tocado: si no, esta
+      // card queda con _tieneCambiosSinGuardar=true después de una venta ya
+      // registrada con éxito — PopScope seguiría bloqueando el back con
+      // "¿Descartar datos?" aunque no haya nada que descartar (el banner de
+      // "ya fue convertida" ya reemplaza al formulario).
+      if (mounted) {
+        setState(() {
+          _registrando = false;
+          _confirmando = false;
+          _tocado      = false;
+        });
+      }
       // Mostrar la confirmación (con el botón "Enviar a comunidad") en un
       // diálogo aparte del árbol de esta card, SIEMPRE — no solo cuando
       // mounted. ListView.builder reutiliza sus elementos por índice (no
@@ -305,6 +339,7 @@ class _CotizacionConvertirCardState
       container.invalidate(historicoBackendProvider);
       container.invalidate(historialGlobalProvider);
     } catch (e) {
+      var yaConvertida = false;
       if (e is ServerException && e.statusCode == 409) {
         // El back también devuelve 409 para una cotización 'Anulado' (no
         // convertible) — no solo para una ya 'Aceptada'. Solo la primera
@@ -314,6 +349,7 @@ class _CotizacionConvertirCardState
         // distingue por el mensaje porque el status code es el mismo para
         // ambos casos.
         if (e.message.contains('ya fue convertida')) {
+          yaConvertida = true;
           container.read(cotizacionesAceptadasSesionProvider.notifier)
               .update((s) => {...s, widget.cotizacion.idCotizacion});
         }
@@ -323,8 +359,16 @@ class _CotizacionConvertirCardState
         container.invalidate(cotizaciones14dProvider);
       }
       if (!mounted) return;
-      setState(
-          () { _registrando = false; _error = e.toString(); _confirmando = false; });
+      setState(() {
+        _registrando = false;
+        _error       = e.toString();
+        _confirmando = false;
+        // Si ya existe una venta para esta cotización (la ganó otro
+        // registro concurrente), no dejar _tocado=true — si no, PopScope
+        // seguiría pidiendo "¿Descartar datos?" sobre un formulario que ya
+        // no se muestra (el banner de "aceptada" ocupa su lugar).
+        if (yaConvertida) _tocado = false;
+      });
     }
   }
 
@@ -359,6 +403,7 @@ class _CotizacionConvertirCardState
           children: [
             IconButton(
               icon: const Icon(Icons.close_rounded, color: Colors.white),
+              tooltip: 'Cerrar',
               onPressed: () => Navigator.of(ctx).pop(),
             ),
             _ExitoDialogContent(
@@ -382,6 +427,55 @@ class _CotizacionConvertirCardState
     );
   }
 
+  // Confirma antes de descartar datos sin guardar si el back (botón o swipe
+  // desde el borde) intenta sacar de esta pantalla con la card expandida.
+  Future<void> _onPopInvoked(bool didPop, Object? result) async {
+    if (didPop || _mostrandoConfirmSalida) return;
+    _mostrandoConfirmSalida = true;
+    final bool? descartar;
+    try {
+      descartar = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('¿Descartar datos?'),
+          content: const Text(
+              'Tienes datos sin guardar de esta venta. Si sales ahora se perderán.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Seguir editando'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('Descartar y salir'),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      _mostrandoConfirmSalida = false;
+    }
+    if (descartar != true || !mounted) return;
+    setState(() {
+      _expandido   = false;
+      _confirmando = false;
+      _tocado      = false;
+      _compradorCtrl.clear();
+      _direccionCtrl.clear();
+      _distritoCtrl.clear();
+      _celularNuevoCtrl.clear();
+      _tipoEnvio = '';
+    });
+    // setState solo agenda el rebuild — si se llama maybePop() ya mismo, el
+    // PopScope de este frame todavía tiene canPop:false (calculado con los
+    // campos viejos) y bloquea el segundo intento, mostrando el diálogo de
+    // nuevo. Se espera al post-frame callback para que el rebuild ya haya
+    // corrido y canPop refleje los campos ya vacíos.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.of(context).maybePop();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final esAceptada =
@@ -390,11 +484,21 @@ class _CotizacionConvertirCardState
             widget.cotizacion.estado?.toLowerCase().startsWith('aceptad') ==
                 true;
 
-    return AnimatedSize(
+    return PopScope(
+      // esAceptada cubre el caso general (no solo los paths que ya
+      // resetean _tocado a mano arriba): esta misma cotización puede
+      // convertirse desde OTRA card — ej. la de CotizacionesTab en
+      // Estadísticas, si ambas pantallas están vivas a la vez por el
+      // IndexedStack del shell — mientras esta sigue expandida con
+      // _tocado=true. Sin esto, PopScope seguiría pidiendo "¿Descartar
+      // datos?" sobre una venta que ya quedó guardada por el otro lado.
+      canPop: esAceptada || !_tieneCambiosSinGuardar,
+      onPopInvokedWithResult: _onPopInvoked,
+      child: AnimatedSize(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOutCubic,
       child: Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         decoration: BoxDecoration(
           color: esAceptada && !_expandido
               ? AppColors.successSurface
@@ -433,6 +537,9 @@ class _CotizacionConvertirCardState
                         });
                         if (abriendo) _cargarDatosCliente();
                       },
+                mouseCursor: esAceptada
+                    ? SystemMouseCursors.basic
+                    : SystemMouseCursors.click,
                 splashColor: AppColors.primaryLight,
                 highlightColor: AppColors.primaryPale,
                 borderRadius: _expandido
@@ -467,16 +574,24 @@ class _CotizacionConvertirCardState
                           const Icon(Icons.phone_outlined,
                               size: 12, color: AppColors.textMuted),
                           const SizedBox(width: AppSpacing.xs),
-                          Text(widget.cotizacion.celular,
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textSecondary)),
+                          Flexible(
+                            child: Text(widget.cotizacion.celular,
+                                style: AppTextStyles.bodySmall
+                                    .copyWith(color: AppColors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
                         ] else if ((widget.cotizacion.alias ?? '').isNotEmpty) ...[
                           const Icon(Icons.alternate_email_rounded,
                               size: 12, color: AppColors.textMuted),
                           const SizedBox(width: AppSpacing.xs),
-                          Text(widget.cotizacion.alias!,
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textSecondary)),
+                          Flexible(
+                            child: Text(widget.cotizacion.alias!,
+                                style: AppTextStyles.bodySmall
+                                    .copyWith(color: AppColors.textSecondary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
                         ],
                         const Spacer(),
                         EstadoPill(aceptada: esAceptada),
@@ -503,8 +618,9 @@ class _CotizacionConvertirCardState
                                 color: AppColors.textMuted),
                           ),
                       ]),
-                      // Perfumes de la cotización
-                      if (_lineas.isNotEmpty) ...[
+                      // Perfumes de la cotización — solo colapsada: expandida
+                      // ya los repite _MiniResumen dentro del formulario.
+                      if (_lineas.isNotEmpty && !_expandido) ...[
                         const SizedBox(height: AppSpacing.xs + 2),
                         ..._lineas.map((l) => Padding(
                               padding: const EdgeInsets.only(bottom: 2),
@@ -544,12 +660,14 @@ class _CotizacionConvertirCardState
             // ── Formulario expandible ───────────────────────────────────
             if (_expandido) ...[
               const Divider(height: 1, color: AppColors.primaryLight),
-              if (_buscandoCliente)
+              if (_buscandoCliente) ...[
+                const SizedBox(height: 3),
                 const LinearProgressIndicator(
                   minHeight: 2,
                   backgroundColor: AppColors.primaryPale,
                   color: AppColors.primary,
                 ),
+              ],
               const SizedBox(height: AppSpacing.sm),
               _MiniResumen(lineas: _lineas, total: widget.cotizacion.total),
               if (!_buscandoCliente && _clienteNuevo) ...[
@@ -640,6 +758,7 @@ class _CotizacionConvertirCardState
                                   inputFormatters: [
                                     FilteringTextInputFormatter.digitsOnly,
                                   ],
+                                  onChanged: (_) => _marcarTocado(),
                                 ),
                               ],
                               const _FieldLabel(
@@ -649,6 +768,7 @@ class _CotizacionConvertirCardState
                                 controller: _compradorCtrl,
                                 hint: 'Nombre completo',
                                 capitalization: TextCapitalization.words,
+                                onChanged: (_) => _marcarTocado(),
                               ),
                               const _FieldLabel(
                                   'Dirección de entrega',
@@ -657,6 +777,7 @@ class _CotizacionConvertirCardState
                                 controller: _direccionCtrl,
                                 hint: 'Jr. Los Jardines 123',
                                 capitalization: TextCapitalization.words,
+                                onChanged: (_) => _marcarTocado(),
                               ),
                               const _FieldLabel(
                                   'Distrito/Provincia', Icons.map_outlined),
@@ -664,6 +785,7 @@ class _CotizacionConvertirCardState
                                 controller: _distritoCtrl,
                                 hint: 'Ej: Lima, Arequipa',
                                 capitalization: TextCapitalization.words,
+                                onChanged: (_) => _marcarTocado(),
                               ),
                               const _FieldLabel(
                                   'Tipo de envío',
@@ -672,7 +794,7 @@ class _CotizacionConvertirCardState
                                 opciones: const ['Shalom', 'Motorizado'],
                                 valor: _tipoEnvio,
                                 onSelect: (v) {
-                                  setState(() => _tipoEnvio = v);
+                                  setState(() { _tipoEnvio = v; _tocado = true; });
                                   _checkForm();
                                 },
                               ),
@@ -684,30 +806,33 @@ class _CotizacionConvertirCardState
                                 ],
                                 valor: _metodoPago,
                                 onSelect: (v) =>
-                                    setState(() => _metodoPago = v),
+                                    setState(() { _metodoPago = v; _tocado = true; }),
                               ),
                               const SizedBox(height: AppSpacing.md),
                               ValueListenableBuilder<bool>(
                                 valueListenable: _formValidoNotifier,
                                 builder: (context, formValido, _) =>
                                     Row(key: _botonKey, children: [
-                                  OutlinedButton(
-                                    onPressed: _registrando
-                                        ? null
-                                        : () => setState(() {
-                                              _expandido   = false;
-                                              _confirmando = false;
-                                              _error       = null;
-                                            }),
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor: AppColors.textMuted,
-                                      side: const BorderSide(
-                                          color: AppColors.primaryLight),
+                                  Expanded(
+                                    child: OutlinedButton(
+                                      onPressed: _registrando
+                                          ? null
+                                          : () => setState(() {
+                                                _expandido   = false;
+                                                _confirmando = false;
+                                                _error       = null;
+                                              }),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.textMuted,
+                                        side: const BorderSide(
+                                            color: AppColors.primaryLight),
+                                      ),
+                                      child: const Text('Cancelar'),
                                     ),
-                                    child: const Text('Cancelar'),
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
                                   Expanded(
+                                    flex: 2,
                                     child: BotonRevisarPedido(
                                       habilitado: formValido && !_registrando,
                                       onPressed: () =>
@@ -723,6 +848,7 @@ class _CotizacionConvertirCardState
             ],
           ],
         ),
+      ),
       ),
     );
   }
@@ -811,17 +937,20 @@ class _ConfirmacionInline extends StatelessWidget {
             ],
             const SizedBox(height: AppSpacing.md),
             Row(key: botonKey, children: [
-              OutlinedButton(
-                onPressed: registrando ? null : onEditar,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textMuted,
-                  side:
-                      const BorderSide(color: AppColors.primaryLight),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: registrando ? null : onEditar,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textMuted,
+                    side:
+                        const BorderSide(color: AppColors.primaryLight),
+                  ),
+                  child: const Text('Editar'),
                 ),
-                child: const Text('Editar'),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
+                flex: 2,
                 child: FilledButton.icon(
                   onPressed: registrando ? null : onConfirmar,
                   icon: registrando
@@ -964,7 +1093,7 @@ class _CartaExito extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.only(bottom: AppSpacing.md),
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: AppColors.successSurface,
@@ -1108,18 +1237,38 @@ class _BotonRevisarPedidoState extends State<BotonRevisarPedido> {
 
 // ── Pill de estado (esperando / aceptada) ─────────────────────────────────────
 
-class EstadoPill extends StatelessWidget {
+class EstadoPill extends StatefulWidget {
   const EstadoPill({super.key, required this.aceptada});
   final bool aceptada;
 
   @override
+  State<EstadoPill> createState() => _EstadoPillState();
+}
+
+class _EstadoPillState extends State<EstadoPill> {
+  // Solo re-dispara el bote elástico cuando aceptada cambia de verdad — no
+  // en cada rebuild del ListView (scroll/reorder), que antes lo hacía
+  // rebotar sin que el estado real hubiera cambiado.
+  int _bounceKey = 0;
+
+  @override
+  void didUpdateWidget(covariant EstadoPill oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.aceptada != widget.aceptada) {
+      setState(() => _bounceKey++);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final color      = aceptada ? AppColors.stockOk : AppColors.gold;
+    final aceptada   = widget.aceptada;
+    final color      = aceptada ? AppColors.stockOk : AppColors.goldDark;
     final background = aceptada ? AppColors.successSurface : AppColors.goldLight;
     final icon       = aceptada ? Icons.check_circle_rounded : Icons.schedule_rounded;
     final label       = aceptada ? 'Aceptada' : 'Esperando';
 
     return TweenAnimationBuilder<double>(
+      key: ValueKey(_bounceKey),
       tween: Tween(begin: 0.6, end: 1.0),
       duration: const Duration(milliseconds: 350),
       curve: Curves.elasticOut,
@@ -1159,13 +1308,13 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: 4),
         child: Row(children: [
-          Icon(icon, size: 12, color: AppColors.primary),
-          const SizedBox(width: 4),
+          Icon(icon, size: 13, color: AppColors.primary),
+          const SizedBox(width: 5),
           Text(text,
               style: AppTextStyles.bodySmall.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textSecondary,
-                  fontSize: 11)),
+                  color: AppColors.textPrimary,
+                  fontSize: 12)),
         ]),
       );
 }
@@ -1178,10 +1327,12 @@ class _Field extends StatelessWidget {
     this.keyboardType,
     this.maxLength,
     this.inputFormatters,
+    this.onChanged,
   });
   final TextEditingController controller;
   final String                hint;
   final TextCapitalization    capitalization;
+  final ValueChanged<String>?       onChanged;
   final TextInputType?              keyboardType;
   final int?                        maxLength;
   final List<TextInputFormatter>?   inputFormatters;
@@ -1196,6 +1347,7 @@ class _Field extends StatelessWidget {
           keyboardType:       keyboardType,
           maxLength:          maxLength,
           inputFormatters:    inputFormatters,
+          onChanged:          onChanged,
           decoration: InputDecoration(
             counterText: maxLength != null ? '' : null,
             hintText:  hint,

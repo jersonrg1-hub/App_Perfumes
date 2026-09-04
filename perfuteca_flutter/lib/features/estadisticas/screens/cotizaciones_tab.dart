@@ -10,6 +10,7 @@ import 'package:perfuteca/repositories/cotizaciones_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 // ── Provider: cotizaciones últimos 14 días, sin las de hoy ────────────────────
@@ -59,9 +60,11 @@ class _CotizacionesTabState extends ConsumerState<CotizacionesTab>
     return async.when(
       skipLoadingOnReload: true,
       loading: () => const _CotizShimmer(),
-      error: (_, __) => EstadisticasErrorView(
+      error: (e, __) => AppErrorWidget(
+        error: e,
         title: 'Error al cargar',
         icon: Icons.cloud_off_rounded,
+        subtle: true,
         onRetry: () => ref.invalidate(cotizaciones14dProvider),
       ),
       data: (lista) {
@@ -291,7 +294,11 @@ class _CotizShimmer extends StatelessWidget {
           itemCount: 5,
           itemBuilder: (_, i) => Container(
             margin: const EdgeInsets.only(bottom: AppSpacing.md),
-            height: i == 0 ? 80 : 100,
+            // Alterna alto/bajo para acercarse a la variación real de las
+            // cards (colapsada ~90px vs con varias líneas de perfume
+            // ~140px+) — antes un alto fijo daba un salto de layout brusco
+            // al terminar de cargar.
+            height: i == 0 ? 80 : (i.isEven ? 140 : 96),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),

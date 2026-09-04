@@ -191,10 +191,10 @@ class _Resultados extends ConsumerWidget {
               child: GridView.builder(
                 padding: const EdgeInsets.all(AppSpacing.lg),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount:    2,
-                  crossAxisSpacing:  AppSpacing.md,
-                  mainAxisSpacing:   AppSpacing.md,
-                  childAspectRatio:  0.62,
+                  crossAxisCount:    3,
+                  crossAxisSpacing:  AppSpacing.sm,
+                  mainAxisSpacing:   AppSpacing.sm,
+                  childAspectRatio:  0.56,
                 ),
                 itemCount:    perfumes.length,
                 itemBuilder:  (_, i) => PerfumeCard(perfume: perfumes[i]),

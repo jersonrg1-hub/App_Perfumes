@@ -93,7 +93,7 @@ String _emoji(String nota) {
   if (n.contains('pimienta'))                            return '🫚';
   if (n.contains('almizcle'))                            return '🌾';
   if (n.contains('acuátic') || n.contains('acuatic')
-      || n.contains('marino') || n.contains('agua'))     return '💧';
+      || n.contains('marino') || n.contains('agua')) { return '💧'; }
   if (n.contains('cuero'))                               return '🤎';
   if (n.contains('tabaco'))                              return '🍂';
   if (n.contains('café') || n.contains('cafe'))          return '☕';
@@ -112,7 +112,7 @@ String _emojiValor(String valor, _Modo modo) {
       if (v.contains('frutal') || v.contains('frut'))   return '🍑';
       if (v.contains('amaderado'))                      return '🪵';
       if (v.contains('acuát') || v.contains('fresc')
-          || v.contains('marino'))                      return '💧';
+          || v.contains('marino')) { return '💧'; }
       if (v.contains('cítric'))                         return '🍋';
       if (v.contains('gourmand') || v.contains('dulce')) return '🍦';
       if (v.contains('especiad'))                       return '🌶️';
@@ -120,10 +120,10 @@ String _emojiValor(String valor, _Modo modo) {
     case _Modo.ocasion:
       if (v.contains('noche') || v.contains('velada'))  return '🌙';
       if (v.contains('diario') || v.contains('día')
-          || v.contains('dia'))                         return '☀️';
+          || v.contains('dia')) { return '☀️'; }
       if (v.contains('trabajo') || v.contains('oficina')) return '💼';
       if (v.contains('cita') || v.contains('romántic')
-          || v.contains('romantico'))                   return '💕';
+          || v.contains('romantico')) { return '💕'; }
       if (v.contains('formal') || v.contains('evento')) return '🎭';
       if (v.contains('casual'))                         return '👟';
       return '🎉';
@@ -136,9 +136,9 @@ String _emojiValor(String valor, _Modo modo) {
       return '🌤️';
     case _Modo.hora:
       if (v.contains('mañana') || v.contains('manana')
-          || v.contains('madrugada'))                   return '🌅';
+          || v.contains('madrugada')) { return '🌅'; }
       if (v.contains('tarde') || v.contains('mediodía')
-          || v.contains('mediodia'))                    return '🌞';
+          || v.contains('mediodia')) { return '🌞'; }
       if (v.contains('noche'))                         return '🌙';
       if (v.contains('todo') || v.contains('cualquier')) return '🕐';
       return '⏰';

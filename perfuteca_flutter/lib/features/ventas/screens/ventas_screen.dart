@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/features/cotizaciones/screens/nueva_cotizacion_screen.dart';
 import 'package:perfuteca/features/ventas/screens/cotizaciones_hoy_screen.dart';
-import 'package:perfuteca/features/ventas/screens/nueva_venta_screen.dart';
 import 'package:perfuteca/features/ventas/screens/pendientes_screen.dart';
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
 import 'package:perfuteca/theme/app_colors.dart';
@@ -20,11 +19,18 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tab;
 
+  static const _subtitulos = ['Hoy', 'Cotización', 'Pendientes'];
+
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 4, vsync: this);
-    _tab.addListener(() => setState(() {}));
+    _tab = TabController(length: 3, vsync: this);
+    // Repinta el título con el sub-tab activo también cuando el usuario
+    // cambia de tab con swipe (ventasTabProvider solo cubre el cambio
+    // programático vía animateTo).
+    _tab.addListener(() {
+      if (!_tab.indexIsChanging) setState(() {});
+    });
   }
 
   @override
@@ -35,12 +41,6 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
 
   @override
   Widget build(BuildContext context) {
-    final pendientesAsync = ref.watch(pendientesProvider);
-    final pendienteCount  = (pendientesAsync.valueOrNull ?? [])
-        .map((v) => v.idCompra)
-        .toSet()
-        .length;
-
     ref.listen(ventasTabProvider, (_, next) => _tab.animateTo(next));
 
     return Scaffold(
@@ -52,7 +52,7 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
           const Icon(Icons.receipt_long_rounded,
               color: AppColors.primary, size: 20),
           const SizedBox(width: AppSpacing.sm),
-          Text('Ventas',
+          Text('Ventas · ${_subtitulos[_tab.index]}',
               style: AppTextStyles.heading2.copyWith(fontSize: 18)),
         ]),
         actions: [
@@ -80,30 +80,21 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
           labelStyle: AppTextStyles.button.copyWith(fontSize: 11),
           unselectedLabelStyle: const TextStyle(
               fontSize: 11, fontWeight: FontWeight.w500),
-          tabs: [
-            const Tab(
+          tabs: const [
+            Tab(
               icon: Icon(Icons.today_rounded, size: 18),
               text: 'Hoy',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
-            const Tab(
+            Tab(
               icon: Icon(Icons.request_quote_outlined, size: 18),
               text: 'Cotización',
               iconMargin: EdgeInsets.only(bottom: 2),
             ),
-            const Tab(
-              icon: Icon(Icons.sell_rounded, size: 18),
-              text: 'Nueva Venta',
-              iconMargin: EdgeInsets.only(bottom: 2),
-            ),
             Tab(
-              iconMargin: const EdgeInsets.only(bottom: 2),
+              iconMargin: EdgeInsets.only(bottom: 2),
               text: 'Pendientes',
-              icon: Badge(
-                isLabelVisible: pendienteCount > 0,
-                label: Text('$pendienteCount'),
-                child: const Icon(Icons.schedule_rounded, size: 18),
-              ),
+              icon: _PendientesBadge(),
             ),
           ],
         ),
@@ -114,10 +105,28 @@ class _VentasScreenState extends ConsumerState<VentasScreen>
         children: const [
           CotizacionesHoyScreen(),
           NuevaCotizacionScreen(),
-          NuevaVentaScreen(),
           PendientesScreen(),
         ],
       ),
+    );
+  }
+}
+
+/// Badge del contador de pendientes, aislado para no re-renderizar todo
+/// el Scaffold/TabBar cuando cambia `pendientesProvider`.
+class _PendientesBadge extends ConsumerWidget {
+  const _PendientesBadge();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(pendientesProvider.select(
+      (a) => (a.valueOrNull ?? const []).map((v) => v.idCompra).toSet().length,
+    ));
+    return Badge(
+      isLabelVisible: count > 0,
+      backgroundColor: AppColors.warning,
+      label: Text('$count'),
+      child: const Icon(Icons.schedule_rounded, size: 18),
     );
   }
 }

@@ -1,9 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:perfuteca/core/utils/debouncer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
@@ -12,6 +12,8 @@ import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
+import 'package:perfuteca/widgets/common/empty_state_widget.dart';
 
 class ClientesTab extends StatefulWidget {
   const ClientesTab({super.key});
@@ -46,7 +48,8 @@ enum _Orden { gasto, fecha, pedidos }
 class _ClientesViewState extends ConsumerState<_ClientesView> {
   String  _buscar = '';
   _Orden  _orden  = _Orden.gasto;
-  Timer?  _debounce;
+  final _debounce   = Debouncer(const Duration(milliseconds: 300));
+  final _buscarCtrl = TextEditingController();
 
   List<ClienteStat> _sorted(List<ClienteStat> lista) {
     final c = List<ClienteStat>.from(lista);
@@ -64,7 +67,8 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    _debounce.dispose();
+    _buscarCtrl.dispose();
     super.dispose();
   }
 
@@ -72,9 +76,12 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
   Widget build(BuildContext context) {
     return ref.watch(clientesStatsProvider).when(
       loading: () => const _ClientesSkeleton(),
-      error: (e, _) => EstadisticasErrorView(
+      error: (e, _) => AppErrorWidget(
+        error: e,
         title: 'Error al cargar clientes',
         subtitle: 'Verifica tu conexión e intenta de nuevo',
+        icon: Icons.wifi_off_rounded,
+        subtle: true,
         onRetry: () => ref.invalidate(clientesStatsProvider),
       ),
       data: (clientes) {
@@ -88,45 +95,13 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
                 c.direccion.toLowerCase().contains(q),
               ).toList();
 
-        // Stats para chips
-        final top        = clientes.isNotEmpty ? clientes.first : null;
-        final totalSum   = clientes.fold(0.0, (s, c) => s + c.totalGastado);
-
         return Column(
           children: [
-            // ── Resumen rápido ─────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-              child: Row(
-                children: [
-                  _ResumenChip(
-                    label: 'Clientes',
-                    valor: '${clientes.length}',
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: _ResumenChip(
-                      label: 'Top · ${top?.nombre.split(' ').first ?? '—'}',
-                      valor: top != null
-                          ? 'S/ ${top.totalGastado.toStringAsFixed(0)}'
-                          : '—',
-                      destacado: true,
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  _ResumenChip(
-                    label: 'Total ventas',
-                    valor: 'S/ ${totalSum.toStringAsFixed(0)}',
-                  ),
-                ],
-              ),
-            ),
-
             // ── Buscador ───────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
               child: TextField(
+                controller: _buscarCtrl,
                 decoration: InputDecoration(
                   hintText:       'Buscar cliente...',
                   prefixIcon:     const Icon(Icons.search_rounded, size: 20),
@@ -135,14 +110,31 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
                     horizontal: AppSpacing.md,
                     vertical: AppSpacing.sm,
                   ),
+                  suffixIcon: _buscar.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close_rounded,
+                              size: 18, color: AppColors.textMuted),
+                          onPressed: () {
+                            _buscarCtrl.clear();
+                            setState(() => _buscar = '');
+                          },
+                        ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                     borderSide: const BorderSide(color: AppColors.primaryLight),
                   ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    borderSide: const BorderSide(color: AppColors.primaryLight),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    borderSide: const BorderSide(color: AppColors.primary),
+                  ),
                 ),
                 onChanged: (v) {
-                  _debounce?.cancel();
-                  _debounce = Timer(const Duration(milliseconds: 300), () {
+                  _debounce.run(() {
                     if (mounted) setState(() => _buscar = v);
                   });
                 },
@@ -187,34 +179,14 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
             // ── Lista ──────────────────────────────────────────────
             Expanded(
               child: filtrados.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(AppSpacing.xl),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.search_off_rounded,
-                                size: 48, color: AppColors.textFaint),
-                            const SizedBox(height: AppSpacing.md),
-                            Text(
-                              _buscar.isEmpty
-                                  ? 'Sin clientes'
-                                  : 'Sin resultados para "$_buscar"',
-                              style: AppTextStyles.body.copyWith(
-                                  color: AppColors.textMuted),
-                              textAlign: TextAlign.center,
-                            ),
-                            if (_buscar.isNotEmpty) ...[
-                              const SizedBox(height: AppSpacing.xs),
-                              Text(
-                                'Prueba con el número de celular',
-                                style: AppTextStyles.bodySmall
-                                    .copyWith(color: AppColors.textFaint),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
+                  ? EmptyStateWidget(
+                      icon: Icons.search_off_rounded,
+                      title: _buscar.isEmpty
+                          ? 'Sin clientes'
+                          : 'Sin resultados para "$_buscar"',
+                      subtitle: _buscar.isNotEmpty
+                          ? 'Prueba con el número de celular'
+                          : null,
                     )
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(
@@ -230,62 +202,6 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
           ],
         );
       },
-    );
-  }
-}
-
-// ── Chip de resumen ───────────────────────────────────────────────────────────
-
-class _ResumenChip extends StatelessWidget {
-  const _ResumenChip({
-    required this.label,
-    required this.valor,
-    this.destacado = false,
-  });
-  final String label;
-  final String valor;
-  final bool   destacado;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.sm),
-      decoration: BoxDecoration(
-        color: destacado
-            ? AppColors.gold.withValues(alpha: 0.12)
-            : AppColors.primaryPale,
-        borderRadius: BorderRadius.circular(10),
-        border: destacado
-            ? Border.all(color: AppColors.gold.withValues(alpha: 0.35))
-            : null,
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: AppTextStyles.bodySmall.copyWith(
-              color: destacado ? AppColors.gold : AppColors.textMuted,
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            valor,
-            style: AppTextStyles.body.copyWith(
-              color: destacado ? AppColors.gold : AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -331,15 +247,6 @@ class _AvatarIniciales extends StatelessWidget {
   const _AvatarIniciales({required this.nombre});
   final String nombre;
 
-  static const _paleta = [
-    Color(0xFFC8956C),
-    Color(0xFFC9A96E),
-    Color(0xFF7B9EC8),
-    Color(0xFF8B9E76),
-    Color(0xFFB07BB0),
-    Color(0xFF9E887B),
-  ];
-
   String _iniciales() {
     final partes = nombre.trim().split(RegExp(r'\s+'))
         .where((p) => p.isNotEmpty).toList();
@@ -348,7 +255,8 @@ class _AvatarIniciales extends StatelessWidget {
     return '${partes[0][0]}${partes[1][0]}'.toUpperCase();
   }
 
-  Color _color() => _paleta[nombre.hashCode.abs() % _paleta.length];
+  Color _color() => AppColors.avatarPalette[
+      nombre.hashCode.abs() % AppColors.avatarPalette.length];
 
   @override
   Widget build(BuildContext context) => Container(
@@ -430,7 +338,10 @@ class _ClienteCardState extends ConsumerState<_ClienteCard> {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: InkWell(
-          onTap: () => setState(() => _expandido = !_expandido),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() => _expandido = !_expandido);
+          },
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         child: Column(
           children: [
@@ -528,9 +439,9 @@ class _ClienteCardState extends ConsumerState<_ClienteCard> {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(
                     AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.primaryPale,
-                  borderRadius: const BorderRadius.vertical(
+                  borderRadius: BorderRadius.vertical(
                     bottom: Radius.circular(AppSpacing.radiusMd),
                   ),
                 ),
@@ -814,22 +725,10 @@ class _ClientesSkeleton extends StatelessWidget {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.md, AppSpacing.sm, AppSpacing.md, 0),
-            child: Row(children: [
-              skeletonBox(width: 88, height: 44, radius: 10),
-              const SizedBox(width: AppSpacing.sm),
-              Expanded(child: skeletonBox(height: 44, radius: 10)),
-              const SizedBox(width: AppSpacing.sm),
-              skeletonBox(width: 88, height: 44, radius: 10),
-            ]),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
             child: skeletonBox(height: 44, radius: AppSpacing.radiusMd),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),

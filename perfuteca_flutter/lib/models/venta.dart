@@ -7,7 +7,7 @@ part 'venta.g.dart';
 // ── Conversores defensivos para valores de pandas/Google Sheets ───────────────
 
 String  _strOrEmpty(dynamic v)       => v?.toString() ?? '';
-String? _toStrNullable(dynamic v)    => v == null ? null : v.toString();
+String? _toStrNullable(dynamic v)    => v?.toString();
 int     _toInt(dynamic v)            => v == null ? 0 : (v is int ? v : (v as num).toInt());
 int?    _toIntNullable(dynamic v)    => v == null ? null : (v is int ? v : (v as num).toInt());
 double? _toDoubleNullable(dynamic v) {

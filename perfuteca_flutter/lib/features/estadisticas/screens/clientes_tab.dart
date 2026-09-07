@@ -135,7 +135,7 @@ class _ClientesViewState extends ConsumerState<_ClientesView> {
                 ),
                 onChanged: (v) {
                   _debounce.run(() {
-                    if (mounted) setState(() => _buscar = v);
+                    if (mounted) setState(() => _buscar = v.trim());
                   });
                 },
               ),

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:dio_cache_interceptor/dio_cache_interceptor.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:perfuteca/config/env.dart';
 import 'package:perfuteca/core/errors/app_exception.dart';
@@ -64,7 +65,8 @@ String _extractDetail(Response? r) {
   try {
     return (r.data as Map<String, dynamic>)['detail']?.toString() ??
         'Error ${r.statusCode}';
-  } catch (_) {
+  } catch (e) {
+    debugPrint('No se pudo parsear detail del error: $e');
     return 'Error ${r.statusCode ?? "desconocido"}';
   }
 }

@@ -362,9 +362,7 @@ class _ModoBar extends StatelessWidget {
             final tieneFiltro = filtros.containsKey(modo);
             final bgColor = tieneFiltro
                 ? AppColors.primary
-                : (activo
-                    ? AppColors.primaryPale
-                    : AppColors.primaryPale);
+                : AppColors.primaryPale;
             final textColor = tieneFiltro
                 ? Colors.white
                 : (activo ? AppColors.primaryDark : AppColors.textSecondary);

@@ -8,10 +8,7 @@ abstract class Env {
     defaultValue: 'https://app-perfuteca.onrender.com',
   );
 
-  static const String apiKey = String.fromEnvironment(
-    'API_KEY',
-    defaultValue: 'e9f169776a1ebc48498d3dd983f33aa08cdd6104b4eb8ed22268b8104d60227e',
-  );
+  static const String apiKey = String.fromEnvironment('API_KEY');
 
   static const Duration connectTimeout = Duration(seconds: 10);
   static const Duration receiveTimeout = Duration(seconds: 20);

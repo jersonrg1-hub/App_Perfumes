@@ -10,7 +10,12 @@ double? _toDoubleNullable(dynamic v) {
   if (v is num)   return v.toDouble();
   return double.tryParse(v.toString());
 }
-int    _toInt(dynamic v) => v == null ? 0 : (v is int ? v : (v as num).toInt());
+int    _toInt(dynamic v) {
+  if (v == null) return 0;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString()) ?? 0;
+}
 
 @freezed
 class CotizacionRegistrada with _$CotizacionRegistrada {

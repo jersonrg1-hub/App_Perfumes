@@ -211,7 +211,9 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                               size: 56, color: AppColors.textFaint),
                           const SizedBox(height: 12),
                           Text(
-                            'Sin perfumes de "$_marcaFiltro"',
+                            _marcaFiltro != null
+                                ? 'Sin perfumes de "$_marcaFiltro"'
+                                : 'No hay perfumes en el catálogo',
                             style: AppTextStyles.body
                                 .copyWith(color: AppColors.textMuted),
                           ),

@@ -3,11 +3,15 @@
 // Antes vivía duplicada en ambos archivos; cada bug de frescura/race había
 // que arreglarlo dos veces. Vive aquí para que ambas pantallas compartan
 // exactamente la misma lógica de registro.
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:perfuteca/core/errors/app_exception.dart';
+import 'package:perfuteca/core/utils/debouncer.dart';
 import 'package:perfuteca/core/utils/validators.dart';
 import 'package:perfuteca/core/utils/whatsapp_launcher.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
@@ -68,7 +72,20 @@ class CotizacionConvertirCard extends ConsumerStatefulWidget {
 }
 
 class _CotizacionConvertirCardState
-    extends ConsumerState<CotizacionConvertirCard> {
+    extends ConsumerState<CotizacionConvertirCard>
+    with AutomaticKeepAliveClientMixin {
+  // Mantiene viva solo la card expandida (o con texto tocado sin guardar):
+  // sin esto, ListView.builder trata la card como "fuera de pantalla" y la
+  // dispone (destruye su State) cada vez que el teclado se abre/cierra —
+  // el resize del viewport hace que RenderSliverList la considere
+  // momentáneamente fuera del cacheExtent, aunque el usuario nunca scrolleó.
+  // Al recrearla, _expandido volvería a false y los TextEditingController
+  // quedarían vacíos: la card "se minimiza" y el texto escrito desaparece.
+  // Acotado a _expandido||_tocado (en vez de true fijo) para no anular la
+  // virtualización del ListView en listas largas de cotizaciones.
+  @override
+  bool get wantKeepAlive => _expandido || _tocado;
+
   bool    _expandido       = false;
   bool    _registrando     = false;
   bool    _buscandoCliente = false;
@@ -84,6 +101,10 @@ class _CotizacionConvertirCardState
   // Evita apilar diálogos si el usuario dispara el back dos veces seguidas
   // (doble swipe desde el borde) antes de que el primero se resuelva.
   bool    _mostrandoConfirmSalida = false;
+  // true si el borrador restaurado ya traía un método de pago propio —
+  // evita que _cargarDatosCliente() lo pise después con el histórico del
+  // cliente (ver _cargarDatosCliente).
+  bool    _metodoPagoDesdeBorrador = false;
   String?          _error;
 
   final _compradorCtrl     = TextEditingController();
@@ -98,6 +119,9 @@ class _CotizacionConvertirCardState
   // reusar _botonKey en los dos causaba "Multiple widgets used the same
   // GlobalKey" al tocar Revisar pedido/Editar.
   final _botonConfirmKey = GlobalKey();
+  // Coalesce las escrituras a SharedPreferences: sin esto, cada tecla de un
+  // TextField dispara un jsonEncode + write a disco propio.
+  final _guardarDebounce = Debouncer(const Duration(milliseconds: 500));
   late final ValueNotifier<bool> _formValidoNotifier;
   late final List<String> _lineas;
   String _tipoEnvio  = '';
@@ -133,6 +157,10 @@ class _CotizacionConvertirCardState
         .where((s) => s.isNotEmpty)
         .toList();
     _formValidoNotifier = ValueNotifier<bool>(false);
+    // 'Anulado' nunca vuelve a ser convertible — sin esto, su borrador
+    // (si el usuario alguna vez llegó a abrir el form antes de anularla)
+    // queda huérfano en SharedPreferences para siempre.
+    if (widget.cotizacion.estado == 'Anulado') _borrarBorrador();
     _compradorCtrl.addListener(_checkForm);
     _direccionCtrl.addListener(_checkForm);
     _distritoCtrl.addListener(_checkForm);
@@ -144,6 +172,66 @@ class _CotizacionConvertirCardState
   // _cargarDatosCliente) y desde los onSelect explícitos de los Chips.
   void _marcarTocado() {
     if (!_tocado) setState(() => _tocado = true);
+    _guardarDebounce.run(_guardarBorrador);
+  }
+
+  // Persiste el formulario en disco en cada edición real — PopScope no
+  // confía en go_router para rutas raíz de un StatefulShellBranch como
+  // '/ventas' o '/estadisticas' (bug sin resolver: flutter/flutter#140869),
+  // así que un swipe-back ahí puede cerrar la app sin avisar. En vez de
+  // pelear con esa navegación rota, el borrador sobrevive al cierre — al
+  // reabrir la app y volver a tocar esta cotización, los datos vuelven.
+  String get _borradorKey => 'borrador_venta_${widget.cotizacion.idCotizacion}';
+
+  Future<void> _guardarBorrador() async {
+    final datos = jsonEncode({
+      'comprador':    _compradorCtrl.text,
+      'direccion':    _direccionCtrl.text,
+      'distrito':     _distritoCtrl.text,
+      'celularNuevo': _celularNuevoCtrl.text,
+      'tipoEnvio':    _tipoEnvio,
+      'metodoPago':   _metodoPago,
+    });
+    final key = _borradorKey;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, datos);
+  }
+
+  Future<void> _restaurarBorrador() async {
+    final key = _borradorKey;
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(key);
+    if (raw == null || !mounted) return;
+    try {
+      final datos = jsonDecode(raw) as Map<String, dynamic>;
+      setState(() {
+        final comprador = datos['comprador'] as String? ?? '';
+        if (comprador.isNotEmpty) _compradorCtrl.text = comprador;
+        final direccion = datos['direccion'] as String? ?? '';
+        if (direccion.isNotEmpty) _direccionCtrl.text = direccion;
+        final distrito = datos['distrito'] as String? ?? '';
+        if (distrito.isNotEmpty) _distritoCtrl.text = distrito;
+        final celularNuevo = datos['celularNuevo'] as String? ?? '';
+        if (celularNuevo.isNotEmpty) _celularNuevoCtrl.text = celularNuevo;
+        final tipoEnvio = datos['tipoEnvio'] as String? ?? '';
+        if (tipoEnvio.isNotEmpty) _tipoEnvio = tipoEnvio;
+        final metodoPago = datos['metodoPago'] as String? ?? '';
+        if (metodoPago.isNotEmpty) {
+          _metodoPago = metodoPago;
+          _metodoPagoDesdeBorrador = true;
+        }
+        _tocado = true;
+      });
+      _checkForm();
+    } catch (_) {
+      // Borrador corrupto/versión vieja — se ignora, el usuario llena de nuevo.
+    }
+  }
+
+  Future<void> _borrarBorrador() async {
+    final key = _borradorKey;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(key);
   }
 
   void _checkForm() {
@@ -158,6 +246,13 @@ class _CotizacionConvertirCardState
 
   @override
   void dispose() {
+    // El debounce cancela cualquier guardado pendiente — sin este flush, salir
+    // de la card dentro de los 500ms de la última tecla perdería esa edición.
+    // _guardarBorrador() arma el jsonEncode leyendo los controllers de forma
+    // síncrona antes de su único await, así que es seguro llamarlo aquí
+    // mismo, antes de disponer esos controllers en las líneas de abajo.
+    _guardarDebounce.dispose();
+    if (_tocado) _guardarBorrador();
     _compradorCtrl.dispose();
     _direccionCtrl.dispose();
     _distritoCtrl.dispose();
@@ -168,7 +263,11 @@ class _CotizacionConvertirCardState
 
   Future<void> _cargarDatosCliente() async {
     final celular = widget.cotizacion.celular;
-    if (celular.isEmpty) return;
+    // !mounted: ahora se llama encadenado tras el await de
+    // _restaurarBorrador() (ver onTap) — si el usuario cierra la card durante
+    // ese gap async, este setState de abajo correría sobre un State ya
+    // desmontado sin este guard.
+    if (celular.isEmpty || !mounted) return;
     setState(() { _buscandoCliente = true; _clienteNuevo = false; });
     try {
       final cliente =
@@ -185,7 +284,7 @@ class _CotizacionConvertirCardState
             _distritoCtrl.text = cliente.distrito;
           }
           if (_tipoEnvio.isEmpty) _tipoEnvio = cliente.tipoEnvio;
-          _metodoPago = cliente.metodoPago;
+          if (!_metodoPagoDesdeBorrador) _metodoPago = cliente.metodoPago;
         });
         // _tipoEnvio no es un TextEditingController — su cambio arriba no
         // dispara los listeners que llaman _checkForm(). Sin esto, el botón
@@ -271,7 +370,7 @@ class _CotizacionConvertirCardState
         direccion:    direccionSnap,
         distrito:     distritoSnap,
         tipoEnvio:    tipoEnvioSnap,
-        fecha:        DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        fecha:        DateFormat('yyyy-MM-dd').format(nowPeru()),
         items:        cesta.map((i) => i.toApiMap()).toList(),
         idCotizacion: widget.cotizacion.idCotizacion,
       );
@@ -287,6 +386,8 @@ class _CotizacionConvertirCardState
       final syncOk = registrada.warning == null;
       container.read(cotizacionesAceptadasSesionProvider.notifier)
           .update((s) => {...s, widget.cotizacion.idCotizacion});
+      // Venta ya registrada — el borrador ya cumplió su función.
+      _borrarBorrador();
       // Solo la UI local depende de mounted — el resto (invalidar listas)
       // debe correr siempre, la venta YA existe en el backend aunque esta
       // tarjeta ya no esté en pantalla.
@@ -456,6 +557,7 @@ class _CotizacionConvertirCardState
       _mostrandoConfirmSalida = false;
     }
     if (descartar != true || !mounted) return;
+    _borrarBorrador();
     setState(() {
       _expandido   = false;
       _confirmando = false;
@@ -478,6 +580,7 @@ class _CotizacionConvertirCardState
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final esAceptada =
         ref.watch(cotizacionesAceptadasSesionProvider
                 .select((s) => s.contains(widget.cotizacion.idCotizacion))) ||
@@ -535,7 +638,21 @@ class _CotizacionConvertirCardState
                           _expandido   = !_expandido;
                           if (!abriendo) _confirmando = false;
                         });
-                        if (abriendo) _cargarDatosCliente();
+                        if (abriendo) {
+                          // Reset explícito: sin esto, tras descartar un
+                          // borrador y reabrir la card, el flag quedaría en
+                          // true por el ciclo anterior y bloquearía para
+                          // siempre el autocompletado real del cliente,
+                          // aunque ya no exista ningún borrador que lo
+                          // justifique.
+                          _metodoPagoDesdeBorrador = false;
+                          // Esperar a que el borrador termine de restaurarse
+                          // (incluye _metodoPagoDesdeBorrador) ANTES de pedir
+                          // el cliente — si corrieran en paralelo, cuál de
+                          // los dos setState corre último quedaría a merced
+                          // del scheduler, no del dato más confiable.
+                          _restaurarBorrador().then((_) => _cargarDatosCliente());
+                        }
                       },
                 mouseCursor: esAceptada
                     ? SystemMouseCursors.basic
@@ -796,6 +913,7 @@ class _CotizacionConvertirCardState
                                 onSelect: (v) {
                                   setState(() { _tipoEnvio = v; _tocado = true; });
                                   _checkForm();
+                                  _guardarDebounce.run(_guardarBorrador);
                                 },
                               ),
                               const _FieldLabel(
@@ -805,8 +923,14 @@ class _CotizacionConvertirCardState
                                   'Yape', 'Plin', 'Transferencia', 'Tarjeta'
                                 ],
                                 valor: _metodoPago,
-                                onSelect: (v) =>
-                                    setState(() { _metodoPago = v; _tocado = true; }),
+                                onSelect: (v) {
+                                  setState(() {
+                                    _metodoPago = v;
+                                    _metodoPagoDesdeBorrador = true;
+                                    _tocado = true;
+                                  });
+                                  _guardarDebounce.run(_guardarBorrador);
+                                },
                               ),
                               const SizedBox(height: AppSpacing.md),
                               ValueListenableBuilder<bool>(

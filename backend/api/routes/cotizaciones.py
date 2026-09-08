@@ -71,7 +71,13 @@ def listar_cotizaciones(
         df = df[df["Estado"] == estado]
 
     if not df.empty and fecha_desde and "Fecha" in df.columns:
-        df = df[df["Fecha"] >= pd.to_datetime(fecha_desde, errors="coerce")]
+        fecha_desde_dt = pd.to_datetime(fecha_desde, errors="coerce")
+        if pd.isna(fecha_desde_dt):
+            raise HTTPException(
+                status_code=422,
+                detail=f"fecha_desde invalida: '{fecha_desde}' (formato esperado yyyy-mm-dd)",
+            )
+        df = df[df["Fecha"] >= fecha_desde_dt]
 
     if not df.empty and "Fecha" in df.columns:
         df = df.sort_values("Fecha", ascending=False, na_position="last")

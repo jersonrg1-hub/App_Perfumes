@@ -29,6 +29,7 @@ from backend.api.dependencies import (
     paginate_df,
     invalidar_cache_catalogo,
     verify_api_key,
+    stock_lock,
 )
 from backend.api.models import (
     PerfumeResponse, Paginated, AjusteStockRequest, AjusteStockResponse,
@@ -173,7 +174,8 @@ def ajustar_stock(
     catálogo para que el próximo GET refleje el nuevo valor.
     """
     try:
-        nuevo_stock = repo.add_stock(id_perfume, body.ml_delta)
+        with stock_lock:
+            nuevo_stock = repo.add_stock(id_perfume, body.ml_delta)
     except PerfumeNoEncontradoError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:

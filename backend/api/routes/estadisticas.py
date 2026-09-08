@@ -198,9 +198,9 @@ def _compute_clientes(df: pd.DataFrame) -> List[dict]:
     if df.empty:
         return []
 
-    entregadas = df[df["Estado"].isin(["Entregado", "Pendiente"])]
-    # Pre-agrupar entregadas por celular una sola vez — evita O(n_clientes × n_ventas)
-    ent_por_cel = {cel: g for cel, g in entregadas.groupby("Celular")} if not entregadas.empty else {}
+    no_anuladas = df[df["Estado"].isin(["Entregado", "Pendiente"])]
+    # Pre-agrupar no_anuladas por celular una sola vez — evita O(n_clientes × n_ventas)
+    ent_por_cel = {cel: g for cel, g in no_anuladas.groupby("Celular")} if not no_anuladas.empty else {}
 
     clientes = []
     for celular, group in df.groupby("Celular"):
@@ -340,14 +340,23 @@ def _top_perfumes(df: pd.DataFrame, n: Optional[int] = None) -> List[dict]:
         return []
     g = (
         df.groupby("ID_Perfume")
-        .agg(total_ml=("Ml_Vendido", "sum"), total_soles=("Precio_Cobrado", "sum"))
+        .agg(
+            total_ml=("Ml_Vendido", "sum"),
+            total_soles=("Precio_Cobrado", "sum"),
+            cantidad=("Precio_Cobrado", "count"),
+        )
         .sort_values("total_ml", ascending=False)
     )
     if n is not None:
         g = g.head(n)
     g = g.reset_index()
     return [
-        {"id_perfume": str(r.ID_Perfume), "total_ml": int(r.total_ml), "total_soles": float(r.total_soles)}
+        {
+            "id_perfume": str(r.ID_Perfume),
+            "total_ml": int(r.total_ml),
+            "total_soles": float(r.total_soles),
+            "cantidad": int(r.cantidad),
+        }
         for r in g.itertuples(index=False)
     ]
 

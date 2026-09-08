@@ -81,6 +81,11 @@ _cache_cotizaciones: TTLCache = TTLCache(maxsize=1, ttl=300)   # 5 min (300 s)
 _lock = threading.Lock()
 _K = "df"
 
+# Serializa TODA escritura de Stock_ml (add_stock, update_stock_batch,
+# restore_stock_batch) — las tres hacen read-then-write sobre la misma
+# columna sin locking propio; un lock por sitio de llamada no alcanza.
+stock_lock = threading.Lock()
+
 
 def get_catalogo_cached(repo: SheetsRepository) -> pd.DataFrame:
     """Catálogo desde cache (TTL 30 min) o recarga desde Sheets si expiró."""

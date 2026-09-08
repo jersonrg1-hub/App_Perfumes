@@ -22,13 +22,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.api.dependencies import (
     get_repo,
     get_ventas_cached,
-    get_catalogo_cached,
     invalidar_cache_catalogo,
     invalidar_cache_ventas,
     invalidar_cache_cotizaciones,
     verify_api_key,
     df_to_json_list,
     paginate_df,
+    stock_lock,
 )
 import logging
 from backend.api.routes import estadisticas as _estadisticas_mod
@@ -58,7 +58,8 @@ def _registrar_venta_o_advertir(repo: SheetsRepository, cesta: list, cliente: di
     un reintento que la duplicaría; se retorna stock_ok=False en su lugar.
     """
     try:
-        id_compra = repo.register_complete_sale(cesta, cliente, MERMA_PCT)
+        with stock_lock:
+            id_compra = repo.register_complete_sale(cesta, cliente, MERMA_PCT)
         return id_compra, True
     except StockUpdateError as e:
         return e.id_compra, False
@@ -329,12 +330,16 @@ def actualizar_estado_venta(
 
     if filas_para_restock:
         try:
-            df_cat = get_catalogo_cached(repo)
             items_anulados = [
                 {"id_perfume": f["ID_Perfume"], "ml": f["Ml_Vendido"]}
                 for f in filas_para_restock
             ]
-            repo.restore_stock_batch(items_anulados, MERMA_PCT, df_catalogo=df_cat)
+            with stock_lock:
+                # fetch fresco (no cache) dentro del lock — mismo patrón que
+                # add_stock/register_complete_sale, evita restock con
+                # Stock_ml stale del cache de 30 min o con un write concurrente.
+                df_cat = repo.fetch_catalog(enrich=False)
+                repo.restore_stock_batch(items_anulados, MERMA_PCT, df_catalogo=df_cat)
             invalidar_cache_catalogo()
         except Exception as e:
             logger.error(f"[anular_venta/restock] {type(e).__name__}: {e}")

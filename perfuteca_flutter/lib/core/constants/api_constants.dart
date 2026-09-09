@@ -12,10 +12,16 @@ abstract class ApiConstants {
   static const String config               = '/api/v1/config';
   static const String health        = '/health';
 
-  static String catalogoDetalle(String id) => '/api/v1/catalogo/$id';
-  static String catalogoStock(String id) => '/api/v1/catalogo/$id/stock';
-  static String ventasCliente(String celular) => '/api/v1/ventas/cliente/$celular';
-  static String cotizacionesCliente(String celular) => '/api/v1/cotizaciones/cliente/$celular';
-  static String cotizacionesDetalle(String idCotizacion) => '/api/v1/cotizaciones/$idCotizacion';
-  static String ventaEstado(String idVenta) => '/api/v1/ventas/$idVenta/estado';
+  static String catalogoDetalle(String id) =>
+      '/api/v1/catalogo/${Uri.encodeComponent(id)}';
+  static String catalogoStock(String id) =>
+      '/api/v1/catalogo/${Uri.encodeComponent(id)}/stock';
+  static String ventasCliente(String celular) =>
+      '/api/v1/ventas/cliente/${Uri.encodeComponent(celular)}';
+  static String cotizacionesCliente(String celular) =>
+      '/api/v1/cotizaciones/cliente/${Uri.encodeComponent(celular)}';
+  static String cotizacionesDetalle(String idCotizacion) =>
+      '/api/v1/cotizaciones/${Uri.encodeComponent(idCotizacion)}';
+  static String ventaEstado(String idVenta) =>
+      '/api/v1/ventas/${Uri.encodeComponent(idVenta)}/estado';
 }

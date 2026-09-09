@@ -15,4 +15,11 @@ abstract class Env {
   static const Duration sendTimeout    = Duration(seconds: 15);
 
   static const int maxRetries = 2;
+
+  /// Detecta builds sin --dart-define=API_KEY (asserts se eliminan en release,
+  /// solo protege debug/profile).
+  static bool get hasApiKey {
+    assert(apiKey.isNotEmpty, 'Falta --dart-define=API_KEY en el build');
+    return apiKey.isNotEmpty;
+  }
 }

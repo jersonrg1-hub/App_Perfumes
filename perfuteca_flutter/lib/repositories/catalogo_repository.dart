@@ -56,7 +56,9 @@ class CatalogoRepository {
           'limit': limit,
           'offset': offset,
         },
-        options: _cache.cacheFor(const Duration(minutes: 30)),
+        // bypassCache: igual que load/loadMore en catalogo_provider — precio/stock
+        // no pueden quedar stale acá, la búsqueda alimenta armado de cotizaciones.
+        options: _cache.noCache,
       );
       return Paginated.fromJson(res.data!, (e) => Perfume.fromJson(e as Map<String, dynamic>));
     } on DioException catch (e) {

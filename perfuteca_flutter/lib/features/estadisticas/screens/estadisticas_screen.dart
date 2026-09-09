@@ -158,6 +158,9 @@ class _MasTab extends ConsumerStatefulWidget {
 }
 
 class _MasTabState extends ConsumerState<_MasTab> {
+  // Orden fijo — define el índice de cada sección dentro del IndexedStack.
+  static const _secciones = ['ventas', 'clientes', 'stock', 'cotizaciones'];
+
   String? _seccion;
 
   String _titulo(String seccion) => switch (seccion) {
@@ -168,19 +171,19 @@ class _MasTabState extends ConsumerState<_MasTab> {
     _              => seccion,
   };
 
-  Widget _pantalla(String seccion) => switch (seccion) {
-    'ventas'       => const VentasTab(),
-    'clientes'     => const ClientesTab(),
-    'stock'        => const AnalisisTab(),
-    'cotizaciones' => const CotizacionesTab(),
-    _              => const SizedBox.shrink(),
-  };
-
   @override
   Widget build(BuildContext context) {
-    if (_seccion != null) {
-      return Column(
-        children: [
+    // IndexedStack (no un swap condicional) mantiene las 4 secciones montadas
+    // permanentemente — sin esto, cada vuelta al menú "Más" destruía la
+    // sección y perdía su búsqueda/filtros, aunque VentasTab/ClientesTab/
+    // AnalisisTab/CotizacionesTab llevan wantKeepAlive:true (ese mixin solo
+    // protege contra remoción por virtualización dentro de un
+    // TabBarView/PageView/lista lazy, no contra sacar el widget del árbol).
+    final index = _seccion == null ? 0 : _secciones.indexOf(_seccion!) + 1;
+
+    return Column(
+      children: [
+        if (_seccion != null) ...[
           Container(
             color: AppColors.surface,
             padding: const EdgeInsets.symmetric(
@@ -203,12 +206,21 @@ class _MasTabState extends ConsumerState<_MasTab> {
             ),
           ),
           const Divider(height: 1),
-          Expanded(child: _pantalla(_seccion!)),
         ],
-      );
-    }
-
-    return _MenuMas(onSelect: (s) => setState(() => _seccion = s));
+        Expanded(
+          child: IndexedStack(
+            index: index,
+            children: [
+              _MenuMas(onSelect: (s) => setState(() => _seccion = s)),
+              const VentasTab(),
+              const ClientesTab(),
+              const AnalisisTab(),
+              const CotizacionesTab(),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

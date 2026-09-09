@@ -56,6 +56,12 @@ Future<bool> _marcarCotizacionAceptada(
     container
         .read(cotizacionesAceptadasSesionProvider.notifier)
         .update((s) => {...s, idCotizacion});
+    // Sin esto, MetricasHoyGrid (Pendientes/Convertidas) seguía contando esta
+    // cotización como pendiente hasta el próximo refresh no relacionado — la
+    // card individual ya mostraba "Aceptada" vía el set de sesión, pero el
+    // grid lee el estado crudo del backend en cotizacionesHoyProvider/14d.
+    container.invalidate(cotizacionesHoyProvider);
+    container.invalidate(cotizaciones14dProvider);
     return true;
   } catch (_) {
     return false;

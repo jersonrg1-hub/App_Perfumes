@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/utils/debouncer.dart';
 import 'package:perfuteca/features/busqueda/providers/busqueda_provider.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/theme/app_colors.dart';
@@ -19,9 +20,11 @@ class BusquedaScreen extends ConsumerStatefulWidget {
 
 class _BusquedaScreenState extends ConsumerState<BusquedaScreen> {
   final _controller = TextEditingController();
+  final _debounce   = Debouncer(const Duration(milliseconds: 300));
 
   @override
   void dispose() {
+    _debounce.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -54,14 +57,16 @@ class _BusquedaScreenState extends ConsumerState<BusquedaScreen> {
                     icon: const Icon(Icons.clear_rounded, size: 18),
                     color: AppColors.textMuted,
                     onPressed: () {
+                      _debounce.dispose();
                       _controller.clear();
                       ref.read(busquedaQueryProvider.notifier).state = '';
                     },
                   )
                 : null,
           ),
-          onChanged: (v) =>
-              ref.read(busquedaQueryProvider.notifier).state = v,
+          onChanged: (v) => _debounce.run(
+            () => ref.read(busquedaQueryProvider.notifier).state = v,
+          ),
         ),
         actions: const [SizedBox(width: AppSpacing.sm)],
       ),

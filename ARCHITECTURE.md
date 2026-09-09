@@ -45,4 +45,4 @@ pythonProject/
 
 ## Escala
 
-Probada OK hasta ~78 perfumes / 500 cotizaciones / 700 ventas — lecturas son 1 `get_all_records()` por hoja (batch, no loop). Único patrón O(N) real: anular venta con varias filas hace 1 llamada API por fila (`get_sale_row` en loop).
+Probada OK hasta ~78 perfumes / 500 cotizaciones / 700 ventas — lecturas son 1 `get_all_records()` por hoja (batch, no loop). Anular venta con varias filas usa `get_sale_rows_batch` (1 sola llamada `batch_get`, no loop).

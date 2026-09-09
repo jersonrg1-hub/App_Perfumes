@@ -72,7 +72,7 @@ TZ_PERU = pytz.timezone("America/Lima")
 | GET | `/api/v1/ventas/pendientes` | X-API-Key | Solo ventas con Estado=Pendiente |
 | GET | `/api/v1/ventas/cliente/{celular}` | X-API-Key | Historial + datos cliente para autocompletar |
 | POST | `/api/v1/ventas/` | X-API-Key | Registrar venta (invalida cache ventas + catálogo + stats). Si `id_cotizacion` viene informado, es idempotente ante reintentos por timeout (rechaza duplicados) |
-| PUT | `/api/v1/ventas/{id}/estado` | X-API-Key | Cambiar estado (usa fila_sheet del GET; anular con varias filas hace 1 llamada API por fila) |
+| PUT | `/api/v1/ventas/{id}/estado` | X-API-Key | Cambiar estado (usa fila_sheet del GET; anular con varias filas usa 1 sola llamada `batch_get`) |
 | GET | `/api/v1/cotizaciones/` | X-API-Key | Lista cotizaciones paginada |
 | GET | `/api/v1/cotizaciones/cliente/{celular}` | X-API-Key | Cotizaciones de un cliente |
 | POST | `/api/v1/cotizaciones/` | X-API-Key | Guardar cotización |

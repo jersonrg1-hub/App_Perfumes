@@ -15,6 +15,8 @@ para que funcione igual en Streamlit, FastAPI y tests.
 """
 import re
 import logging
+import concurrent.futures
+import threading
 import gspread
 import gspread.exceptions
 import gspread.utils
@@ -64,32 +66,46 @@ class SheetsRepository:
         self._client: gspread.Client | None = None
         self._spreadsheet: gspread.Spreadsheet | None = None
         self._worksheets: dict[str, gspread.Worksheet] = {}
+        # RLock (no Lock): _get_worksheet -> _get_spreadsheet -> _get_client se
+        # llaman anidados bajo el mismo lock. Necesario desde que
+        # register_complete_sale lanza fetch_catalog() en un hilo de fondo
+        # mientras el hilo principal sigue con append_sale_rows() — sin esto,
+        # ambos hilos podian ver _client/_spreadsheet en None a la vez y
+        # crear/descartar clientes gspread duplicados.
+        self._conn_lock = threading.RLock()
 
     # ── Conexión ──────────────────────────────────────────────────────────────
 
     def _get_client(self) -> gspread.Client:
         if self._client is None:
-            creds = Credentials.from_service_account_info(
-                self._credentials_info, scopes=SCOPES
-            )
-            self._client = gspread.authorize(creds)
+            with self._conn_lock:
+                if self._client is None:
+                    creds = Credentials.from_service_account_info(
+                        self._credentials_info, scopes=SCOPES
+                    )
+                    self._client = gspread.authorize(creds)
         return self._client
 
     def _get_spreadsheet(self) -> gspread.Spreadsheet:
         if self._spreadsheet is None:
-            self._spreadsheet = self._get_client().open(SHEET_NAME)
+            with self._conn_lock:
+                if self._spreadsheet is None:
+                    self._spreadsheet = self._get_client().open(SHEET_NAME)
         return self._spreadsheet
 
     def _get_worksheet(self, name: str) -> gspread.Worksheet:
         if name not in self._worksheets:
-            self._worksheets[name] = self._get_spreadsheet().worksheet(name)
+            with self._conn_lock:
+                if name not in self._worksheets:
+                    self._worksheets[name] = self._get_spreadsheet().worksheet(name)
         return self._worksheets[name]
 
     def invalidate_connection(self) -> None:
         """Fuerza reconexión en el próximo acceso (útil tras errores de red)."""
-        self._client = None
-        self._spreadsheet = None
-        self._worksheets.clear()
+        with self._conn_lock:
+            self._client = None
+            self._spreadsheet = None
+            self._worksheets.clear()
 
     # ── Resiliencia ───────────────────────────────────────────────────────────
 
@@ -427,14 +443,30 @@ class SheetsRepository:
 
         return nuevo_valor
 
-    def get_sale_row(self, fila_sheet: int) -> dict:
-        """Lee una fila cruda de Ventas_Pendientes por número de fila (para anulación)."""
+    def get_sale_rows_batch(self, filas_sheet: list[int]) -> dict[int, dict]:
+        """Lee varias filas de Ventas_Pendientes en una sola llamada API (batch_get).
+
+        Reemplaza N llamadas get_sale_row en loop — usado al anular una venta
+        con varios items/filas (ver ARCHITECTURE.md, único patrón O(N) conocido).
+        """
+        if not filas_sheet:
+            return {}
+        n_cols = len(COLUMNAS_VENTAS)
+        rangos = [
+            f"{gspread.utils.rowcol_to_a1(fila, 1)}:{gspread.utils.rowcol_to_a1(fila, n_cols)}"
+            for fila in filas_sheet
+        ]
         def _fetch():
-            return self._get_worksheet(WORKSHEET_VENTAS).row_values(fila_sheet)
-        valores = self._ejecutar_con_reintento(_fetch, "get_sale_row")
-        # Padding: zip trunca silenciosamente si la fila tiene menos celdas que COLUMNAS_VENTAS
-        padded = list(valores) + [''] * max(0, len(COLUMNAS_VENTAS) - len(valores))
-        return dict(zip(COLUMNAS_VENTAS, padded))
+            return self._get_worksheet(WORKSHEET_VENTAS).batch_get(rangos)
+        resultados = self._ejecutar_con_reintento(_fetch, "get_sale_rows_batch")
+
+        filas_dict: dict[int, dict] = {}
+        for fila, valores in zip(filas_sheet, resultados):
+            fila_valores = valores[0] if valores else []
+            # Padding: la API omite celdas finales vacías de la fila
+            padded = list(fila_valores) + [''] * max(0, n_cols - len(fila_valores))
+            filas_dict[fila] = dict(zip(COLUMNAS_VENTAS, padded))
+        return filas_dict
 
     def restore_stock_batch(
         self, items_anulados: list[dict], merma_pct: float, df_catalogo: pd.DataFrame
@@ -506,8 +538,20 @@ class SheetsRepository:
 
         Si el stock falla, propaga StockUpdateError con el id_compra ya
         guardado — la UI puede advertir sin perder la venta.
+
+        fetch_catalog() se lanza en segundo plano justo después de generar el ID
+        (no depende de append_sale_rows), así corre en paralelo con esa escritura
+        en vez de esperar a que termine — ahorra ~1 round-trip a Sheets. Su
+        resultado solo se espera (.result()) DENTRO del try, después de que la
+        venta ya quedó guardada: si fetch_catalog falla, debe seguir cayendo en
+        StockUpdateError (best-effort — la venta ya está guardada, un catálogo
+        caído no puede bloquear el registro de la venta ni convertirse en un
+        error 500 de registro).
         """
         id_compra = self.get_next_sale_id()
+        _executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        cat_future = _executor.submit(self.fetch_catalog)
+        _executor.shutdown(wait=False)  # no bloquea; el future sigue corriendo en su hilo
 
         filas = [
             [
@@ -531,7 +575,7 @@ class SheetsRepository:
         self.append_sale_rows(filas)
 
         try:
-            df_cat = self.fetch_catalog()
+            df_cat = cat_future.result()
             self.update_stock_batch(cesta, merma_pct, df_cat)
         except Exception as e:
             logger.error(f"[register_complete_sale/stock] {type(e).__name__}: {e}")

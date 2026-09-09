@@ -125,6 +125,115 @@ def test_compute_resumen_hoy_correcto():
     assert result["hoy"]["ml"] == 7            # 2 + 5
 
 
+# ── Task 3: get_sale_rows_batch — 1 sola llamada batch_get en vez de N ─────────
+
+def test_get_sale_rows_batch_una_sola_llamada():
+    """Anular varias filas debe leerlas con 1 sola llamada batch_get, no N."""
+    from backend.repositories.sheets_repository import SheetsRepository
+    from backend.core.config import COLUMNAS_VENTAS
+
+    repo = SheetsRepository.__new__(SheetsRepository)
+    repo._worksheets = {}
+    repo._client = None
+    repo._spreadsheet = None
+    repo._credentials_info = {}
+
+    fila_2_completa = ["V001", "2026-01-01", "Ana", "987654321",
+                        "P001", "2", "22.5", "Yape", "Motorizado",
+                        "Av. Sol", "Cusco", "Pendiente", ""]
+    fila_3_truncada = ["V002", "2026-01-02", "Beto", "912345678"]  # Sheets omite celdas finales vacías
+
+    with patch.object(repo, "_ejecutar_con_reintento") as mock_retry:
+        mock_retry.side_effect = lambda fn, nombre: fn()
+        with patch.object(SheetsRepository, "_get_worksheet") as mock_ws:
+            mock_sheet = MagicMock()
+            mock_sheet.batch_get.return_value = [[fila_2_completa], [fila_3_truncada]]
+            mock_ws.return_value = mock_sheet
+
+            resultado = repo.get_sale_rows_batch([2, 3])
+
+    mock_sheet.batch_get.assert_called_once_with(["A2:M2", "A3:M3"])
+    assert set(resultado.keys()) == {2, 3}
+    assert resultado[2]["ID_Compra"] == "V001"
+    assert resultado[2]["Estado"] == "Pendiente"
+    # Fila truncada: columnas faltantes deben rellenarse con "", no KeyError/IndexError
+    assert resultado[3]["Comprador"] == "Beto"
+    assert resultado[3]["Estado"] == ""
+    assert len(resultado[3]) == len(COLUMNAS_VENTAS)
+
+
+def test_get_sale_rows_batch_vacio_no_llama_api():
+    from backend.repositories.sheets_repository import SheetsRepository
+
+    repo = SheetsRepository.__new__(SheetsRepository)
+    assert repo.get_sale_rows_batch([]) == {}
+
+
+# ── Task 4: register_complete_sale prefetchea catalogo en paralelo con el append ─
+
+def test_register_complete_sale_usa_catalogo_prefetcheado_para_stock():
+    """El catálogo usado por update_stock_batch debe ser el mismo objeto
+    devuelto por fetch_catalog() (lanzado en segundo plano antes de
+    append_sale_rows), no un segundo fetch posterior al append."""
+    from backend.repositories.sheets_repository import SheetsRepository
+
+    repo = SheetsRepository.__new__(SheetsRepository)
+    repo._worksheets = {}
+    repo._client = None
+    repo._spreadsheet = None
+    repo._credentials_info = {}
+
+    df_cat = _make_df_catalogo()
+    cesta = [{"id_perfume": "P001", "ml": 2, "precio": 22.5, "metodo": "Yape"}]
+    cliente = {
+        "fecha": "2026-01-01", "comprador": "ana", "celular": "987654321",
+        "tipo_envio": "Motorizado", "direccion": "av sol", "distrito": "cusco",
+        "alias": None,
+    }
+
+    with patch.object(repo, "get_next_sale_id", return_value="V001") as mock_id, \
+         patch.object(repo, "fetch_catalog", return_value=df_cat) as mock_fetch, \
+         patch.object(repo, "append_sale_rows") as mock_append, \
+         patch.object(repo, "update_stock_batch") as mock_stock:
+        id_compra = repo.register_complete_sale(cesta, cliente, merma_pct=0.04)
+
+    assert id_compra == "V001"
+    mock_id.assert_called_once()
+    mock_fetch.assert_called_once()          # 1 sola llamada, no una por cada intento
+    mock_append.assert_called_once()
+    mock_stock.assert_called_once_with(cesta, 0.04, df_cat)  # mismo df, sin refetch
+
+
+def test_register_complete_sale_catalogo_caido_guarda_venta_y_avisa_stock():
+    """fetch_catalog() corre en segundo plano desde el inicio, pero su resultado
+    solo se espera DESPUES de guardar la venta (append_sale_rows). Si falla,
+    la venta ya debe estar guardada — el error se envuelve en StockUpdateError
+    (best-effort), nunca debe perderse la venta por un catalogo caido."""
+    from backend.repositories.sheets_repository import SheetsRepository, StockUpdateError
+
+    repo = SheetsRepository.__new__(SheetsRepository)
+    repo._worksheets = {}
+    repo._client = None
+    repo._spreadsheet = None
+    repo._credentials_info = {}
+
+    cesta = [{"id_perfume": "P001", "ml": 2, "precio": 22.5, "metodo": "Yape"}]
+    cliente = {
+        "fecha": "2026-01-01", "comprador": "ana", "celular": "987654321",
+        "tipo_envio": "Motorizado", "direccion": "av sol", "distrito": "cusco",
+        "alias": None,
+    }
+
+    with patch.object(repo, "get_next_sale_id", return_value="V001"), \
+         patch.object(repo, "fetch_catalog", side_effect=RuntimeError("caido")), \
+         patch.object(repo, "append_sale_rows") as mock_append:
+        with pytest.raises(StockUpdateError) as exc_info:
+            repo.register_complete_sale(cesta, cliente, merma_pct=0.04)
+
+    mock_append.assert_called_once()             # la venta SI se guarda
+    assert exc_info.value.id_compra == "V001"    # y el id se preserva para la UI
+
+
 def test_compute_resumen_mes_correcto():
     """_compute_resumen incluye ventas de ayer en el total del mes."""
     from backend.api.routes.estadisticas import _compute_resumen

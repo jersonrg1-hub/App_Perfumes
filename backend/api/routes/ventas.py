@@ -296,7 +296,8 @@ def actualizar_estado_venta(
 
     if body.nuevo_estado == "Anulado":
         with _anulacion_lock:
-            filas_actuales = [repo.get_sale_row(f) for f in body.filas_sheet]
+            filas_dict = repo.get_sale_rows_batch(body.filas_sheet)
+            filas_actuales = [filas_dict[f] for f in body.filas_sheet]
             if any(f.get("Estado") == "Anulado" for f in filas_actuales):
                 raise HTTPException(status_code=409, detail="La venta ya está anulada")
 

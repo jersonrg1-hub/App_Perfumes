@@ -52,9 +52,11 @@ async def lifespan(app: FastAPI):
     Startup:
     1. Construye el índice de imágenes (lectura de sistema de archivos, una sola vez)
     2. Inicializa SheetsRepository — falla rápido si GCP_SERVICE_ACCOUNT falta
-    3. Advierte si API_KEY no está configurada
+    3. Precalienta cache de catálogo — evita que el primer usuario tras un
+       cold start / redeploy pague el fetch a Sheets
+    4. Advierte si API_KEY no está configurada
     """
-    from backend.api.dependencies import get_repo, construir_image_index
+    from backend.api.dependencies import get_repo, get_catalogo_cached, construir_image_index
 
     # Índice de imágenes
     imagenes_dir = Path("imagenes")
@@ -62,8 +64,15 @@ async def lifespan(app: FastAPI):
 
     # Repositorio Google Sheets
     try:
-        get_repo()
+        repo = get_repo()
         logger.info("[OK] Repositorio Google Sheets listo")
+        try:
+            get_catalogo_cached(repo)
+            logger.info("[OK] Cache de catalogo precalentado")
+        except Exception as e:
+            # Best-effort: si Sheets no responde en el arranque, el primer
+            # GET real reintenta — no debe tumbar el proceso.
+            logger.warning("[WARN] No se pudo precalentar cache de catalogo: %s", e)
     except RuntimeError as e:
         logger.error("[ERROR] Configuracion incompleta: %s", e)
 

@@ -420,6 +420,30 @@ class _Paso1State extends ConsumerState<_Paso1> {
     notifier.setCelular(normalizado);
   }
 
+  // Flujo real del usuario: copia el número/alias desde WhatsApp y lo pega
+  // acá — no lo tipea. Botón de pegar explícito porque el chip de sugerencia
+  // del portapapeles del teclado no siempre aparece (depende de versión de
+  // Android/teclado instalado).
+  Future<void> _pegarCelular(NuevaCotizacionNotifier notifier) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    final texto = data?.text;
+    if (texto == null || texto.isEmpty) return;
+    _onCelularChanged(texto, notifier);
+  }
+
+  Future<void> _pegarAlias(NuevaCotizacionNotifier notifier) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    final texto = data?.text?.trim();
+    if (texto == null || texto.isEmpty) return;
+    _aliasCtrl.value = TextEditingValue(
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
+    );
+    notifier.setAlias(texto);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state    = ref.watch(nuevaCotizacionProvider);
@@ -463,9 +487,15 @@ class _Paso1State extends ConsumerState<_Paso1> {
             const SizedBox(height: AppSpacing.sm),
             TextFormField(
               controller: _celCtrl,
+              autofocus: true,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.content_paste_rounded, size: 18),
+                  tooltip: 'Pegar',
+                  onPressed: () => _pegarCelular(notifier),
+                ),
                 hintText: '+51 987654321 o 987654321',
                 helperText: 'Acepta formato WhatsApp, con o sin código de país',
                 counterText: '',
@@ -497,8 +527,14 @@ class _Paso1State extends ConsumerState<_Paso1> {
             const SizedBox(height: AppSpacing.sm),
             TextFormField(
               controller: _aliasCtrl,
+              autofocus: true,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.content_paste_rounded, size: 18),
+                  tooltip: 'Pegar',
+                  onPressed: () => _pegarAlias(notifier),
+                ),
                 hintText: '@perfutecalima',
                 helperText: 'Sin espacios, tal como aparece en WhatsApp',
                 filled: true,
@@ -895,12 +931,15 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<void> _onTap() async {
-    await _ctrl.forward();
-    if (!mounted) return;
-    await _ctrl.reverse();
-    if (!mounted) return;
+  // El scale-in/out es puramente visual — antes se esperaba a que terminara
+  // (~320ms) para recién agregar el ítem a la cesta, lo que hacía sentir
+  // lento agregar varios perfumes seguidos. Ahora onTap() corre al toque y
+  // la animación se dispara en paralelo, sin bloquearlo.
+  void _onTap() {
     widget.onTap();
+    _ctrl.forward().then((_) {
+      if (mounted) _ctrl.reverse();
+    });
   }
 
   @override

@@ -28,16 +28,31 @@ class StaggeredListItem extends StatelessWidget {
       // pass del itemBuilder que lo llama.
       WidgetsBinding.instance.addPostFrameCallback((_) => yaAnimadas.add(id));
     }
-    final boundedChild = RepaintBoundary(child: child);
-    return animar
-        ? _StaggeredEntrance(index: index, child: boundedChild)
-        : boundedChild;
+    // Siempre el mismo tipo de widget en esta posición del árbol — antes
+    // alternaba entre _StaggeredEntrance (animar=true) y RepaintBoundary
+    // directo (animar=false). Ese cambio de tipo hace que Flutter destruya
+    // y recree el Element completo en cualquier rebuild posterior al primer
+    // frame (ej. el teclado abriéndose cambia MediaQuery y fuerza un
+    // rebuild de toda la lista) — se pierde la State del hijo (un
+    // formulario a medio llenar) porque no es un problema de virtualización
+    // fuera de viewport, que es lo único que AutomaticKeepAliveClientMixin
+    // protege.
+    return _StaggeredEntrance(
+      index:  index,
+      animar: animar,
+      child:  RepaintBoundary(child: child),
+    );
   }
 }
 
 class _StaggeredEntrance extends StatefulWidget {
-  const _StaggeredEntrance({required this.index, required this.child});
+  const _StaggeredEntrance({
+    required this.index,
+    required this.animar,
+    required this.child,
+  });
   final int    index;
+  final bool   animar;
   final Widget child;
 
   @override
@@ -60,9 +75,23 @@ class _StaggeredEntranceState extends State<_StaggeredEntrance>
     _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _slide   = Tween(begin: const Offset(0, 0.07), end: Offset.zero)
         .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    Future.delayed(Duration(milliseconds: (widget.index * 40).clamp(0, 320)), () {
-      if (mounted) _ctrl.forward();
-    });
+    if (widget.animar) {
+      Future.delayed(Duration(milliseconds: (widget.index * 40).clamp(0, 320)), () {
+        if (mounted) _ctrl.forward();
+      });
+    } else {
+      _ctrl.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _StaggeredEntrance oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Este State se reutiliza entre rebuilds (mismo tipo de widget siempre).
+    // Si ya estaba marcado como animado pero por lo que sea el controller no
+    // había llegado a completar, lo salta al estado final en vez de dejar la
+    // animación a medias o volver a dispararla.
+    if (!widget.animar && _ctrl.value != 1) _ctrl.value = 1;
   }
 
   @override

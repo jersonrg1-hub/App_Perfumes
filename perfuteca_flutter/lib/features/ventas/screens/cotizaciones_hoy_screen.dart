@@ -82,9 +82,13 @@ class _CotizacionesHoyScreenState extends ConsumerState<CotizacionesHoyScreen> {
               color: AppColors.primary,
               onRefresh: () async => ref.invalidate(cotizacionesHoyProvider),
               child: ListView.builder(
+                // paddingOf en vez de MediaQuery.of(context).padding — este
+                // último suscribe al objeto MediaQueryData completo, así que
+                // el teclado abriéndose (cambia viewInsets, no padding)
+                // igual fuerza un rebuild de toda la lista.
                 padding: EdgeInsets.fromLTRB(
                     AppSpacing.lg, AppSpacing.md, AppSpacing.lg,
-                    80 + MediaQuery.of(context).padding.bottom),
+                    80 + MediaQuery.paddingOf(context).bottom),
                 itemCount: lista.length + 1,
                 itemBuilder: (_, i) {
                   if (i == 0) {

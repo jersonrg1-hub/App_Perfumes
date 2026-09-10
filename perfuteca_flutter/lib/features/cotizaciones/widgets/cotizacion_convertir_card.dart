@@ -454,11 +454,19 @@ class _CotizacionConvertirCardState
         // sería mentirle a la UI (quedaría con el badge verde "Aceptada"
         // sobre una cotización que en realidad está cancelada). Se
         // distingue por el mensaje porque el status code es el mismo para
-        // ambos casos.
-        if (e.message.contains('ya fue convertida')) {
+        // ambos casos. El back (ventas.py) arma el detail como "...(estado
+        // actual: {Estado})" con el valor crudo de la hoja — nunca con la
+        // frase "ya fue convertida" que se buscaba antes, así que esa rama
+        // nunca corría y el borrador de una venta ya aceptada por otro lado
+        // quedaba huérfano en SharedPreferences para siempre.
+        if (e.message.toLowerCase().contains('aceptada')) {
           yaConvertida = true;
           container.read(cotizacionesAceptadasSesionProvider.notifier)
               .update((s) => {...s, widget.cotizacion.idCotizacion});
+          // Misma limpieza que en el camino de éxito — sin esto, la card no
+          // vuelve a ser reabrible (onTap: esAceptada ? null : ...) y el
+          // borrador queda guardado para siempre sin forma de borrarlo.
+          _borrarBorrador();
         }
         // En ambos casos el estado mostrado quedó desactualizado — refrescar
         // para traer el estado real (Aceptada o Anulado) en vez de reintentar.

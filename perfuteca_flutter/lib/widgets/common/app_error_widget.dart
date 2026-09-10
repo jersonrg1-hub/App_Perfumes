@@ -5,26 +5,49 @@ import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 
 class AppErrorWidget extends StatelessWidget {
+  static const double _iconSizeSubtle  = 48;
+  static const double _iconSizeDefault = 56;
+  static const double _retryIconSizeSubtle = 18;
+
   const AppErrorWidget({
     super.key,
     required this.error,
     this.onRetry,
     this.compact = false,
+    this.title,
+    this.subtitle,
+    this.icon,
+    this.subtle = false,
   });
 
   final Object error;
   final VoidCallback? onRetry;
   final bool compact;
 
+  /// Título a mostrar en lugar del mensaje derivado de [error].
+  final String? title;
+
+  /// Texto secundario opcional, mostrado debajo del título/mensaje.
+  final String? subtitle;
+
+  /// Ícono a mostrar en lugar del derivado automáticamente de [error].
+  final IconData? icon;
+
+  /// Tratamiento visual atenuado (ícono gris más pequeño, botón compacto),
+  /// usado en estados de error informativos como los tabs de estadísticas.
+  final bool subtle;
+
   @override
   Widget build(BuildContext context) {
-    final message = error is AppException
-        ? (error as AppException).message
-        : 'Error inesperado. Intenta nuevamente.';
+    final message = title ??
+        (error is AppException
+            ? (error as AppException).message
+            : 'Error inesperado. Intenta nuevamente.');
 
-    final icon = error is NetworkException
-        ? Icons.wifi_off_rounded
-        : Icons.error_outline_rounded;
+    final icon = this.icon ??
+        (error is NetworkException
+            ? Icons.wifi_off_rounded
+            : Icons.error_outline_rounded);
 
     if (compact) {
       return Padding(
@@ -49,22 +72,34 @@ class AppErrorWidget extends StatelessWidget {
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
+        padding: EdgeInsets.all(subtle ? AppSpacing.lg : AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: AppColors.error.withValues(alpha: 0.7)),
-            const SizedBox(height: AppSpacing.lg),
+            Icon(
+              icon,
+              size: subtle ? _iconSizeSubtle : _iconSizeDefault,
+              color: subtle ? AppColors.textFaint : AppColors.error.withValues(alpha: 0.7),
+            ),
+            SizedBox(height: subtle ? AppSpacing.md : AppSpacing.lg),
             Text(
               message,
               style: AppTextStyles.body,
               textAlign: TextAlign.center,
             ),
+            if (subtitle != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                subtitle!,
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                textAlign: TextAlign.center,
+              ),
+            ],
             if (onRetry != null) ...[
-              const SizedBox(height: AppSpacing.xl),
+              SizedBox(height: subtle ? AppSpacing.lg : AppSpacing.xl),
               FilledButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded),
+                icon: Icon(Icons.refresh_rounded, size: subtle ? _retryIconSizeSubtle : null),
                 label: const Text('Reintentar'),
               ),
             ],

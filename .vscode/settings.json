@@ -11,14 +11,12 @@
     },
     "search.exclude": {
         "pythonProject/.venv_n": true,
-        "pythonProject/.venv_nuevo": true,
         "perfuteca_flutter/build": true,
         "perfuteca_flutter/.dart_tool": true,
         "perfuteca_flutter/android/build": true
     },
     "files.watcherExclude": {
         "pythonProject/.venv_n/**": true,
-        "pythonProject/.venv_nuevo/**": true,
         "perfuteca_flutter/build/**": true,
         "perfuteca_flutter/.dart_tool/**": true,
         "perfuteca_flutter/android/build/**": true

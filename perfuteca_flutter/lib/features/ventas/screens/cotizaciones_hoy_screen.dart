@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:perfuteca/features/cotizaciones/widgets/cotizacion_convertir_card.dart';
+import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart'
+    show nowPeru;
 import 'package:perfuteca/models/cotizacion.dart';
 import 'package:perfuteca/repositories/cotizaciones_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
@@ -9,13 +11,14 @@ import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
 import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:perfuteca/widgets/common/empty_state_widget.dart';
+import 'package:perfuteca/widgets/common/staggered_list_item.dart';
 import 'package:shimmer/shimmer.dart';
 
 // ── Provider: cotizaciones registradas hoy ────────────────────────────────────
 
 final cotizacionesHoyProvider =
     FutureProvider<List<CotizacionResponse>>((ref) async {
-  final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  final today = DateFormat('yyyy-MM-dd').format(nowPeru());
   final page  = await ref.read(cotizacionesRepositoryProvider).getCotizaciones(
         limit: 100,
         fechaDesde: today,
@@ -28,20 +31,43 @@ final cotizacionesHoyProvider =
 
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 
-class CotizacionesHoyScreen extends ConsumerWidget {
+class CotizacionesHoyScreen extends ConsumerStatefulWidget {
   const CotizacionesHoyScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(cotizacionesHoyProvider);
+  ConsumerState<CotizacionesHoyScreen> createState() =>
+      _CotizacionesHoyScreenState();
+}
 
-    return async.when(
-      loading: () => const _CotizacionesShimmer(),
-      error: (error, __) => AppErrorWidget(
-        error: error,
-        onRetry: () => ref.invalidate(cotizacionesHoyProvider),
-      ),
-      data: (lista) => lista.isEmpty
+class _CotizacionesHoyScreenState extends ConsumerState<CotizacionesHoyScreen> {
+  // Ids que ya reprodujeron su animación de entrada — persiste mientras la
+  // pantalla vive, así un pull-to-refresh no repite el fade/slide en cards
+  // que no cambiaron (antes se reanimaba todo en cada refresh).
+  final Set<String> _yaAnimadas = {};
+
+  @override
+  Widget build(BuildContext context) {
+    final async = ref.watch(cotizacionesHoyProvider);
+    // No usar async.when(loading:...) directo: cada refresh (pull-to-refresh
+    // accidental, o el invalidate tras registrar otra venta/cotización) pone
+    // el provider en AsyncLoading y reemplazaba TODO el ListView por el
+    // shimmer, destruyendo el State de las cards — incluida la que el
+    // usuario tenía expandida escribiendo los datos de la venta. Con
+    // valueOrNull, mientras haya datos previos, el refresh corre en el
+    // fondo y el ListView (con sus keys) nunca se desmonta.
+    final lista = async.valueOrNull;
+
+    if (lista == null) {
+      if (async.hasError) {
+        return AppErrorWidget(
+          error: async.error!,
+          onRetry: () => ref.invalidate(cotizacionesHoyProvider),
+        );
+      }
+      return const _CotizacionesShimmer();
+    }
+
+    return lista.isEmpty
           ? EmptyStateWidget(
               icon: Icons.receipt_long_outlined,
               title: 'Sin cotizaciones hoy',
@@ -53,6 +79,7 @@ class CotizacionesHoyScreen extends ConsumerWidget {
               ),
             )
           : RefreshIndicator(
+              color: AppColors.primary,
               onRefresh: () async => ref.invalidate(cotizacionesHoyProvider),
               child: ListView.builder(
                 padding: EdgeInsets.fromLTRB(
@@ -69,8 +96,10 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                         .length;
                     final pendientes = lista.length - convertidas - anuladas;
                     final totalS = lista.fold(0.0, (s, c) => s + (c.total ?? 0));
-                    return _AnimatedListItem(
-                      index: 0,
+                    return StaggeredListItem(
+                      id:         'metricas',
+                      index:      0,
+                      yaAnimadas: _yaAnimadas,
                       child: MetricasHoyGrid(
                         total:       totalS,
                         pendientes:  pendientes,
@@ -79,8 +108,11 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                     );
                   }
                   final c = lista[i - 1];
-                  return _AnimatedListItem(
-                    index: i,
+                  return StaggeredListItem(
+                    key:        ValueKey(c.idCotizacion),
+                    id:         c.idCotizacion,
+                    index:      i,
+                    yaAnimadas: _yaAnimadas,
                     child: CotizacionConvertirCard(
                       key: ValueKey(c.idCotizacion),
                       cotizacion: c,
@@ -88,8 +120,7 @@ class CotizacionesHoyScreen extends ConsumerWidget {
                   );
                 },
               ),
-            ),
-    );
+            );
   }
 }
 
@@ -162,7 +193,7 @@ class MetricasHoyGrid extends StatelessWidget {
   }
 }
 
-class _MetricaCard extends StatelessWidget {
+class _MetricaCard extends StatefulWidget {
   const _MetricaCard({
     super.key,
     required this.label,
@@ -180,7 +211,31 @@ class _MetricaCard extends StatelessWidget {
   final Color  valueColor;
 
   @override
+  State<_MetricaCard> createState() => _MetricaCardState();
+}
+
+class _MetricaCardState extends State<_MetricaCard> {
+  // Arranca en 0 solo en el primer montaje. En cada rebuild posterior
+  // (pull-to-refresh, invalidate tras registrar venta) anima desde el
+  // valor previo — antes el Tween siempre partía de 0, así el número no
+  // hubiera cambiado, y el contador saltaba a 0 y volvía a subir en cada
+  // refresh.
+  double _previous = 0;
+
+  @override
+  void didUpdateWidget(covariant _MetricaCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _previous = oldWidget.numericValue;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final label = widget.label;
+    final numericValue = widget.numericValue;
+    final isMoney = widget.isMoney;
+    final background = widget.background;
+    final borderColor = widget.borderColor;
+    final valueColor = widget.valueColor;
     return Container(
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm, vertical: AppSpacing.md),
@@ -201,7 +256,7 @@ class _MetricaCard extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: numericValue),
+            tween: Tween(begin: _previous, end: numericValue),
             duration: const Duration(milliseconds: 600),
             curve: Curves.easeOutCubic,
             builder: (context, v, _) => FittedBox(
@@ -225,51 +280,6 @@ class _MetricaCard extends StatelessWidget {
   }
 }
 
-// ── Animación de entrada staggered ────────────────────────────────────────────
-
-class _AnimatedListItem extends StatefulWidget {
-  const _AnimatedListItem({required this.index, required this.child});
-  final int    index;
-  final Widget child;
-
-  @override
-  State<_AnimatedListItem> createState() => _AnimatedListItemState();
-}
-
-class _AnimatedListItemState extends State<_AnimatedListItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _opacity;
-  late final Animation<Offset> _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-    _opacity = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
-    _slide   = Tween(begin: const Offset(0, 0.07), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
-    Future.delayed(Duration(milliseconds: (widget.index * 40).clamp(0, 320)), () {
-      if (mounted) _ctrl.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-        opacity: _opacity,
-        child: SlideTransition(position: _slide, child: widget.child),
-      );
-}
-
 // ── Shimmer de carga ──────────────────────────────────────────────────────────
 
 class _CotizacionesShimmer extends StatelessWidget {
@@ -284,8 +294,11 @@ class _CotizacionesShimmer extends StatelessWidget {
               AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 80),
           itemCount: 5,
           itemBuilder: (_, i) => Container(
-            margin: const EdgeInsets.only(bottom: AppSpacing.md),
-            height: i == 0 ? 64 : 88,
+            margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+            // Alterna alto/bajo para acercarse a la variación real de las
+            // cards — antes un alto fijo daba un salto de layout brusco al
+            // terminar de cargar.
+            height: i == 0 ? 64 : (i.isEven ? 128 : 84),
             decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),

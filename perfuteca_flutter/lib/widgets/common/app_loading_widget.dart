@@ -26,10 +26,10 @@ class CatalogoShimmer extends StatelessWidget {
       child: GridView.builder(
         padding: const EdgeInsets.all(AppSpacing.lg),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: AppSpacing.md,
-          mainAxisSpacing: AppSpacing.md,
-          childAspectRatio: 0.72,
+          crossAxisCount: 3,
+          crossAxisSpacing: AppSpacing.sm,
+          mainAxisSpacing: AppSpacing.sm,
+          childAspectRatio: 0.62,
         ),
         itemCount: count,
         itemBuilder: (_, __) => const _ShimmerCard(),

@@ -56,7 +56,9 @@ class CatalogoRepository {
           'limit': limit,
           'offset': offset,
         },
-        options: _cache.cacheFor(const Duration(minutes: 30)),
+        // bypassCache: igual que load/loadMore en catalogo_provider — precio/stock
+        // no pueden quedar stale acá, la búsqueda alimenta armado de cotizaciones.
+        options: _cache.noCache,
       );
       return Paginated.fromJson(res.data!, (e) => Perfume.fromJson(e as Map<String, dynamic>));
     } on DioException catch (e) {
@@ -77,6 +79,30 @@ class CatalogoRepository {
       throw mapDioError(e);
     } catch (_) {
       throw const ParseException();
+    }
+  }
+
+  /// Invalida el cache de catálogo en el backend (30 min TTL) para forzar
+  /// que la próxima lectura traiga datos frescos de Google Sheets.
+  Future<void> invalidarCache() async {
+    try {
+      await _dio.post(ApiConstants.catalogoInvalidar);
+    } on DioException catch (e) {
+      throw mapDioError(e);
+    }
+  }
+
+  /// Ajusta Stock_ml de un perfume. mlDelta positivo agrega, negativo quita.
+  /// Retorna el stock_ml nuevo tras el ajuste.
+  Future<double> ajustarStock(String idPerfume, double mlDelta) async {
+    try {
+      final res = await _dio.put<Map<String, dynamic>>(
+        ApiConstants.catalogoStock(idPerfume),
+        data: {'ml_delta': mlDelta},
+      );
+      return (res.data!['stock_ml_nuevo'] as num).toDouble();
+    } on DioException catch (e) {
+      throw mapDioError(e);
     }
   }
 

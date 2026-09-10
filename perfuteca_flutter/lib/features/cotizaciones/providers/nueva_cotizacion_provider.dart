@@ -188,12 +188,24 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
   }
 
   void quitarItem(int index) {
+    if (index < 0 || index >= state.cesta.length) return;
     final nuevaCesta = List<ItemCesta>.from(state.cesta)..removeAt(index);
     final nuevosIndices = state.indicesConDescuento
         .where((i) => i != index)
         .map((i) => i > index ? i - 1 : i)
         .toSet();
     state = state.copyWith(cesta: nuevaCesta, indicesConDescuento: nuevosIndices);
+  }
+
+  // Resuelve el índice contra el estado vivo del notifier al momento de la
+  // llamada — a diferencia de quitarItem(index), no depende de un índice
+  // capturado en un build anterior que puede quedar stale si la cesta
+  // cambió entre el build y el tap (evita el RangeError de removeAt con un
+  // índice desfasado).
+  void quitarItemPorId(String idPerfume) {
+    final index = state.cesta.indexWhere((i) => i.perfume.idPerfume == idPerfume);
+    if (index == -1) return;
+    quitarItem(index);
   }
 
   Future<void> guardar() async {

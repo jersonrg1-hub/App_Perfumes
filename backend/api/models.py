@@ -13,7 +13,7 @@ Modelo de paginación:
   Todos los endpoints de lista devuelven Paginated[T] con metadata.
   Flutter puede implementar infinite scroll con has_more + offset.
 """
-from typing import Generic, Literal, Optional, TypeVar
+from typing import Generic, Optional, TypeVar
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 T = TypeVar("T")
@@ -40,6 +40,12 @@ class Paginated(BaseModel, Generic[T]):
 
 # ── Catálogo — Responses ──────────────────────────────────────────────────────
 
+class CompletoPrecio(BaseModel):
+    """Un tamaño de frasco completo disponible para un perfume, con su precio."""
+    ml: int
+    precio: float
+
+
 class PerfumeResponse(BaseModel):
     """
     Perfume serializado para Flutter.
@@ -61,6 +67,7 @@ class PerfumeResponse(BaseModel):
     estacion: Optional[str] = None
     hora: Optional[str] = None
     palabra_clave: Optional[str] = None
+    completos: list[CompletoPrecio] = []
 
 
 # ── Ventas — Responses ────────────────────────────────────────────────────────
@@ -164,7 +171,10 @@ class ItemCestaAPI(BaseModel):
     perfume: str
     marca: str
     id_perfume: str
-    ml: Literal[2, 5, 10] = Field(..., description="Tamaño en ml: 2, 5 o 10")
+    ml: int = Field(
+        ..., gt=0, le=300,
+        description="Tamaño en ml: 2/5/10 (decant) o tamaño libre de completo (ej. 50, 100)",
+    )
     precio: float = Field(..., ge=0)
     metodo: str = Field(..., description="Yape | Plin | Transferencia | Tarjeta")
     con_descuento: bool = Field(

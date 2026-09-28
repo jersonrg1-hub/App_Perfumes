@@ -22,6 +22,7 @@ SHEET_NAME = "PERFUMES PYTHON"
 WORKSHEET_CATALOGO = "Catalogo"
 WORKSHEET_VENTAS = "Ventas_Pendientes"
 WORKSHEET_COTIZACIONES = "Cotizaciones"
+WORKSHEET_PRECIOS_COMPLETOS = "Precios_Completos"
 
 # ── Precios y tamaños ─────────────────────────────────────────────────────────
 

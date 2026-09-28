@@ -601,7 +601,8 @@ class SheetsRepository:
 
         try:
             df_cat = cat_future.result()
-            self.update_stock_batch(cesta, merma_pct, df_cat)
+            cesta_decant = [item for item in cesta if int(item["ml"]) in ML_OPCIONES]
+            self.update_stock_batch(cesta_decant, merma_pct, df_cat)
         except Exception as e:
             logger.error(f"[register_complete_sale/stock] {type(e).__name__}: {e}")
             raise StockUpdateError(id_compra, e)

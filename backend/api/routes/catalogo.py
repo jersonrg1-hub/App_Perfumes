@@ -24,10 +24,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.api.dependencies import (
     get_repo,
     get_catalogo_cached,
+    get_completos_cached,
     get_image_url,
     df_to_json_list,
     paginate_df,
     invalidar_cache_catalogo,
+    invalidar_cache_completos,
     verify_api_key,
     stock_lock,
 )
@@ -64,10 +66,15 @@ def _a_perfume_response(row: dict) -> dict:
     return row
 
 
-def _serializar_catalogo(df) -> list[dict]:
-    """Serializa DataFrame de catálogo a lista con snake_case + image_url."""
+def _serializar_catalogo(df, completos_por_id: dict) -> list[dict]:
+    """Serializa DataFrame de catálogo a lista con snake_case + image_url + completos."""
     rows = df_to_json_list(df, cols=_COLS, snake=True)
-    return [_a_perfume_response(r) for r in rows]
+    resultado = []
+    for row in rows:
+        row = _a_perfume_response(row)
+        row["completos"] = completos_por_id.get(str(row.get("id_perfume") or ""), [])
+        resultado.append(row)
+    return resultado
 
 
 @router.get(
@@ -94,7 +101,8 @@ def listar_catalogo(
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
-    return paginate_df(df, _serializar_catalogo, limit, offset)
+    completos = get_completos_cached(repo)
+    return paginate_df(df, lambda pagina: _serializar_catalogo(pagina, completos), limit, offset)
 
 
 @router.post(
@@ -104,11 +112,12 @@ def listar_catalogo(
 )
 def invalidar_catalogo():
     """
-    Limpia el cache de catálogo (TTL 30 min) para que la próxima lectura
-    traiga datos frescos de Sheets. Usado por el botón reload de Flutter
-    tras editar precios/perfumes directamente en Sheets.
+    Limpia el cache de catálogo y de completos (TTL 30 min) para que la
+    próxima lectura traiga datos frescos de Sheets. Usado por el botón
+    reload de Flutter tras editar precios/perfumes directamente en Sheets.
     """
     invalidar_cache_catalogo()
+    invalidar_cache_completos()
     return {"detail": "Cache de catalogo invalidado"}
 
 
@@ -154,7 +163,8 @@ def buscar_perfumes(
         raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
     resultado = filtrar_catalogo(df, texto=q, marca=marca or "")
-    return paginate_df(resultado, _serializar_catalogo, limit, offset)
+    completos = get_completos_cached(repo)
+    return paginate_df(resultado, lambda pagina: _serializar_catalogo(pagina, completos), limit, offset)
 
 
 @router.put(
@@ -215,4 +225,5 @@ def obtener_perfume(
             detail=f"Perfume '{id_perfume}' no encontrado en el catalogo",
         )
 
-    return _serializar_catalogo(fila)[0]
+    completos = get_completos_cached(repo)
+    return _serializar_catalogo(fila, completos)[0]

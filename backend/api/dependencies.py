@@ -78,6 +78,7 @@ def get_repo() -> SheetsRepository:
 _cache_catalogo:     TTLCache = TTLCache(maxsize=1, ttl=1800)  # 30 min
 _cache_ventas:       TTLCache = TTLCache(maxsize=1, ttl=300)   # 5 min (300 s)
 _cache_cotizaciones: TTLCache = TTLCache(maxsize=1, ttl=300)   # 5 min (300 s)
+_cache_completos:    TTLCache = TTLCache(maxsize=1, ttl=1800)  # 30 min, igual que catalogo
 _lock = threading.Lock()
 _K = "df"
 
@@ -116,6 +117,34 @@ def invalidar_cache_catalogo() -> None:
     with _lock:
         _cache_catalogo.clear()
     logger.debug("Cache catalogo invalidado")
+
+
+def get_completos_cached(repo: SheetsRepository) -> dict[str, list[dict]]:
+    """
+    Precios de completos agrupados por id_perfume, desde cache (TTL 30 min).
+    Retorna {"5": [{"ml": 50, "precio": 340.0}, ...], ...} — perfumes sin
+    completos simplemente no aparecen como clave.
+    """
+    with _lock:
+        try:
+            return _cache_completos[_K]
+        except KeyError:
+            df = repo.fetch_precios_completos()
+            agrupado: dict[str, list[dict]] = {}
+            for _, row in df.iterrows():
+                agrupado.setdefault(str(row["ID_Perfume"]), []).append(
+                    {"ml": int(row["Ml"]), "precio": float(row["Precio"])}
+                )
+            _cache_completos[_K] = agrupado
+            logger.debug("Cache completos recargado desde Sheets")
+            return agrupado
+
+
+def invalidar_cache_completos() -> None:
+    """Llamar junto con invalidar_cache_catalogo tras editar Precios_Completos."""
+    with _lock:
+        _cache_completos.clear()
+    logger.debug("Cache completos invalidado")
 
 
 def invalidar_cache_ventas() -> None:

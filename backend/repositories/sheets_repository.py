@@ -28,7 +28,8 @@ from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_excep
 from backend.core.config import (
     SCOPES, SHEET_NAME,
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
-    hoy_peru, fmt_precio, ML_BASE_DISPENSACION, COLUMNAS_VENTAS,
+    WORKSHEET_PRECIOS_COMPLETOS,
+    hoy_peru, fmt_precio, ML_BASE_DISPENSACION, ML_OPCIONES, COLUMNAS_VENTAS,
 )
 from backend.services.cotizacion_service import construir_items_txt
 logger = logging.getLogger(__name__)
@@ -260,6 +261,30 @@ class SheetsRepository:
             if "Total" in df.columns:
                 df["Total"] = pd.to_numeric(df["Total"], errors="coerce").fillna(0)
 
+        return df
+
+    def fetch_precios_completos(self) -> pd.DataFrame:
+        """
+        Carga precios de frascos completos desde Precios_Completos.
+        Descarta filas sin ID_Perfume (arrastre de fórmulas más allá de los
+        datos, que en Marca/Nombre produce #N/A pero en ID_Perfume queda vacío).
+        Columnas resultantes: ID_Perfume (str), Ml (int), Precio (float).
+        """
+        def _fetch():
+            return self._get_worksheet(WORKSHEET_PRECIOS_COMPLETOS).get_all_records(
+                value_render_option="UNFORMATTED_VALUE"
+            )
+
+        datos = self._ejecutar_con_reintento(_fetch, "fetch_precios_completos")
+        if not datos:
+            return pd.DataFrame(columns=["ID_Perfume", "Ml", "Precio"])
+
+        df = pd.DataFrame(datos)
+        df = df[df["ID_Perfume"].astype(str).str.strip() != ""]
+        df["ID_Perfume"] = df["ID_Perfume"].astype(str)
+        df["Ml"] = pd.to_numeric(df["Ml"], errors="coerce")
+        df["Precio"] = pd.to_numeric(df["Precio"], errors="coerce")
+        df = df.dropna(subset=["Ml", "Precio"]).reset_index(drop=True)
         return df
 
     # ── IDs correlativos ──────────────────────────────────────────────────────

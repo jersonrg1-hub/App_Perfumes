@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/repositories/catalogo_repository.dart';
 

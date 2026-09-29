@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/errors/app_exception.dart';
+import 'package:perfuteca/core/utils/debouncer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
-import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/repositories/config_repository.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 // Defaults usados solo mientras appConfigProvider carga o si falla (sin red).
@@ -29,43 +31,13 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
   _OrdenStock  _orden  = _OrdenStock.menorPrimero;
   String       _buscar = '';
   final _buscarCtrl    = TextEditingController();
+  final _debounce      = Debouncer(const Duration(milliseconds: 250));
 
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void dispose() {
-    _buscarCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    super.build(context);
-    final estado = ref.watch(catalogoProvider);
-    final config = ref.watch(appConfigProvider).valueOrNull;
-    final critico = (config?.stockCriticoMl ?? _kCriticoDefault).toDouble();
-    final bajo    = (config?.stockBajoMl    ?? _kBajoDefault).toDouble();
-
-    if (estado.isLoading) {
-      return const _StockSkeleton();
-    }
-    if (estado.error != null) {
-      return EstadisticasErrorView(
-        title: 'Error al cargar catálogo',
-        onRetry: () => ref.read(catalogoProvider.notifier).refresh(),
-      );
-    }
-
-    final todos   = estado.perfumes
-        .where((p) => p.stockMl != null)
-        .toList();
-    final criticos = todos.where((p) => p.stockMl! <= critico).length;
-    final bajos    = todos
-        .where((p) => p.stockMl! > critico && p.stockMl! <= bajo)
-        .length;
-    final ok       = todos.where((p) => p.stockMl! > bajo).length;
-
+  List<Perfume> _listaFiltrada(
+    List<Perfume> todos,
+    double critico,
+    double bajo,
+  ) {
     var lista = switch (_filtro) {
       _FiltroStock.todos   => todos,
       _FiltroStock.critico => todos.where((p) => p.stockMl! <= critico).toList(),
@@ -93,6 +65,65 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
           .toList();
     }
 
+    return lista;
+  }
+
+  void _onBuscarChanged(String v) {
+    _debounce.run(() {
+      if (mounted) setState(() => _buscar = v.trim());
+    });
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    // catalogoProvider pagina de a 50 — sin esto, este tab solo veía
+    // la primera página del catálogo y "perdía" perfumes tras el #50.
+    Future.microtask(() => ref.read(catalogoProvider.notifier).loadAll());
+  }
+
+  @override
+  void dispose() {
+    _debounce.dispose();
+    _buscarCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final estado = ref.watch(catalogoProvider);
+    final config = ref.watch(appConfigProvider).valueOrNull;
+    final critico = (config?.stockCriticoMl ?? _kCriticoDefault).toDouble();
+    final bajo    = (config?.stockBajoMl    ?? _kBajoDefault).toDouble();
+
+    if (estado.isLoading) {
+      return const _StockSkeleton();
+    }
+    if (estado.error != null) {
+      return AppErrorWidget(
+        error: estado.error!,
+        title: 'Error al cargar catálogo',
+        icon: Icons.wifi_off_rounded,
+        subtle: true,
+        onRetry: () => ref.read(catalogoProvider.notifier).refresh(),
+      );
+    }
+
+    final todos   = estado.perfumes
+        .where((p) => p.stockMl != null)
+        .toList();
+    final criticos = todos.where((p) => p.stockMl! <= critico).length;
+    final bajos    = todos
+        .where((p) => p.stockMl! > critico && p.stockMl! <= bajo)
+        .length;
+    final ok       = todos.where((p) => p.stockMl! > bajo).length;
+
+    final lista = _listaFiltrada(todos, critico, bajo);
+
     final maxStock = todos.isEmpty
         ? 100.0
         : todos.fold(0.0, (m, p) => (p.stockMl ?? 0) > m ? p.stockMl! : m);
@@ -109,7 +140,7 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
         const SizedBox(width: 6),
         Expanded(child: _StockChip(label: 'OK',      valor: '$ok',              color: AppColors.successSurface, textColor: AppColors.stockOk)),
       ]),
-      const SizedBox(height: AppSpacing.md),
+      const SizedBox(height: AppSpacing.sm),
       // ── Buscador ─────────────────────────────────────────────
       Padding(
         padding: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -139,13 +170,14 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
                 ? IconButton(
                     icon: const Icon(Icons.clear_rounded, size: 18),
                     onPressed: () {
+                      _debounce.dispose();
                       _buscarCtrl.clear();
                       setState(() => _buscar = '');
                     },
                   )
                 : null,
           ),
-          onChanged: (v) => setState(() => _buscar = v.trim()),
+          onChanged: _onBuscarChanged,
         ),
       ),
       // ── Filtros y ordenamiento ────────────────────────────────
@@ -225,24 +257,10 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
       const SizedBox(height: AppSpacing.sm),
     ];
 
-    if (lista.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        children: [
-          ...header,
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: AppSpacing.xl),
-              child: Text(
-                'No hay perfumes en esta categoría',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
+    // Siempre CustomScrollView (incluso lista vacía) — antes el caso vacío
+    // usaba un ListView aparte, y ese cambio de tipo de widget en la raíz
+    // destruía el árbol completo (TextField incluido), cerrando el teclado
+    // cada vez que el filtro/búsqueda quedaba momentáneamente sin resultados.
     return CustomScrollView(
       slivers: [
         SliverPadding(
@@ -252,19 +270,38 @@ class _AnalisisTabState extends ConsumerState<AnalisisTab>
             delegate: SliverChildListDelegate(header),
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
-          sliver: SliverList.builder(
-            itemCount: lista.length,
-            itemBuilder: (_, i) => _StockRow(
-              perfume: lista[i],
-              maxStock: maxStock,
-              critico: critico,
-              bajo: bajo,
+        if (lista.isEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
+            sliver: SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xl),
+                child: Center(
+                  child: Text(
+                    'No hay perfumes en esta categoría',
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.md, 0, AppSpacing.md, AppSpacing.xl),
+            sliver: SliverList.builder(
+              itemCount: lista.length,
+              itemBuilder: (_, i) => _StockRow(
+                perfume: lista[i],
+                maxStock: maxStock,
+                critico: critico,
+                bajo: bajo,
+                onAjustado: () =>
+                    ref.read(catalogoProvider.notifier).refreshPreservandoProfundidad(),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -327,13 +364,15 @@ class _StockRow extends StatelessWidget {
     required this.maxStock,
     required this.critico,
     required this.bajo,
+    required this.onAjustado,
   });
   final Perfume perfume;
   final double  maxStock;
   final double  critico;
   final double  bajo;
+  final VoidCallback onAjustado;
 
-  Color get _barColor {
+  Color _barColor() {
     final s = perfume.stockMl ?? 0;
     if (s <= critico) return AppColors.stockCritical;
     if (s <= bajo)     return AppColors.stockLow;
@@ -345,7 +384,12 @@ class _StockRow extends StatelessWidget {
     final stock = perfume.stockMl ?? 0;
     final pct   = maxStock > 0 ? (stock / maxStock).clamp(0.0, 1.0) : 0.0;
 
-    return Container(
+    return GestureDetector(
+      onLongPress: () => showDialog<void>(
+        context: context,
+        builder: (_) => _ReponerStockDialog(perfume: perfume, onAjustado: onAjustado),
+      ),
+      child: Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm - 2),
       padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md, vertical: AppSpacing.sm + 2),
@@ -400,8 +444,8 @@ class _StockRow extends StatelessWidget {
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
-                            _barColor.withValues(alpha: 0.7),
-                            _barColor,
+                            _barColor().withValues(alpha: 0.7),
+                            _barColor(),
                           ],
                         ),
                       ),
@@ -412,6 +456,7 @@ class _StockRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -440,7 +485,7 @@ class _StockSkeleton extends StatelessWidget {
                 ),
               ),
             ))),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             Container(height: 44, decoration: BoxDecoration(
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -457,7 +502,7 @@ class _StockSkeleton extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               ))),
             ]),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             ...List.generate(8, (_) => Container(
               margin: const EdgeInsets.only(bottom: AppSpacing.sm - 2),
               height: 60,
@@ -515,6 +560,116 @@ class _StockBadge extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ── Modal reponer stock ───────────────────────────────────────────────────────
+
+class _ReponerStockDialog extends ConsumerStatefulWidget {
+  const _ReponerStockDialog({required this.perfume, required this.onAjustado});
+  final Perfume     perfume;
+  final VoidCallback onAjustado;
+
+  @override
+  ConsumerState<_ReponerStockDialog> createState() => _ReponerStockDialogState();
+}
+
+class _ReponerStockDialogState extends ConsumerState<_ReponerStockDialog> {
+  bool _agregar = true;
+  final _ctrl = TextEditingController();
+  bool   _enviando = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _confirmar() async {
+    final valor = double.tryParse(_ctrl.text.replaceAll(',', '.'));
+    if (valor == null) {
+      setState(() => _error = 'Ingresa una cantidad válida');
+      return;
+    }
+
+    setState(() { _enviando = true; _error = null; });
+    // Captura el messenger ANTES de cerrar el dialog — tras pop(), el context
+    // del dialog queda desactivado y ScaffoldMessenger.of(context) fallaría.
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final nuevo = await ref.read(catalogoProvider.notifier).ajustarStock(
+        idPerfume: widget.perfume.idPerfume,
+        stockActual: widget.perfume.stockMl ?? 0,
+        agregar: _agregar,
+        valorIngresado: valor,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      widget.onAjustado();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Stock actualizado a ${nuevo.toStringAsFixed(0)} ml')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _enviando = false; _error = appErrorMessage(e, 'Error al ajustar stock'); });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final stockActual = widget.perfume.stockMl ?? 0;
+
+    return AlertDialog(
+      title: Text(widget.perfume.nombre, maxLines: 1, overflow: TextOverflow.ellipsis),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Stock actual: ${stockActual.toStringAsFixed(0)} ml',
+            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: true,  label: Text('Agregar'), icon: Icon(Icons.add)),
+              ButtonSegment(value: false, label: Text('Quitar'),  icon: Icon(Icons.remove)),
+            ],
+            selected: {_agregar},
+            onSelectionChanged: (s) => setState(() { _agregar = s.first; _error = null; }),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              labelText: 'Cantidad (ml)',
+              errorText: _error,
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (_) { if (_error != null) setState(() => _error = null); },
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _enviando ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _enviando ? null : _confirmar,
+          child: _enviando
+              ? const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Confirmar'),
+        ),
+      ],
     );
   }
 }

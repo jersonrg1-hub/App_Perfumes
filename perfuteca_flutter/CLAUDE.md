@@ -20,7 +20,7 @@ lib/
 │   ├── estadisticas/  # 5 tabs: resumen, ventas, clientes, historico, analisis
 │   ├── marcas/
 │   ├── notas/
-│   └── ventas/        # nueva_venta, pendientes, historial, cotizaciones_hoy
+│   └── ventas/        # pendientes, historial, cotizaciones_hoy
 ├── models/            # Clases de datos compartidas
 ├── repositories/      # Capa HTTP → FastAPI
 ├── theme/
@@ -37,7 +37,7 @@ lib/
 | estadisticas | `estadisticas_screen` + 5 tabs | `estadisticas_provider` |
 | marcas | `marcas_screen` | `marcas_provider` |
 | notas | `notas_screen` | `notas_provider` |
-| ventas | `ventas_screen`, `nueva_venta_screen`, `pendientes_screen`, `historial_screen`, `cotizaciones_hoy_screen` | `nueva_venta_provider`, `ventas_provider` |
+| ventas | `ventas_screen`, `pendientes_screen`, `historial_screen`, `cotizaciones_hoy_screen` | `ventas_provider` |
 
 ## State management
 
@@ -89,7 +89,16 @@ Siempre usar estos antes de crear nuevos:
 | `PerfumeCard` | Card de perfume en catálogo/listados |
 | `PerfumeImage` | Imagen de perfume con fallback |
 
+## Helpers compartidos — usar antes de reimplementar
+
+| Helper | Ubicación | Uso |
+|---|---|---|
+| `Perfume.stockEstado()` | `lib/models/perfume.dart` | esCritico/esBajo — usado en perfume_card y detalle_perfume_screen |
+| `esCelularPeruValido()` | `lib/core/utils/validators.dart` | Validación celular — usado en nueva_cotizacion_provider y cotizacion_convertir_card |
+| `AppErrorWidget` / `EmptyStateWidget` | `lib/widgets/common/` | No reimplementar por pantalla (ver Widgets reutilizables arriba) |
+
 ## Reglas
 - No lógica de negocio en screens — va en providers o repositories
 - Screens solo UI + llamadas a provider
 - Modelos en `lib/models/`, no duplicar en features
+- `setState`/lógica post-`await` siempre detrás de `if (!mounted) return` — bugs de crash por widget desmontado ya ocurrieron en cards dentro de ListView que se reordena

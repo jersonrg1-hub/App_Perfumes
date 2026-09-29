@@ -196,8 +196,19 @@ class _Dot extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: GestureDetector(
+  Widget build(BuildContext context) {
+    final estado = actual
+        ? 'en edición'
+        : activo
+            ? 'completado'
+            : 'pendiente';
+    return Expanded(
+        child: Semantics(
+          button: onTap != null,
+          label: 'Paso $n: $label, $estado'
+              '${sublabel != null ? ' — $sublabel' : ''}'
+              '${onTap != null ? '. Toca para editar' : ''}',
+          child: GestureDetector(
           onTap: onTap,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -254,7 +265,9 @@ class _Dot extends StatelessWidget {
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _Linea extends StatelessWidget {
@@ -318,29 +331,34 @@ class _ModoBoton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: AnimatedContainer(
-          duration: _kFast,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: activo ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 15,
-                  color: activo ? Colors.white : AppColors.textMuted),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                    fontSize:   13,
-                    fontWeight: FontWeight.w700,
-                    color: activo ? Colors.white : AppColors.textMuted,
-                  )),
-            ],
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: activo,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          child: AnimatedContainer(
+            duration: _kFast,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: activo ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 15,
+                    color: activo ? Colors.white : AppColors.textMuted),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: TextStyle(
+                      fontSize:   13,
+                      fontWeight: FontWeight.w700,
+                      color: activo ? Colors.white : AppColors.textMuted,
+                    )),
+              ],
+            ),
           ),
         ),
       );
@@ -402,6 +420,30 @@ class _Paso1State extends ConsumerState<_Paso1> {
     notifier.setCelular(normalizado);
   }
 
+  // Flujo real del usuario: copia el número/alias desde WhatsApp y lo pega
+  // acá — no lo tipea. Botón de pegar explícito porque el chip de sugerencia
+  // del portapapeles del teclado no siempre aparece (depende de versión de
+  // Android/teclado instalado).
+  Future<void> _pegarCelular(NuevaCotizacionNotifier notifier) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    final texto = data?.text;
+    if (texto == null || texto.isEmpty) return;
+    _onCelularChanged(texto, notifier);
+  }
+
+  Future<void> _pegarAlias(NuevaCotizacionNotifier notifier) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    final texto = data?.text?.trim();
+    if (texto == null || texto.isEmpty) return;
+    _aliasCtrl.value = TextEditingValue(
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
+    );
+    notifier.setAlias(texto);
+  }
+
   @override
   Widget build(BuildContext context) {
     final state    = ref.watch(nuevaCotizacionProvider);
@@ -448,6 +490,11 @@ class _Paso1State extends ConsumerState<_Paso1> {
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.content_paste_rounded, size: 18),
+                  tooltip: 'Pegar',
+                  onPressed: () => _pegarCelular(notifier),
+                ),
                 hintText: '+51 987654321 o 987654321',
                 helperText: 'Acepta formato WhatsApp, con o sin código de país',
                 counterText: '',
@@ -481,7 +528,13 @@ class _Paso1State extends ConsumerState<_Paso1> {
               controller: _aliasCtrl,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.content_paste_rounded, size: 18),
+                  tooltip: 'Pegar',
+                  onPressed: () => _pegarAlias(notifier),
+                ),
                 hintText: '@perfutecalima',
+                helperText: 'Sin espacios, tal como aparece en WhatsApp',
                 filled: true,
                 fillColor: AppColors.primaryPale,
                 border: OutlineInputBorder(
@@ -561,6 +614,11 @@ class _Paso2State extends ConsumerState<_Paso2> {
       return p.nombre.toLowerCase().contains(q) ||
           p.marca.toLowerCase().contains(q);
     }).toList();
+    // Map en vez de indexWhere por fila — evita O(n·m) al renderizar la
+    // lista completa de perfumes contra la cesta en cada build.
+    final cestaPorPerfume = {
+      for (final item in state.cesta) item.perfume.idPerfume: item,
+    };
 
     return Column(
       children: [
@@ -652,11 +710,11 @@ class _Paso2State extends ConsumerState<_Paso2> {
                       itemCount: perfumes.length,
                       itemBuilder: (_, i) {
                         final p = perfumes[i];
-                        final idx = state.cesta.indexWhere(
-                            (item) => item.perfume.idPerfume == p.idPerfume);
+                        final itemEnCesta = cestaPorPerfume[p.idPerfume];
                         return _PerfumeRow(
+                          key:         ValueKey(p.idPerfume),
                           perfume:     p,
-                          itemEnCesta: idx != -1 ? state.cesta[idx] : null,
+                          itemEnCesta: itemEnCesta,
                           onAgregar: (ml) {
                             HapticFeedback.lightImpact();
                             notifier.agregarItem(p, ml);
@@ -674,7 +732,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
                                     ),
                                   ),
                                 ]),
-                                duration: const Duration(seconds: 1),
+                                duration: const Duration(milliseconds: 1600),
                                 behavior: SnackBarBehavior.floating,
                                 backgroundColor: AppColors.success,
                                 margin: const EdgeInsets.fromLTRB(
@@ -686,8 +744,8 @@ class _Paso2State extends ConsumerState<_Paso2> {
                                 ),
                               ));
                           },
-                          onQuitar: idx != -1
-                              ? () => notifier.quitarItem(idx)
+                          onQuitar: itemEnCesta != null
+                              ? () => notifier.quitarItemPorId(p.idPerfume)
                               : null,
                         );
                       },
@@ -699,12 +757,16 @@ class _Paso2State extends ConsumerState<_Paso2> {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              OutlinedButton(
-                onPressed: widget.onAnterior,
-                child: const Text('Atrás'),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: widget.onAnterior,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Atrás'),
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
+                flex: 2,
                 child: FilledButton.icon(
                   onPressed: state.cestaValida ? widget.onSiguiente : null,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
@@ -721,8 +783,9 @@ class _Paso2State extends ConsumerState<_Paso2> {
 
 // ── Fila de perfume con botones ml (B + H) ────────────────────────────────────
 
-class _PerfumeRow extends StatelessWidget {
+class _PerfumeRow extends StatefulWidget {
   const _PerfumeRow({
+    super.key,
     required this.perfume,
     required this.itemEnCesta,
     required this.onAgregar,
@@ -734,7 +797,20 @@ class _PerfumeRow extends StatelessWidget {
   final VoidCallback?       onQuitar;
 
   @override
+  State<_PerfumeRow> createState() => _PerfumeRowState();
+}
+
+class _PerfumeRowState extends State<_PerfumeRow> {
+  // Colapsado por default: la mayoría de perfumes no tiene completos
+  // configurados, y de tenerlos, la venta de decant (2/5/10ml) sigue siendo
+  // el caso común — no queremos que la fila crezca por default en todas.
+  bool _completoExpandido = false;
+
+  @override
   Widget build(BuildContext context) {
+    final perfume     = widget.perfume;
+    final itemEnCesta = widget.itemEnCesta;
+
     return AnimatedContainer(
       duration: _kNormal,
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -748,8 +824,11 @@ class _PerfumeRow extends StatelessWidget {
           width: itemEnCesta != null ? 1.5 : 1,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
           // Info del perfume
           Expanded(
             child: Column(
@@ -780,10 +859,14 @@ class _PerfumeRow extends StatelessWidget {
 
           // Chip en cesta o botones ml (B: Wrap para responsividad)
           if (itemEnCesta != null)
-            ClipRRect(
+            Semantics(
+              button: true,
+              label:
+                  '${itemEnCesta.ml}ml agregado por S/${_fmtPrecio(itemEnCesta.precio)}. Toca para quitar del pedido',
+              child: ClipRRect(
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               child: InkWell(
-                onTap: onQuitar,
+                onTap: widget.onQuitar,
                 splashColor: AppColors.primaryDark.withValues(alpha: 0.3),
                 highlightColor: AppColors.primaryDark.withValues(alpha: 0.15),
                 child: Container(
@@ -799,7 +882,7 @@ class _PerfumeRow extends StatelessWidget {
                       const Icon(Icons.check_rounded, size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
-                        '${itemEnCesta!.ml}ml · S/${_fmtPrecio(itemEnCesta!.precio)}',
+                        '${itemEnCesta.ml}ml · S/${_fmtPrecio(itemEnCesta.precio)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -812,18 +895,60 @@ class _PerfumeRow extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
             )
           else
               Row(
               children: [
                 if (perfume.precio2ml != null)
-                  _MlBtn(ml: 2, precio: perfume.precio2ml!, onTap: () => onAgregar(2)),
+                  _MlBtn(ml: 2, precio: perfume.precio2ml!, onTap: () => widget.onAgregar(2)),
                 if (perfume.precio5ml != null)
-                  _MlBtn(ml: 5, precio: perfume.precio5ml!, onTap: () => onAgregar(5)),
+                  _MlBtn(ml: 5, precio: perfume.precio5ml!, onTap: () => widget.onAgregar(5)),
                 if (perfume.precio10ml != null)
-                  _MlBtn(ml: 10, precio: perfume.precio10ml!, onTap: () => onAgregar(10)),
+                  _MlBtn(ml: 10, precio: perfume.precio10ml!, onTap: () => widget.onAgregar(10)),
               ],
             ),
+            ],
+          ),
+          if (perfume.completos.isNotEmpty && itemEnCesta == null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            InkWell(
+              onTap: () => setState(() => _completoExpandido = !_completoExpandido),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _completoExpandido ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '¿Frasco completo?',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_completoExpandido)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final c in perfume.completos)
+                      _MlBtn(ml: c.ml, precio: c.precio, onTap: () => widget.onAgregar(c.ml)),
+                  ],
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -863,18 +988,24 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<void> _onTap() async {
-    await _ctrl.forward();
-    if (!mounted) return;
-    await _ctrl.reverse();
-    if (!mounted) return;
+  // El scale-in/out es puramente visual — antes se esperaba a que terminara
+  // (~320ms) para recién agregar el ítem a la cesta, lo que hacía sentir
+  // lento agregar varios perfumes seguidos. Ahora onTap() corre al toque y
+  // la animación se dispara en paralelo, sin bloquearlo.
+  void _onTap() {
     widget.onTap();
+    _ctrl.forward().then((_) {
+      if (mounted) _ctrl.reverse();
+    });
   }
 
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(left: AppSpacing.sm),
-        child: GestureDetector(
+        child: Semantics(
+          button: true,
+          label: 'Agregar ${widget.ml}ml por S/${_fmtPrecio(widget.precio)}',
+          child: GestureDetector(
           onTap: _onTap,
           child: ScaleTransition(
             scale: _scale,
@@ -915,6 +1046,7 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
               ),
             ),
           ),
+        ),
         ),
       );
 }
@@ -1033,7 +1165,10 @@ class _Paso3State extends ConsumerState<_Paso3> {
                           marcaFontSize:  12,
                         ),
                       ),
-                      if (_modoSeleccion) ...[
+                      // Completos: precio fijo de lista, sin chip de descuento
+                      // (toggleItemDescuento ya lo bloquea, pero mostrarlo
+                      // tappable sin efecto confunde).
+                      if (_modoSeleccion && !e.value.esCompleto) ...[
                         const SizedBox(width: AppSpacing.sm),
                         _DescuentoChip(
                           seleccionado: seleccionado,
@@ -1219,8 +1354,15 @@ class _Paso3State extends ConsumerState<_Paso3> {
 
           const SizedBox(height: AppSpacing.sm),
 
-          // Total
-          Container(
+          // Total — AnimatedSize porque el bloque DESCUENTO/DELIVERY
+          // aparece o desaparece según los toggles de arriba; sin esto el
+          // alto del resumen saltaba de golpe en vez de acompañar la
+          // transición suave que ya tienen esos toggles.
+          AnimatedSize(
+            duration: _kNormal,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -1273,7 +1415,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                       Text(
                         '-S/ ${state.ahorro.toStringAsFixed(2)}',
                         style: const TextStyle(
-                          color: Color(0xFF81C784),
+                          color: AppColors.successOnDark,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1332,6 +1474,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                 ),
               ],
             ),
+            ),
           ),
 
           if (state.error != null) ...[
@@ -1341,10 +1484,23 @@ class _Paso3State extends ConsumerState<_Paso3> {
               decoration: BoxDecoration(
                 color: AppColors.errorSurface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.3)),
               ),
-              child: Text(
-                state.error!,
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      size: 16, color: AppColors.error),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      state.error!,
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.error),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1353,12 +1509,16 @@ class _Paso3State extends ConsumerState<_Paso3> {
 
           Row(
             children: [
-              OutlinedButton(
-                onPressed: state.registrando ? null : widget.onAnterior,
-                child: const Text('Editar'),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: state.registrando ? null : widget.onAnterior,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Editar'),
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
+                flex: 2,
                 child: FilledButton.icon(
                   onPressed: state.registrando || !state.cestaValida
                       ? null
@@ -1500,7 +1660,15 @@ class _TicketExitoState extends State<_TicketExito>
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
     try {
       await abrirWhatsAppBusiness(celular: numero, alias: widget.alias, mensaje: texto);
-    } catch (_) {}
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo abrir WhatsApp'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -1766,8 +1934,8 @@ class _ReceiptCard extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.surface,
         boxShadow: [
-          BoxShadow(color: Color(0x28000000), blurRadius: 20, offset: Offset(0, 6)),
-          BoxShadow(color: Color(0x0F000000), blurRadius: 4,  offset: Offset(0, 2)),
+          BoxShadow(color: AppColors.shadowColor, blurRadius: 20, offset: Offset(0, 6)),
+          BoxShadow(color: AppColors.shadowColor, blurRadius: 4,  offset: Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1974,8 +2142,8 @@ class _PerforatedEdge extends StatelessWidget {
                 count,
                 (_) => Container(
                   width: 10, height: 10,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
+                  decoration: const BoxDecoration(
+                    color: AppColors.background,
                     shape: BoxShape.circle,
                   ),
                 ),

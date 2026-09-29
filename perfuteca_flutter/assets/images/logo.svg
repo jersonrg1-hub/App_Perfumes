@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- Perfuteca — monograma frasco + atomizador, paleta terracota/dorado -->
+  <defs>
+    <linearGradient id="bottleGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#D4956E"/>
+      <stop offset="100%" stop-color="#B8724A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Atomizador -->
+  <rect x="88" y="30" width="24" height="16" rx="3" fill="#8A6D2F"/>
+  <rect x="94" y="18" width="12" height="14" rx="2" fill="#C9A96E"/>
+  <line x1="100" y1="18" x2="100" y2="8" stroke="#C9A96E" stroke-width="3" stroke-linecap="round"/>
+
+  <!-- Cuello del frasco -->
+  <rect x="92" y="46" width="16" height="14" fill="#F0DDD0"/>
+
+  <!-- Cuerpo del frasco -->
+  <path d="M70 60
+           h60
+           a6 6 0 0 1 6 6
+           v90
+           a14 14 0 0 1 -14 14
+           h-44
+           a14 14 0 0 1 -14 -14
+           v-90
+           a6 6 0 0 1 6 -6
+           z"
+        fill="url(#bottleGrad)"/>
+
+  <!-- Faja dorada -->
+  <rect x="64" y="108" width="72" height="14" fill="#C9A96E"/>
+
+  <!-- Monograma "P" -->
+  <text x="100" y="102" text-anchor="middle"
+        font-family="'Cormorant Garamond', Georgia, serif"
+        font-size="34" font-weight="600" fill="#FAF5F0">P</text>
+</svg>

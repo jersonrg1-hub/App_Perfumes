@@ -5,6 +5,17 @@ part 'perfume.freezed.dart';
 part 'perfume.g.dart';
 
 @freezed
+class CompletoPerfume with _$CompletoPerfume {
+  const factory CompletoPerfume({
+    required int ml,
+    required double precio,
+  }) = _CompletoPerfume;
+
+  factory CompletoPerfume.fromJson(Map<String, dynamic> json) =>
+      _$CompletoPerfumeFromJson(json);
+}
+
+@freezed
 class Perfume with _$Perfume {
   const factory Perfume({
     @JsonKey(name: 'id_perfume')       required String idPerfume,
@@ -21,6 +32,7 @@ class Perfume with _$Perfume {
     String? estacion,
     String? hora,
     @JsonKey(name: 'palabra_clave') String? palabraClave,
+    @Default(<CompletoPerfume>[]) List<CompletoPerfume> completos,
   }) = _Perfume;
 
   factory Perfume.fromJson(Map<String, dynamic> json) => _$PerfumeFromJson(json);

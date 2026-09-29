@@ -211,7 +211,9 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                               size: 56, color: AppColors.textFaint),
                           const SizedBox(height: 12),
                           Text(
-                            'Sin perfumes de "$_marcaFiltro"',
+                            _marcaFiltro != null
+                                ? 'Sin perfumes de "$_marcaFiltro"'
+                                : 'No hay perfumes en el catálogo',
                             style: AppTextStyles.body
                                 .copyWith(color: AppColors.textMuted),
                           ),
@@ -227,10 +229,10 @@ class _CatalogoScreenState extends ConsumerState<CatalogoScreen> {
                 : SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount:   2,
-                      crossAxisSpacing: AppSpacing.md,
-                      mainAxisSpacing:  AppSpacing.md,
-                      childAspectRatio: 0.62,
+                      crossAxisCount:   3,
+                      crossAxisSpacing: AppSpacing.sm,
+                      mainAxisSpacing:  AppSpacing.sm,
+                      childAspectRatio: 0.56,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (_, i) => PerfumeCard(perfume: filtrados[i]),

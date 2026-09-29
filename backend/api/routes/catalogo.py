@@ -98,10 +98,10 @@ def listar_catalogo(
     """
     try:
         df = get_catalogo_cached(repo)
+        completos = get_completos_cached(repo)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
-    completos = get_completos_cached(repo)
     return paginate_df(df, lambda pagina: _serializar_catalogo(pagina, completos), limit, offset)
 
 
@@ -159,11 +159,11 @@ def buscar_perfumes(
     """
     try:
         df = get_catalogo_cached(repo)
+        completos = get_completos_cached(repo)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
     resultado = filtrar_catalogo(df, texto=q, marca=marca or "")
-    completos = get_completos_cached(repo)
     return paginate_df(resultado, lambda pagina: _serializar_catalogo(pagina, completos), limit, offset)
 
 
@@ -215,6 +215,7 @@ def obtener_perfume(
     """
     try:
         df = get_catalogo_cached(repo)
+        completos = get_completos_cached(repo)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Error al cargar catalogo: {e}")
 
@@ -225,5 +226,4 @@ def obtener_perfume(
             detail=f"Perfume '{id_perfume}' no encontrado en el catalogo",
         )
 
-    completos = get_completos_cached(repo)
     return _serializar_catalogo(fila, completos)[0]

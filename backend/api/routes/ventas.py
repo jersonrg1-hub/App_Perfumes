@@ -42,7 +42,7 @@ from backend.api.models import (
 )
 from backend.repositories.sheets_repository import SheetsRepository, StockUpdateError
 from backend.services.costos_service import MERMA_PCT
-from backend.core.config import COL_ESTADO_NUM, COL_ESTADO_COT, ML_OPCIONES
+from backend.core.config import COL_ESTADO_NUM, COL_ESTADO_COT, es_decant
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 logger = logging.getLogger("perfuteca.api")
@@ -315,8 +315,7 @@ def actualizar_estado_venta(
 
             filas_para_restock = [
                 f for f in filas_actuales
-                if f.get("ID_Perfume") and f.get("Ml_Vendido")
-                and int(float(f["Ml_Vendido"])) in ML_OPCIONES
+                if f.get("ID_Perfume") and f.get("Ml_Vendido") and es_decant(f["Ml_Vendido"])
             ]
     else:
         try:

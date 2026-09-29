@@ -29,7 +29,7 @@ from backend.core.config import (
     SCOPES, SHEET_NAME,
     WORKSHEET_CATALOGO, WORKSHEET_VENTAS, WORKSHEET_COTIZACIONES,
     WORKSHEET_PRECIOS_COMPLETOS,
-    hoy_peru, fmt_precio, ML_BASE_DISPENSACION, ML_OPCIONES, COLUMNAS_VENTAS,
+    hoy_peru, fmt_precio, ML_BASE_DISPENSACION, es_decant, COLUMNAS_VENTAS,
 )
 from backend.services.cotizacion_service import construir_items_txt
 logger = logging.getLogger(__name__)
@@ -572,11 +572,20 @@ class SheetsRepository:
         StockUpdateError (best-effort — la venta ya está guardada, un catálogo
         caído no puede bloquear el registro de la venta ni convertirse en un
         error 500 de registro).
+
+        Si la cesta es 100% completos (ningún ml de decant), ni siquiera se
+        lanza fetch_catalog(): esos ítems no tocan Stock_ml, así que esperar
+        un fetch que no se va a usar solo agregaría latencia y un posible
+        StockUpdateError falso si ese fetch fallara.
         """
         id_compra = self.get_next_sale_id()
-        _executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        cat_future = _executor.submit(self.fetch_catalog)
-        _executor.shutdown(wait=False)  # no bloquea; el future sigue corriendo en su hilo
+        cesta_decant = [item for item in cesta if es_decant(item["ml"])]
+
+        cat_future = None
+        if cesta_decant:
+            _executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            cat_future = _executor.submit(self.fetch_catalog)
+            _executor.shutdown(wait=False)  # no bloquea; el future sigue corriendo en su hilo
 
         filas = [
             [
@@ -599,12 +608,12 @@ class SheetsRepository:
 
         self.append_sale_rows(filas)
 
-        try:
-            df_cat = cat_future.result()
-            cesta_decant = [item for item in cesta if int(item["ml"]) in ML_OPCIONES]
-            self.update_stock_batch(cesta_decant, merma_pct, df_cat)
-        except Exception as e:
-            logger.error(f"[register_complete_sale/stock] {type(e).__name__}: {e}")
-            raise StockUpdateError(id_compra, e)
+        if cesta_decant:
+            try:
+                df_cat = cat_future.result()
+                self.update_stock_batch(cesta_decant, merma_pct, df_cat)
+            except Exception as e:
+                logger.error(f"[register_complete_sale/stock] {type(e).__name__}: {e}")
+                raise StockUpdateError(id_compra, e)
 
         return id_compra

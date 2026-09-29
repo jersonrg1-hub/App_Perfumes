@@ -34,6 +34,19 @@ PRECIOS_COLUMNAS: dict[str, str] = {
 
 ML_OPCIONES: list[int] = [int(k.replace(" ml", "")) for k in PRECIOS_COLUMNAS]
 
+
+def es_decant(ml_valor) -> bool:
+    """
+    True si ml_valor es un tamaño de decant (2/5/10). Cualquier otro valor
+    (incluyendo tamaños de completo o valores no numéricos) es False —
+    nunca lanza, para que un dato corrupto en Sheets no tumbe un endpoint
+    que ya completó su operación principal.
+    """
+    try:
+        return int(float(ml_valor)) in ML_OPCIONES
+    except (TypeError, ValueError):
+        return False
+
 # ── Listas de opciones ────────────────────────────────────────────────────────
 
 METODOS_PAGO: list[str] = ["Yape", "Plin", "Transferencia", "Tarjeta"]

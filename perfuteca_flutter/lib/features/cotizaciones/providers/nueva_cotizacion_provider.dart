@@ -212,9 +212,26 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     state = state.copyWith(cesta: [...state.cesta, item]);
   }
 
+  // Snapshot del último ítem quitado — permite un solo nivel de "Deshacer"
+  // (como el undo de archivar en Gmail: quitar uno nuevo descarta la
+  // posibilidad de deshacer el anterior). Vive acá, no en la screen, para
+  // que quitar/restaurar sea una operación atómica sobre `state` — la UI
+  // solo dispara quitarItem()/quitarItemPorId() y, más tarde, si el usuario
+  // se arrepiente, deshacerUltimoQuitado(), sin tener que reconstruir el
+  // índice/descuento originales por su cuenta (eso vivía antes en la screen
+  // y se desincronizaba si el usuario reagregaba el mismo perfume a mano
+  // antes de tocar "Deshacer", o si la cotización ya se había enviado).
+  ItemCesta? _ultimoQuitado;
+  int?       _ultimoQuitadoIndex;
+  bool       _ultimoQuitadoConDescuento = false;
+
   void quitarItem(int index) {
     if (index < 0 || index >= state.cesta.length) return;
-    final nuevaCesta = List<ItemCesta>.from(state.cesta)..removeAt(index);
+    final nuevaCesta = List<ItemCesta>.from(state.cesta);
+    final item = nuevaCesta.removeAt(index);
+    _ultimoQuitado             = item;
+    _ultimoQuitadoIndex        = index;
+    _ultimoQuitadoConDescuento = state.indicesConDescuento.contains(index);
     final nuevosIndices = state.indicesConDescuento
         .where((i) => i != index)
         .map((i) => i > index ? i - 1 : i)
@@ -231,6 +248,31 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     final index = state.cesta.indexWhere((i) => i.perfume.idPerfume == idPerfume);
     if (index == -1) return;
     quitarItem(index);
+  }
+
+  // Restaura el último ítem quitado (swipe o botón) en su posición e índice
+  // de descuento original. false si no hay nada que deshacer, o si la
+  // cotización ya se envió — un "Deshacer" tardío (snackbar aún visible tras
+  // saltar a la pantalla de ticket) no debe mutar una cotización ya
+  // registrada en el backend.
+  bool deshacerUltimoQuitado() {
+    final item  = _ultimoQuitado;
+    final index = _ultimoQuitadoIndex;
+    if (item == null || index == null || state.registrada != null) {
+      return false;
+    }
+    _ultimoQuitado      = null;
+    _ultimoQuitadoIndex = null;
+    // clamp: la cesta pudo cambiar de tamaño entre quitar y deshacer (ej. el
+    // usuario agregó otro perfume mientras tanto).
+    final destino = index.clamp(0, state.cesta.length);
+    final nuevaCesta = List<ItemCesta>.from(state.cesta)..insert(destino, item);
+    final nuevosIndices = state.indicesConDescuento
+        .map((i) => i >= destino ? i + 1 : i)
+        .toSet();
+    if (_ultimoQuitadoConDescuento) nuevosIndices.add(destino);
+    state = state.copyWith(cesta: nuevaCesta, indicesConDescuento: nuevosIndices);
+    return true;
   }
 
   Future<void> guardar() async {
@@ -252,7 +294,13 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     }
   }
 
-  void reset() => state = const NuevaCotizacionState();
+  void reset() {
+    // Sin esto, un "Deshacer" con snackbar todavía visible de la cotización
+    // anterior podía inyectar ese perfume en la cesta recién reseteada.
+    _ultimoQuitado      = null;
+    _ultimoQuitadoIndex = null;
+    state = const NuevaCotizacionState();
+  }
 }
 
 final nuevaCotizacionProvider =

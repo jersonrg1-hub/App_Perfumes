@@ -40,9 +40,17 @@ class NuevaCotizacionState {
 
   static const double costoDelivery = 10.0;
 
-  // True solo si TODOS los items de la cesta tienen descuento — estado del switch "seleccionar todos"
+  // Items que admiten descuento (excluye completos — precio fijo de lista).
+  int get _itemsElegibles => cesta.where((i) => !i.esCompleto).length;
+
+  // True solo si TODOS los items elegibles de la cesta tienen descuento —
+  // estado del switch "seleccionar todos". Compara contra _itemsElegibles,
+  // no contra cesta.length: si comparara contra cesta.length, con al menos
+  // un completo en la cesta esto nunca sería true (los completos no entran
+  // a indicesConDescuento), y toggleDescuento() quedaría trabado siempre en
+  // "seleccionar" sin poder volver a "limpiar todos".
   bool get conDescuento =>
-      cesta.isNotEmpty && indicesConDescuento.length == cesta.length;
+      _itemsElegibles > 0 && indicesConDescuento.length == _itemsElegibles;
 
   // True si AL MENOS un item tiene descuento (parcial o total)
   bool get algunDescuento => indicesConDescuento.isNotEmpty;
@@ -140,18 +148,24 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
   }
   void toggleDelivery()        => state = state.copyWith(conDelivery: !state.conDelivery);
 
-  // Shortcut "seleccionar todos": si ya estan todos seleccionados, limpia; si no, selecciona todos
+  // Shortcut "seleccionar todos": si ya estan todos seleccionados, limpia; si no, selecciona todos.
+  // Los completos nunca entran — precio fijo de lista, no admite descuento por ítem.
   void toggleDescuento() {
     if (state.conDescuento) {
       state = state.copyWith(indicesConDescuento: {});
     } else {
       state = state.copyWith(
-        indicesConDescuento: {for (var i = 0; i < state.cesta.length; i++) i},
+        indicesConDescuento: {
+          for (var i = 0; i < state.cesta.length; i++)
+            if (!state.cesta[i].esCompleto) i,
+        },
       );
     }
   }
 
   void toggleItemDescuento(int index) {
+    if (index < 0 || index >= state.cesta.length) return;
+    if (state.cesta[index].esCompleto) return; // completos no admiten descuento
     final nuevos = Set<int>.from(state.indicesConDescuento);
     if (nuevos.contains(index)) {
       nuevos.remove(index);
@@ -161,28 +175,39 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     state = state.copyWith(indicesConDescuento: nuevos);
   }
 
+  CompletoPerfume? _completoDe(Perfume perfume, int ml) {
+    for (final c in perfume.completos) {
+      if (c.ml == ml) return c;
+    }
+    return null;
+  }
+
   void agregarItem(Perfume perfume, int ml) {
     // La UI solo permite un tamaño por perfume en la cesta (una vez
     // agregado, los botones de ml se ocultan) — pero eso depende del
     // rebuild, que llega después de la animación de _MlBtn (~320ms). Un
     // doble-tap rápido puede disparar dos llamadas antes de que el botón
     // desaparezca, duplicando el ítem silenciosamente. Se bloquea acá.
+    // Aplica igual a decants y completos: un perfume, un ítem en la cesta.
     if (state.cesta.any((i) => i.perfume.idPerfume == perfume.idPerfume)) {
       return;
     }
-    final precio = switch (ml) {
+    final precioDecant = switch (ml) {
       2  => perfume.precio2ml,
       5  => perfume.precio5ml,
       10 => perfume.precio10ml,
       _  => null,
     };
+    final esCompleto = precioDecant == null;
+    final precio = precioDecant ?? _completoDe(perfume, ml)?.precio;
     if (precio == null) return;
 
     final item = ItemCesta(
-      perfume: perfume,
-      ml:      ml,
-      precio:  precio,
-      metodo:  'Cotización',
+      perfume:    perfume,
+      ml:         ml,
+      precio:     precio,
+      metodo:     'Cotización',
+      esCompleto: esCompleto,
     );
     state = state.copyWith(cesta: [...state.cesta, item]);
   }

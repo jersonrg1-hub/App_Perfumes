@@ -1767,7 +1767,11 @@ CestaParseada _parsearCesta(
     if (perfume == null) { fallos++; continue; }
 
     result.add(ItemCesta(
-        perfume: perfume, ml: ml, precio: precio, metodo: metodoPago));
+        perfume: perfume,
+        ml: ml,
+        precio: precio,
+        metodo: metodoPago,
+        esCompleto: ml != 2 && ml != 5 && ml != 10));
   }
   return CestaParseada(result, fallos);
 }

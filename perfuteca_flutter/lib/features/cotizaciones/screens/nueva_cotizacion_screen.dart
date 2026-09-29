@@ -487,7 +487,6 @@ class _Paso1State extends ConsumerState<_Paso1> {
             const SizedBox(height: AppSpacing.sm),
             TextFormField(
               controller: _celCtrl,
-              autofocus: true,
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.phone_outlined, size: 18),
@@ -527,7 +526,6 @@ class _Paso1State extends ConsumerState<_Paso1> {
             const SizedBox(height: AppSpacing.sm),
             TextFormField(
               controller: _aliasCtrl,
-              autofocus: true,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
                 suffixIcon: IconButton(
@@ -714,6 +712,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
                         final p = perfumes[i];
                         final itemEnCesta = cestaPorPerfume[p.idPerfume];
                         return _PerfumeRow(
+                          key:         ValueKey(p.idPerfume),
                           perfume:     p,
                           itemEnCesta: itemEnCesta,
                           onAgregar: (ml) {
@@ -784,8 +783,9 @@ class _Paso2State extends ConsumerState<_Paso2> {
 
 // ── Fila de perfume con botones ml (B + H) ────────────────────────────────────
 
-class _PerfumeRow extends StatelessWidget {
+class _PerfumeRow extends StatefulWidget {
   const _PerfumeRow({
+    super.key,
     required this.perfume,
     required this.itemEnCesta,
     required this.onAgregar,
@@ -797,7 +797,20 @@ class _PerfumeRow extends StatelessWidget {
   final VoidCallback?       onQuitar;
 
   @override
+  State<_PerfumeRow> createState() => _PerfumeRowState();
+}
+
+class _PerfumeRowState extends State<_PerfumeRow> {
+  // Colapsado por default: la mayoría de perfumes no tiene completos
+  // configurados, y de tenerlos, la venta de decant (2/5/10ml) sigue siendo
+  // el caso común — no queremos que la fila crezca por default en todas.
+  bool _completoExpandido = false;
+
+  @override
   Widget build(BuildContext context) {
+    final perfume     = widget.perfume;
+    final itemEnCesta = widget.itemEnCesta;
+
     return AnimatedContainer(
       duration: _kNormal,
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -811,8 +824,11 @@ class _PerfumeRow extends StatelessWidget {
           width: itemEnCesta != null ? 1.5 : 1,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
           // Info del perfume
           Expanded(
             child: Column(
@@ -846,11 +862,11 @@ class _PerfumeRow extends StatelessWidget {
             Semantics(
               button: true,
               label:
-                  '${itemEnCesta!.ml}ml agregado por S/${_fmtPrecio(itemEnCesta!.precio)}. Toca para quitar del pedido',
+                  '${itemEnCesta.ml}ml agregado por S/${_fmtPrecio(itemEnCesta.precio)}. Toca para quitar del pedido',
               child: ClipRRect(
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               child: InkWell(
-                onTap: onQuitar,
+                onTap: widget.onQuitar,
                 splashColor: AppColors.primaryDark.withValues(alpha: 0.3),
                 highlightColor: AppColors.primaryDark.withValues(alpha: 0.15),
                 child: Container(
@@ -866,7 +882,7 @@ class _PerfumeRow extends StatelessWidget {
                       const Icon(Icons.check_rounded, size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
-                        '${itemEnCesta!.ml}ml · S/${_fmtPrecio(itemEnCesta!.precio)}',
+                        '${itemEnCesta.ml}ml · S/${_fmtPrecio(itemEnCesta.precio)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -885,13 +901,54 @@ class _PerfumeRow extends StatelessWidget {
               Row(
               children: [
                 if (perfume.precio2ml != null)
-                  _MlBtn(ml: 2, precio: perfume.precio2ml!, onTap: () => onAgregar(2)),
+                  _MlBtn(ml: 2, precio: perfume.precio2ml!, onTap: () => widget.onAgregar(2)),
                 if (perfume.precio5ml != null)
-                  _MlBtn(ml: 5, precio: perfume.precio5ml!, onTap: () => onAgregar(5)),
+                  _MlBtn(ml: 5, precio: perfume.precio5ml!, onTap: () => widget.onAgregar(5)),
                 if (perfume.precio10ml != null)
-                  _MlBtn(ml: 10, precio: perfume.precio10ml!, onTap: () => onAgregar(10)),
+                  _MlBtn(ml: 10, precio: perfume.precio10ml!, onTap: () => widget.onAgregar(10)),
               ],
             ),
+            ],
+          ),
+          if (perfume.completos.isNotEmpty && itemEnCesta == null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            InkWell(
+              onTap: () => setState(() => _completoExpandido = !_completoExpandido),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _completoExpandido ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '¿Frasco completo?',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_completoExpandido)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final c in perfume.completos)
+                      _MlBtn(ml: c.ml, precio: c.precio, onTap: () => widget.onAgregar(c.ml)),
+                  ],
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -1108,7 +1165,10 @@ class _Paso3State extends ConsumerState<_Paso3> {
                           marcaFontSize:  12,
                         ),
                       ),
-                      if (_modoSeleccion) ...[
+                      // Completos: precio fijo de lista, sin chip de descuento
+                      // (toggleItemDescuento ya lo bloquea, pero mostrarlo
+                      // tappable sin efecto confunde).
+                      if (_modoSeleccion && !e.value.esCompleto) ...[
                         const SizedBox(width: AppSpacing.sm),
                         _DescuentoChip(
                           seleccionado: seleccionado,

@@ -68,12 +68,18 @@ class ItemCesta {
     required this.ml,
     required this.precio,
     required this.metodo,
+    this.esCompleto = false,
   });
 
   final Perfume perfume;
   final int     ml;
   final double  precio;
   final String  metodo;
+
+  /// true si este ítem es un frasco completo (precio fijo de Precios_Completos,
+  /// no un decant 2/5/10ml). Nunca admite descuento por ítem — ver
+  /// NuevaCotizacionState.itemConDescuento.
+  final bool esCompleto;
 
   double get subtotal => precio;
 

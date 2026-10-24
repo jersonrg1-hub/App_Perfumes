@@ -137,8 +137,8 @@ class _NuevaCotizacionScreenState
                           .select((s) => s.totalConDelivery)),
                       cesta: ref.watch(
                           nuevaCotizacionProvider.select((s) => s.cesta)),
-                      conDelivery: ref.watch(nuevaCotizacionProvider
-                          .select((s) => s.conDelivery)),
+                      costoDelivery: ref.watch(nuevaCotizacionProvider
+                          .select((s) => s.costoDelivery)),
                       indicesConDescuento: ref.watch(nuevaCotizacionProvider
                           .select((s) => s.indicesConDescuento)),
                       onNueva:      () {
@@ -1147,6 +1147,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
     final algunDescuento       = ref.watch(nuevaCotizacionProvider.select((s) => s.algunDescuento));
     final ahorro                = ref.watch(nuevaCotizacionProvider.select((s) => s.ahorro));
     final conDelivery          = ref.watch(nuevaCotizacionProvider.select((s) => s.conDelivery));
+    final montoDelivery        = ref.watch(nuevaCotizacionProvider.select((s) => s.montoDelivery));
     final subtotalOriginal    = ref.watch(nuevaCotizacionProvider.select((s) => s.subtotalOriginal));
     final subtotal              = ref.watch(nuevaCotizacionProvider.select((s) => s.subtotal));
     final totalConDelivery    = ref.watch(nuevaCotizacionProvider.select((s) => s.totalConDelivery));
@@ -1443,7 +1444,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                           ),
                         ),
                         Text(
-                          '+S/ 10.00 (solo en el mensaje al cliente)',
+                          '+S/ ${montoDelivery.toStringAsFixed(2)} (solo en el mensaje al cliente)',
                           style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.textMuted),
                         ),
@@ -1462,6 +1463,61 @@ class _Paso3State extends ConsumerState<_Paso3> {
               ),         // InkWell
             ),           // ClipRRect
           ),             // AnimatedContainer
+
+          // Monto del delivery — solo visible con delivery activo
+          AnimatedSize(
+            duration: _kNormal,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: conDelivery
+                ? Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: Row(
+                      children: [
+                        for (final monto
+                            in NuevaCotizacionState.opcionesDelivery) ...[
+                          if (monto != NuevaCotizacionState.opcionesDelivery.first)
+                            const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: SizedBox(
+                                width: double.infinity,
+                                child: Text(
+                                  'S/ ${monto.toStringAsFixed(0)}',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              selected: montoDelivery == monto,
+                              onSelected: (_) {
+                                HapticFeedback.selectionClick();
+                                notifier.setMontoDelivery(monto);
+                              },
+                              showCheckmark: false,
+                              selectedColor: AppColors.primary,
+                              backgroundColor: AppColors.surface,
+                              labelStyle: AppTextStyles.body.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: montoDelivery == monto
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                              ),
+                              side: BorderSide(
+                                color: montoDelivery == monto
+                                    ? AppColors.primary
+                                    : AppColors.primaryLight,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppSpacing.radiusXxl),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
 
           const SizedBox(height: AppSpacing.sm),
 
@@ -1536,10 +1592,10 @@ class _Paso3State extends ConsumerState<_Paso3> {
                 ],
                 if (conDelivery) ...[
                   const SizedBox(height: 4),
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
+                      const Text(
                         'DELIVERY',
                         style: TextStyle(
                           color: Colors.white54,
@@ -1549,8 +1605,8 @@ class _Paso3State extends ConsumerState<_Paso3> {
                         ),
                       ),
                       Text(
-                        'S/ 10.00',
-                        style: TextStyle(
+                        'S/ ${montoDelivery.toStringAsFixed(2)}',
+                        style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -1699,7 +1755,7 @@ class _TicketExito extends StatefulWidget {
     required this.alias,
     required this.total,
     required this.cesta,
-    required this.conDelivery,
+    required this.costoDelivery,
     required this.indicesConDescuento,
     required this.onNueva,
   });
@@ -1708,7 +1764,8 @@ class _TicketExito extends StatefulWidget {
   final String?         alias;
   final double          total;
   final List<ItemCesta> cesta;
-  final bool            conDelivery;
+  // 0 = sin delivery
+  final double          costoDelivery;
   final Set<int>        indicesConDescuento;
   final VoidCallback    onNueva;
 
@@ -1761,7 +1818,9 @@ class _TicketExitoState extends State<_TicketExito>
     final descuentoLine = widget.indicesConDescuento.isNotEmpty
         ? '🎉 *Descuento 10%* — ahorras S/ ${ahorroTotal.toStringAsFixed(2)}\n'
         : '';
-    final deliveryLine = widget.conDelivery ? '🛵 Delivery: +S/ 10.00\n' : '';
+    final deliveryLine = widget.costoDelivery > 0
+        ? '🛵 Delivery: +S/ ${widget.costoDelivery.toStringAsFixed(2)}\n'
+        : '';
     final texto =
         '✨ *Tu cotización — Perfuteca* ✨\n$sep\n\n'
         '${bloques.join('\n\n')}\n\n'
@@ -1822,7 +1881,7 @@ class _TicketExitoState extends State<_TicketExito>
               celular:      widget.celular,
               alias:        widget.alias,
               cesta:        widget.cesta,
-              conDelivery:  widget.conDelivery,
+              costoDelivery: widget.costoDelivery,
               total:        widget.total,
               indicesConDescuento: widget.indicesConDescuento,
             ),
@@ -2027,7 +2086,7 @@ class _ReceiptCard extends StatelessWidget {
     required this.celular,
     this.alias,
     required this.cesta,
-    required this.conDelivery,
+    required this.costoDelivery,
     required this.total,
     this.indicesConDescuento = const {},
   });
@@ -2035,7 +2094,8 @@ class _ReceiptCard extends StatelessWidget {
   final String          celular;
   final String?         alias;
   final List<ItemCesta> cesta;
-  final bool            conDelivery;
+  // 0 = sin delivery
+  final double          costoDelivery;
   final double          total;
   final Set<int>        indicesConDescuento;
 
@@ -2171,15 +2231,15 @@ class _ReceiptCard extends StatelessWidget {
                   ),
                   );
                 }),
-                if (conDelivery)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 5),
+                if (costoDelivery > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
                     child: Row(
                       children: [
-                        Icon(Icons.delivery_dining_rounded,
+                        const Icon(Icons.delivery_dining_rounded,
                             size: 10, color: AppColors.textMuted),
-                        SizedBox(width: 5),
-                        Expanded(
+                        const SizedBox(width: 5),
+                        const Expanded(
                           child: Text(
                             'Delivery',
                             style: TextStyle(
@@ -2190,8 +2250,8 @@ class _ReceiptCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '+ S/ 10.00',
-                          style: TextStyle(
+                          '+ S/ ${costoDelivery.toStringAsFixed(2)}',
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textMuted,

@@ -20,6 +20,7 @@ class NuevaCotizacionState {
     this.alias               = '',
     this.cesta               = const [],
     this.conDelivery         = false,
+    this.montoDelivery       = 10.0,
     this.indicesConDescuento = const {},
     this.registrando         = false,
     this.registrada,
@@ -33,12 +34,16 @@ class NuevaCotizacionState {
   final String                alias;
   final List<ItemCesta>       cesta;
   final bool                  conDelivery;
+  // Monto elegido entre opcionesDelivery — solo cuenta si conDelivery.
+  final double                montoDelivery;
   final Set<int>               indicesConDescuento;
   final bool                  registrando;
   final CotizacionRegistrada? registrada;
   final String?               error;
 
-  static const double costoDelivery = 10.0;
+  static const List<double> opcionesDelivery = [10.0, 12.0];
+
+  double get costoDelivery => conDelivery ? montoDelivery : 0;
 
   // Items que admiten descuento (excluye completos — precio fijo de lista).
   int get _itemsElegibles => cesta.where((i) => !i.esCompleto).length;
@@ -78,7 +83,7 @@ class NuevaCotizacionState {
   double get total => subtotalDescuento;
 
   // Backward-compat: totalConDelivery uses discounted base
-  double get totalConDelivery => subtotalDescuento + (conDelivery ? costoDelivery : 0);
+  double get totalConDelivery => subtotalDescuento + costoDelivery;
 
   bool get paso1Valido => modo == 'celular'
       ? esCelularPeruValido(celular)
@@ -92,6 +97,7 @@ class NuevaCotizacionState {
     String?               alias,
     List<ItemCesta>?      cesta,
     bool?                 conDelivery,
+    double?               montoDelivery,
     Set<int>?             indicesConDescuento,
     bool?                 registrando,
     CotizacionRegistrada? registrada,
@@ -105,6 +111,7 @@ class NuevaCotizacionState {
     alias:               alias               ?? this.alias,
     cesta:               cesta               ?? this.cesta,
     conDelivery:         conDelivery         ?? this.conDelivery,
+    montoDelivery:       montoDelivery       ?? this.montoDelivery,
     indicesConDescuento: indicesConDescuento ?? this.indicesConDescuento,
     registrando:         registrando         ?? this.registrando,
     registrada:          clearRegistrada ? null : (registrada ?? this.registrada),
@@ -147,6 +154,10 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     }
   }
   void toggleDelivery()        => state = state.copyWith(conDelivery: !state.conDelivery);
+
+  // Elegir un monto implica querer delivery — se activa si estaba apagado.
+  void setMontoDelivery(double monto) =>
+      state = state.copyWith(conDelivery: true, montoDelivery: monto);
 
   // Shortcut "seleccionar todos": si ya estan todos seleccionados, limpia; si no, selecciona todos.
   // Los completos nunca entran — precio fijo de lista, no admite descuento por ítem.

@@ -323,9 +323,15 @@ def _tamanios_por_ml(df: pd.DataFrame) -> List[dict]:
 def _tipos_envio(df: pd.DataFrame) -> List[dict]:
     if df.empty or "Tipo_Envio" not in df.columns:
         return []
+    # cantidad = ventas (ID_Compra únicos), no filas — una venta con 4
+    # decants va en 4 filas pero es un solo envío.
+    cantidad = (
+        ("ID_Compra", "nunique") if "ID_Compra" in df.columns
+        else ("Precio_Cobrado", "count")
+    )
     g = (
         df.groupby("Tipo_Envio")
-        .agg(cantidad=("Precio_Cobrado", "count"), total=("Precio_Cobrado", "sum"))
+        .agg(cantidad=cantidad, total=("Precio_Cobrado", "sum"))
         .reset_index()
     )
     return [

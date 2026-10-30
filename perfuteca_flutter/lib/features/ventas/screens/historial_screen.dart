@@ -4,60 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart'
-    show perfumesMapProvider, normalizeId;
+    show perfumesMapProvider;
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart'
     show nowPeru;
 import 'package:perfuteca/features/ventas/providers/ventas_provider.dart';
+import 'package:perfuteca/models/orden_agrupada.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
-
-// ── Modelo de orden agrupada ──────────────────────────────────────────────────
-
-class _Orden {
-  _Orden({required this.idCompra, required this.items})
-      : itemsConNormId = items
-            .map((i) => (
-                  item: i,
-                  normId: i.idPerfume != null ? normalizeId(i.idPerfume!) : null,
-                ))
-            .toList();
-
-  final String              idCompra;
-  final List<VentaResponse> items;
-  // Normaliza el id de perfume una sola vez al agrupar — evita re-parsear en
-  // cada rebuild de _OrdenCard (ej: al expandir/colapsar).
-  final List<({VentaResponse item, String? normId})> itemsConNormId;
-
-  String? get comprador  => items.first.comprador;
-  String? get metodoPago => items.first.metodoPago;
-  String? get tipoEnvio  => items.first.tipoEnvio;
-  String? get fecha      => items.first.fecha;
-  String? get estado     => items.first.estado;
-
-  double get total => items.fold(0.0, (s, i) => s + (i.precioCobrado ?? 0));
-}
-
-// Agrupa lista de ventas por id_compra preservando el orden original
-Map<String, List<VentaResponse>> _agruparPorOrden(List<VentaResponse> ventas) {
-  final map = <String, List<VentaResponse>>{};
-  for (final v in ventas) {
-    if (v.idCompra.isEmpty) continue;
-    (map[v.idCompra] ??= []).add(v);
-  }
-  return map;
-}
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
+import 'package:perfuteca/widgets/common/empty_state_widget.dart';
+import 'package:perfuteca/widgets/common/orden_item_row.dart';
 
 // Agrupa órdenes por fecha
-Map<String, List<_Orden>> _agruparPorFecha(List<VentaResponse> ventas) {
-  final porOrden = _agruparPorOrden(ventas);
-  final ordenes  = porOrden.entries
-      .map((e) => _Orden(idCompra: e.key, items: e.value))
-      .toList();
+Map<String, List<OrdenAgrupada>> _agruparPorFecha(List<VentaResponse> ventas) {
+  final ordenes = agruparOrdenes(ventas);
 
-  final porFecha = <String, List<_Orden>>{};
+  final porFecha = <String, List<OrdenAgrupada>>{};
   for (final o in ordenes) {
     final key = o.fecha ?? 'Sin fecha';
     (porFecha[key] ??= []).add(o);
@@ -106,14 +71,14 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
     return ventas.where((v) {
       if (v.fecha == null) return false;
       try {
-        final d     = DateTime.parse(v.fecha!);
+        final d = DateTime.parse(v.fecha!);
         final fecha = DateTime(d.year, d.month, d.day);
         return switch (_filtro) {
-          _FiltroFecha.hoy    => fecha == hoy,
-          _FiltroFecha.semana => !fecha.isBefore(
-              hoy.subtract(Duration(days: hoy.weekday - 1))),
-          _FiltroFecha.mes    => d.year == now.year && d.month == now.month,
-          _FiltroFecha.todo   => true,
+          _FiltroFecha.hoy => fecha == hoy,
+          _FiltroFecha.semana =>
+            !fecha.isBefore(hoy.subtract(Duration(days: hoy.weekday - 1))),
+          _FiltroFecha.mes => d.year == now.year && d.month == now.month,
+          _FiltroFecha.todo => true,
         };
       } catch (_) {
         return false;
@@ -123,14 +88,14 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state       = ref.watch(historialProvider);
+    final state = ref.watch(historialProvider);
     final perfumesMap = ref.watch(perfumesMapProvider).valueOrNull ?? {};
 
     const opciones = [
-      (_FiltroFecha.todo,   'Todo'),
-      (_FiltroFecha.hoy,    'Hoy'),
+      (_FiltroFecha.todo, 'Todo'),
+      (_FiltroFecha.hoy, 'Hoy'),
       (_FiltroFecha.semana, 'Esta semana'),
-      (_FiltroFecha.mes,    'Este mes'),
+      (_FiltroFecha.mes, 'Este mes'),
     ];
 
     return Column(
@@ -165,8 +130,8 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
                       child: AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 200),
                         style: TextStyle(
-                          color:      sel ? Colors.white : AppColors.textMuted,
-                          fontSize:   12,
+                          color: sel ? Colors.white : AppColors.textMuted,
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
                         child: Text(label),
@@ -192,8 +157,10 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
     if (state.isLoading) return const _HistorialSkeleton();
 
     if (state.error != null && state.ventas.isEmpty) {
-      return _ErrorView(
-        mensaje: state.error.toString(),
+      return AppErrorWidget(
+        error: state.error!,
+        title: 'Error al cargar historial',
+        subtitle: state.error.toString(),
         onRetry: () => ref.read(historialProvider.notifier).refresh(),
       );
     }
@@ -209,36 +176,50 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen> {
       return state.ventas.isEmpty
           ? RefreshIndicator(
               onRefresh: onRefresh,
-              child: _EmptyView(onRefresh: onRefresh),
-            )
-          : Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.search_off_rounded,
-                      size: 48, color: AppColors.textFaint),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Sin ventas en este período',
-                    style: AppTextStyles.body
-                        .copyWith(color: AppColors.textMuted),
+              // RefreshIndicator necesita un Scrollable descendiente para
+              // detectar el gesto de pull — EmptyStateWidget por sí solo
+              // (Center + Column) no lo tiene y el pull-to-refresh no dispara.
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: ConstrainedBox(
+                    constraints:
+                        BoxConstraints(minHeight: constraints.maxHeight),
+                    child: EmptyStateWidget(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'Sin ventas registradas',
+                      subtitle: 'Registra ventas desde la pestaña Nueva Venta',
+                      action: OutlinedButton.icon(
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Actualizar'),
+                        onPressed: onRefresh,
+                      ),
+                    ),
                   ),
-                ],
+                ),
+              ),
+            )
+          : EmptyStateWidget(
+              icon: Icons.search_off_rounded,
+              title: 'Sin ventas en este período',
+              subtitle: 'Prueba con otro filtro de fecha',
+              action: TextButton(
+                onPressed: () => setState(() => _filtro = _FiltroFecha.todo),
+                child: const Text('Ver todo'),
               ),
             );
     }
 
     final porFecha = _agruparPorFecha(filtradas);
-    final fechas   = porFecha.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
+    final fechas = porFecha.keys.toList()..sort((a, b) => b.compareTo(a));
     return _ListaHistorial(
       scrollController: _scroll,
-      porFecha:         porFecha,
-      fechas:           fechas,
-      perfumesMap:      perfumesMap,
-      onRefresh:        onRefresh,
-      isLoadingMore:    state.isLoadingMore,
-      hasMore:          state.hasMore,
+      porFecha: porFecha,
+      fechas: fechas,
+      perfumesMap: perfumesMap,
+      onRefresh: onRefresh,
+      isLoadingMore: state.isLoadingMore,
+      hasMore: state.hasMore,
     );
   }
 }
@@ -255,13 +236,13 @@ class _ListaHistorial extends StatelessWidget {
     required this.isLoadingMore,
     required this.hasMore,
   });
-  final ScrollController           scrollController;
-  final Map<String, List<_Orden>>  porFecha;
-  final List<String>               fechas;
-  final Map<String, Perfume>       perfumesMap;
-  final Future<void> Function()    onRefresh;
-  final bool                       isLoadingMore;
-  final bool                       hasMore;
+  final ScrollController scrollController;
+  final Map<String, List<OrdenAgrupada>> porFecha;
+  final List<String> fechas;
+  final Map<String, Perfume> perfumesMap;
+  final Future<void> Function() onRefresh;
+  final bool isLoadingMore;
+  final bool hasMore;
 
   String _formatFecha(String raw) {
     try {
@@ -288,26 +269,28 @@ class _ListaHistorial extends StatelessWidget {
               child: Center(
                 child: isLoadingMore
                     ? const SizedBox(
-                        width: 22, height: 22,
+                        width: 22,
+                        height: 22,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const SizedBox.shrink(),
               ),
             );
           }
-          final fecha    = fechas[i];
-          final ordenes  = porFecha[fecha]!;
+          final fecha = fechas[i];
+          final ordenes = porFecha[fecha]!;
           final totalDia = ordenes.fold(0.0, (s, o) => s + o.total);
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _FechaHeader(
-                label:    _formatFecha(fecha),
+                label: _formatFecha(fecha),
                 cantidad: ordenes.length,
-                total:    totalDia,
+                total: totalDia,
               ),
-              ...ordenes.map((o) => _OrdenCard(orden: o, perfumesMap: perfumesMap)),
+              ...ordenes.map((o) =>
+                  _OrdenHistorialCard(orden: o, perfumesMap: perfumesMap)),
               const SizedBox(height: AppSpacing.sm),
             ],
           );
@@ -326,7 +309,7 @@ class _FechaHeader extends StatelessWidget {
     required this.total,
   });
   final String label;
-  final int    cantidad;
+  final int cantidad;
   final double total;
 
   @override
@@ -336,7 +319,8 @@ class _FechaHeader extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 3, height: 18,
+            width: 3,
+            height: 18,
             decoration: BoxDecoration(
               color: AppColors.primary,
               borderRadius: BorderRadius.circular(2),
@@ -375,35 +359,35 @@ class _FechaHeader extends StatelessWidget {
 
 // ── Tarjeta expandible de orden ───────────────────────────────────────────────
 
-class _OrdenCard extends StatefulWidget {
-  const _OrdenCard({required this.orden, required this.perfumesMap});
-  final _Orden               orden;
+class _OrdenHistorialCard extends StatefulWidget {
+  const _OrdenHistorialCard({required this.orden, required this.perfumesMap});
+  final OrdenAgrupada orden;
   final Map<String, Perfume> perfumesMap;
 
   @override
-  State<_OrdenCard> createState() => _OrdenCardState();
+  State<_OrdenHistorialCard> createState() => _OrdenHistorialCardState();
 }
 
-class _OrdenCardState extends State<_OrdenCard> {
+class _OrdenHistorialCardState extends State<_OrdenHistorialCard> {
   bool _expandido = false;
 
   Color _estadoColor(String? estado) => switch (estado?.toLowerCase()) {
-    'entregado' => AppColors.success,
-    'anulado'   => AppColors.error,
-    _           => AppColors.warning,
-  };
+        'entregado' => AppColors.success,
+        'anulado' => AppColors.error,
+        _ => AppColors.warning,
+      };
 
   IconData _estadoIcon(String? estado) => switch (estado?.toLowerCase()) {
-    'entregado' => Icons.check_circle_rounded,
-    'anulado'   => Icons.cancel_rounded,
-    _           => Icons.schedule_rounded,
-  };
+        'entregado' => Icons.check_circle_rounded,
+        'anulado' => Icons.cancel_rounded,
+        _ => Icons.schedule_rounded,
+      };
 
   @override
   Widget build(BuildContext context) {
-    final orden  = widget.orden;
-    final color  = _estadoColor(orden.estado);
-    final icon   = _estadoIcon(orden.estado);
+    final orden = widget.orden;
+    final color = _estadoColor(orden.estado);
+    final icon = _estadoIcon(orden.estado);
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -433,12 +417,11 @@ class _OrdenCardState extends State<_OrdenCard> {
           children: [
             // ── Fila principal ────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               child: Row(
                 children: [
                   Icon(icon, size: 18, color: color),
                   const SizedBox(width: AppSpacing.sm),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,14 +464,16 @@ class _OrdenCardState extends State<_OrdenCard> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
-                        Row(
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 2,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               '${orden.items.length} ítem${orden.items.length != 1 ? 's' : ''}',
                               style: AppTextStyles.bodySmall,
                             ),
-                            if (orden.metodoPago != null) ...[
-                              const SizedBox(width: 6),
+                            if (orden.metodoPago != null)
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 5, vertical: 1),
@@ -504,20 +489,27 @@ class _OrdenCardState extends State<_OrdenCard> {
                                   ),
                                 ),
                               ),
-                            ],
-                            if (orden.tipoEnvio != null) ...[
-                              const SizedBox(width: 6),
-                              Text(
-                                orden.tipoEnvio!,
-                                style: AppTextStyles.priceLabel,
+                            if (orden.tipoEnvio != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryLight,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                                child: Text(
+                                  orden.tipoEnvio!,
+                                  style: AppTextStyles.priceLabel.copyWith(
+                                    color: AppColors.primaryDark,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
                               ),
-                            ],
                           ],
                         ),
                       ],
                     ),
                   ),
-
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -546,47 +538,75 @@ class _OrdenCardState extends State<_OrdenCard> {
             AnimatedSize(
               duration: const Duration(milliseconds: 250),
               curve: Curves.easeInOut,
-              child: _expandido ? Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryPale,
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(AppSpacing.radiusMd),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Divider(height: AppSpacing.md),
-                    ...orden.itemsConNormId.map((entry) {
-                      final item   = entry.item;
-                      final normId = entry.normId;
-                      final perfume = normId != null
-                          ? widget.perfumesMap[normId]
-                          : null;
-                      final nombre = perfume != null
-                          ? perfume.nombre
-                          : (item.idPerfume != null
-                              ? 'Perfume #${item.idPerfume}'
-                              : '—');
-                      final marca = perfume?.marca;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 6, height: 6,
-                              decoration: const BoxDecoration(
-                                color: AppColors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
+              child: _expandido
+                  ? Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md, 0, AppSpacing.md, AppSpacing.md),
+                      decoration: const BoxDecoration(
+                        color: AppColors.primaryPale,
+                        borderRadius: BorderRadius.vertical(
+                          bottom: Radius.circular(AppSpacing.radiusMd),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          () {
+                            final celular = orden.celular?.trim();
+                            final direccion = orden.direccion?.trim();
+                            final distrito = orden.distrito?.trim();
+                            final tieneCelular =
+                                celular != null && celular.isNotEmpty;
+                            final ubicacion = [direccion, distrito]
+                                .where((s) => s != null && s.isNotEmpty)
+                                .join(', ');
+                            if (!tieneCelular && ubicacion.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.only(top: AppSpacing.sm),
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'ENTREGA',
+                                    style: AppTextStyles.priceLabel.copyWith(
+                                      color: AppColors.textFaint,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xs),
+                                  if (tieneCelular)
+                                    _InfoRow(
+                                      icon: Icons.phone_rounded,
+                                      texto: celular,
+                                    ),
+                                  if (ubicacion.isNotEmpty)
+                                    _InfoRow(
+                                      icon: Icons.location_on_rounded,
+                                      texto: ubicacion,
+                                    ),
+                                ],
+                              ),
+                            );
+                          }(),
+                          const Divider(height: AppSpacing.md),
+                          ...orden.itemsConNormId.map((entry) {
+                            final item = entry.item;
+                            final perfume =
+                                perfumeDeItem(entry, widget.perfumesMap);
+                            final nombre =
+                                perfume?.nombre ?? nombreFallbackItem(item);
+                            final marca = perfume?.marca;
+
+                            return OrdenItemRow(
+                              precio: item.precioCobrado ?? 0,
+                              priceStyle: AppTextStyles.bodySmall.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primaryDark,
+                              ),
+                              content: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
@@ -606,26 +626,17 @@ class _OrdenCardState extends State<_OrdenCard> {
                                   else
                                     Text(
                                       '${item.mlVendido ?? '?'} ml',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                          color: AppColors.textMuted),
+                                      style: AppTextStyles.bodySmall
+                                          .copyWith(color: AppColors.textMuted),
                                     ),
                                 ],
                               ),
-                            ),
-                            Text(
-                              'S/ ${(item.precioCobrado ?? 0).toStringAsFixed(2)}',
-                              style: AppTextStyles.bodySmall.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primaryDark,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ) : const SizedBox.shrink(),
+                            );
+                          }),
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink(),
             ),
           ],
         ),
@@ -634,69 +645,44 @@ class _OrdenCardState extends State<_OrdenCard> {
   }
 }
 
-// ── Estados vacío / error ─────────────────────────────────────────────────────
+// ── Fila de info (celular/dirección) ──────────────────────────────────────────
 
-class _EmptyView extends StatelessWidget {
-  const _EmptyView({required this.onRefresh});
-  final Future<void> Function() onRefresh;
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({required this.icon, required this.texto});
+  final IconData icon;
+  final String texto;
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.receipt_long_outlined,
-                size: 64, color: AppColors.textFaint),
-            const SizedBox(height: AppSpacing.lg),
-            Text('Sin ventas registradas',
-                style: AppTextStyles.body.copyWith(color: AppColors.textMuted)),
-            const SizedBox(height: AppSpacing.xs + 2),
-            Text('Registra ventas desde la pestaña Nueva Venta',
-                style: AppTextStyles.bodySmall
-                    .copyWith(color: AppColors.textFaint)),
-            const SizedBox(height: AppSpacing.xl),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Actualizar'),
-              onPressed: onRefresh,
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
             ),
-          ],
-        ),
-      );
-}
-
-class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.mensaje, required this.onRetry});
-  final String       mensaje;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.wifi_off_rounded,
-                  size: 48, color: AppColors.textFaint),
-              const SizedBox(height: 12),
-              Text('Error al cargar historial',
-                  style: AppTextStyles.body
-                      .copyWith(color: AppColors.textPrimary)),
-              const SizedBox(height: 4),
-              Text(mensaje,
-                  style: AppTextStyles.bodySmall,
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar'),
-              ),
-            ],
+            child: Icon(icon, size: 12, color: AppColors.primaryDark),
           ),
-        ),
-      );
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Text(
+              texto,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Skeleton de carga ─────────────────────────────────────────────────────────
@@ -757,9 +743,9 @@ class _HistorialSkeleton extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _box(w: 80, h: 11),
-                          const SizedBox(height: 5),
+                          const SizedBox(height: AppSpacing.xs),
                           _box(w: 130, h: 13),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: AppSpacing.xs),
                           _box(w: 90, h: 10),
                         ],
                       ),

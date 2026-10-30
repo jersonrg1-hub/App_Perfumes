@@ -71,11 +71,14 @@ class TopPerfume {
     required this.marca,
     required this.totalMl,
     required this.totalSoles,
+    this.cantidad = 0,
   });
   final String nombre;
   final String marca;
   final int    totalMl;
   final double totalSoles;
+  // Filas de venta (= frascos, en la lista de completos).
+  final int    cantidad;
 }
 
 class ResumenStats {
@@ -91,7 +94,8 @@ class ResumenStats {
     required this.ventasMesPasado,
     required this.totalMesPasado,
     required this.pendientesCount,
-    required this.masVendidos,
+    required this.masVendidosDecants,
+    required this.masVendidosCompletos,
   });
   final int    ventasHoy;
   final double totalHoy;
@@ -104,7 +108,8 @@ class ResumenStats {
   final int    ventasMesPasado;
   final double totalMesPasado;
   final int    pendientesCount;
-  final List<TopPerfume> masVendidos;
+  final List<TopPerfume> masVendidosDecants;
+  final List<TopPerfume> masVendidosCompletos;
 
   double get variacionMes => totalMesPasado > 0
       ? (totalMes - totalMesPasado) / totalMesPasado * 100
@@ -121,19 +126,13 @@ final resumenStatsProvider = FutureProvider<ResumenStats>((ref) async {
   final mesPasado = data['mes_pasado'] as Map<String, dynamic>? ?? {};
   final pendientesData = data['pendientes'] as int? ?? 0;
 
-  final topRaw = data['top_perfumes'] as List<dynamic>? ?? [];
-  final masVendidos = topRaw.take(5).map((e) {
-    final map   = e as Map<String, dynamic>;
-    final id    = map['id_perfume']?.toString() ?? '';
-    final normId = double.tryParse(id)?.toInt().toString() ?? id;
-    final p     = perfumesMap[normId];
-    return TopPerfume(
-      nombre:     p?.nombre ?? 'Perfume #$id',
-      marca:      p?.marca  ?? '',
-      totalMl:    (map['total_ml'] as num?)?.toInt() ?? 0,
-      totalSoles: (map['total_soles'] as num?)?.toDouble() ?? 0,
-    );
-  }).toList();
+  final (decantsRaw, completosRaw) = _topPorTipoRaw(data);
+  final masVendidosDecants = decantsRaw.take(5)
+      .map((e) => _topPerfumeFromJson(e as Map<String, dynamic>, perfumesMap))
+      .toList();
+  final masVendidosCompletos = completosRaw.take(5)
+      .map((e) => _topPerfumeFromJson(e as Map<String, dynamic>, perfumesMap))
+      .toList();
 
   final ventasHoy = (hoy['ventas'] as num?)?.toInt() ?? 0;
   final totalHoy  = (hoy['total']  as num?)?.toDouble() ?? 0;
@@ -152,7 +151,8 @@ final resumenStatsProvider = FutureProvider<ResumenStats>((ref) async {
     ventasMesPasado:   (mesPasado['ventas'] as num?)?.toInt() ?? 0,
     totalMesPasado:    (mesPasado['total']  as num?)?.toDouble() ?? 0,
     pendientesCount:   pendientesData,
-    masVendidos:       masVendidos,
+    masVendidosDecants:   masVendidosDecants,
+    masVendidosCompletos: masVendidosCompletos,
   );
 });
 
@@ -163,58 +163,83 @@ class TamanioStat {
     required this.ml,
     required this.cantidad,
     required this.total,
-    required this.topPerfumes,
   });
-  final int                  ml;
-  final int                  cantidad;
-  final double               total;
-  final List<PerfumeDiaStat> topPerfumes;
+  final int    ml;
+  final int    cantidad;
+  final double total;
+}
+
+/// Mapea una lista cruda `{ml, cantidad, total}` del backend a [TamanioStat],
+/// ordenada por cantidad descendente.
+List<TamanioStat> tamaniosFromJson(List<dynamic> raw) {
+  return raw
+      .map((e) {
+        final m = e as Map<String, dynamic>;
+        return TamanioStat(
+          ml:       (m['ml']       as num?)?.toInt()    ?? 0,
+          cantidad: (m['cantidad'] as num?)?.toInt()    ?? 0,
+          total:    (m['total']    as num?)?.toDouble() ?? 0,
+        );
+      })
+      .toList()
+    ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
 }
 
 // Pre-agregado por el backend sobre TODO el mes (sin tope de 500 filas).
 final tamaniosStatsProvider = FutureProvider<List<TamanioStat>>((ref) async {
   ref.keepAlive();
-  final data      = await ref.watch(resumenBackendProvider.future);
-  final tamaniosRaw = data['tamanios'] as List<dynamic>? ?? [];
+  final data = await ref.watch(resumenBackendProvider.future);
+  return tamaniosFromJson(data['tamanios'] as List<dynamic>? ?? []);
+});
 
-  return tamaniosRaw
+// ── Desglose genérico (tamaño / tipo de envío) — usado en HistoricoTab ────────
+
+class DesgloseItem {
+  const DesgloseItem({
+    required this.label,
+    required this.cantidad,
+    required this.total,
+  });
+  final String label;
+  final int    cantidad;
+  final double total;
+}
+
+List<DesgloseItem> tamaniosDesglose(List<dynamic> raw) {
+  return tamaniosFromJson(raw)
+      .map((t) => DesgloseItem(
+            label:    '${t.ml} ml',
+            cantidad: t.cantidad,
+            total:    t.total,
+          ))
+      .toList();
+}
+
+List<DesgloseItem> tiposEnvioDesglose(List<dynamic> raw) {
+  return raw
       .map((e) {
         final m = e as Map<String, dynamic>;
-        return TamanioStat(
-          ml:          (m['ml']       as num?)?.toInt()    ?? 0,
-          cantidad:    (m['cantidad'] as num?)?.toInt()    ?? 0,
-          total:       (m['total']    as num?)?.toDouble() ?? 0,
-          topPerfumes: const [],
+        return DesgloseItem(
+          label:    m['tipo'] as String? ?? '',
+          cantidad: (m['cantidad'] as num?)?.toInt()    ?? 0,
+          total:    (m['total']    as num?)?.toDouble() ?? 0,
         );
       })
       .toList()
     ..sort((a, b) => b.cantidad.compareTo(a.cantidad));
-});
+}
 
 // ── Semanal ───────────────────────────────────────────────────────────────────
-
-class PerfumeDiaStat {
-  const PerfumeDiaStat({
-    required this.nombre,
-    required this.totalMl,
-    required this.totalSoles,
-  });
-  final String nombre;
-  final int    totalMl;
-  final double totalSoles;
-}
 
 class DiaStat {
   const DiaStat({
     required this.fecha,
     required this.numOrdenes,
     required this.total,
-    required this.topPerfumes,
   });
-  final DateTime              fecha;
-  final int                   numOrdenes;
-  final double                total;
-  final List<PerfumeDiaStat>  topPerfumes;
+  final DateTime fecha;
+  final int      numOrdenes;
+  final double   total;
 }
 
 class SemanaStat {
@@ -223,10 +248,6 @@ class SemanaStat {
     required this.totalMl,
     required this.numOrdenes,
     required this.porDia,
-    required this.topNombre,
-    required this.topCantidad,
-    required this.topMl,
-    required this.topTotal,
     required this.inicio,
     required this.fin,
     required this.totalSemanaAnterior,
@@ -235,10 +256,6 @@ class SemanaStat {
   final int           totalMl;
   final int           numOrdenes;
   final List<DiaStat> porDia;
-  final String        topNombre;
-  final int           topCantidad;
-  final int           topMl;
-  final double        topTotal;
   final DateTime      inicio;
   final DateTime      fin;
   final double        totalSemanaAnterior;
@@ -254,19 +271,20 @@ final semanaStatsProvider = FutureProvider<SemanaStat>((ref) async {
   final semanalRaw = data['semanal'] as List<dynamic>? ?? [];
   final semAntTotal  = (data['semana_anterior_total'] as num?)?.toDouble() ?? 0;
 
-  // Derivar inicio/fin a partir de la primera fecha del backend o de hoy
-  final now    = DateTime.now();
-  final hoy    = DateTime(now.year, now.month, now.day);
-  final inicio = hoy.subtract(Duration(days: hoy.weekday - 1));
+  // Derivar inicio/fin a partir de hoy en Perú — mismo huso que usa el
+  // backend para agrupar 'semanal', así el label no desfasa con viajeros
+  // o celulares mal configurados (ver nota de nowPeru() arriba).
+  final hoy    = nowPeru();
+  final inicio = DateTime(hoy.year, hoy.month, hoy.day)
+      .subtract(Duration(days: hoy.weekday - 1));
   final fin    = inicio.add(const Duration(days: 6));
 
   final porDia = semanalRaw.map((e) {
     final map = e as Map<String, dynamic>;
     return DiaStat(
-      fecha:       DateTime.parse(map['fecha'] as String),
-      numOrdenes:  (map['ordenes'] as num?)?.toInt() ?? 0,
-      total:       (map['total']   as num?)?.toDouble() ?? 0,
-      topPerfumes: const [],  // backend no devuelve top por día
+      fecha:      DateTime.parse(map['fecha'] as String),
+      numOrdenes: (map['ordenes'] as num?)?.toInt() ?? 0,
+      total:      (map['total']   as num?)?.toDouble() ?? 0,
     );
   }).toList();
 
@@ -280,10 +298,6 @@ final semanaStatsProvider = FutureProvider<SemanaStat>((ref) async {
     totalMl:             totalMlSem,
     numOrdenes:          numOrdenes,
     porDia:              porDia,
-    topNombre:           '',   // sin datos per-perfume del backend esta semana
-    topCantidad:         0,
-    topMl:               0,
-    topTotal:            0,
     inicio:              inicio,
     fin:                 fin,
     totalSemanaAnterior: semAntTotal,
@@ -374,6 +388,36 @@ final ventasClienteProvider =
       ref.watch(ventasRepositoryProvider).getVentasCliente(celular),
 );
 
+// ── Histórico por perfume individual (usado en DetallePerfumeScreen) ─────────
+// Reusa /historico (ya cargado en el resto de estadísticas) — evita un
+// endpoint dedicado. `top_perfumes` ahí trae TODOS los perfumes vendidos
+// alguna vez (sin cap de n), así que sirve como índice completo por id.
+
+class PerfumeHistoricoStat {
+  const PerfumeHistoricoStat({required this.totalMl, required this.totalSoles});
+  final int    totalMl;
+  final double totalSoles;
+}
+
+final historicoPorPerfumeProvider =
+    FutureProvider<Map<String, PerfumeHistoricoStat>>((ref) async {
+  ref.keepAlive();
+  final data = await ref.watch(historicoBackendProvider.future);
+  final raw  = data['top_perfumes'] as List<dynamic>? ?? [];
+
+  final map = <String, PerfumeHistoricoStat>{};
+  for (final e in raw) {
+    final m     = e as Map<String, dynamic>;
+    final id    = m['id_perfume']?.toString() ?? '';
+    final normId = double.tryParse(id)?.toInt().toString() ?? id;
+    map[normId] = PerfumeHistoricoStat(
+      totalMl:    (m['total_ml']    as num?)?.toInt()    ?? 0,
+      totalSoles: (m['total_soles'] as num?)?.toDouble() ?? 0,
+    );
+  }
+  return map;
+});
+
 // ── Historial global (todo el tiempo) ─────────────────────────────────────────
 
 class MesStatHistorico {
@@ -383,14 +427,16 @@ class MesStatHistorico {
     required this.numOrdenes,
     required this.total,
     required this.totalMl,
-    this.topPerfumes = const [],
+    this.topDecants   = const [],
+    this.topCompletos = const [],
   });
   final String         clave;
   final String         label;
   final int            numOrdenes;
   final double         total;
   final int            totalMl;
-  final List<TopPerfume> topPerfumes;
+  final List<TopPerfume> topDecants;
+  final List<TopPerfume> topCompletos;
 }
 
 class HistorialGlobalStats {
@@ -431,7 +477,19 @@ TopPerfume _topPerfumeFromJson(Map<String, dynamic> e, Map<String, dynamic> perf
     marca:      p?.marca  ?? '',
     totalMl:    (e['total_ml']    as num?)?.toInt()    ?? 0,
     totalSoles: (e['total_soles'] as num?)?.toDouble() ?? 0,
+    cantidad:   (e['cantidad']    as num?)?.toInt()    ?? 0,
   );
+}
+
+/// (top_decants, top_completos) de un bloque del backend (resumen o un mes).
+/// Backend previo a la separación solo trae 'top_perfumes' — se trata como
+/// decants para no dejar la sección vacía mientras no se redeploye.
+(List<dynamic>, List<dynamic>) _topPorTipoRaw(Map<String, dynamic> m) {
+  final decants = m['top_decants'] as List<dynamic>?;
+  if (decants == null) {
+    return (m['top_perfumes'] as List<dynamic>? ?? [], const []);
+  }
+  return (decants, m['top_completos'] as List<dynamic>? ?? []);
 }
 
 final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async {
@@ -455,14 +513,17 @@ final historialGlobalProvider = FutureProvider<HistorialGlobalStats>((ref) async
   final porMesRaw = data['por_mes'] as List<dynamic>? ?? [];
   final porMes = porMesRaw.map((e) {
     final m = e as Map<String, dynamic>;
-    final topRaw = m['top_perfumes'] as List<dynamic>? ?? [];
+    final (decantsRaw, completosRaw) = _topPorTipoRaw(m);
     return MesStatHistorico(
       clave:       m['clave'] as String,
       label:       m['label'] as String,
       numOrdenes:  (m['num_ordenes'] as num?)?.toInt() ?? 0,
       total:       (m['total']      as num?)?.toDouble() ?? 0,
       totalMl:     (m['total_ml']   as num?)?.toInt() ?? 0,
-      topPerfumes: topRaw
+      topDecants: decantsRaw
+          .map((pe) => _topPerfumeFromJson(pe as Map<String, dynamic>, perfumesMap))
+          .toList(),
+      topCompletos: completosRaw
           .map((pe) => _topPerfumeFromJson(pe as Map<String, dynamic>, perfumesMap))
           .toList(),
     );

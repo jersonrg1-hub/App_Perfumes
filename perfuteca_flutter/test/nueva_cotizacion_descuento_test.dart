@@ -72,4 +72,50 @@ void main() {
     expect(state.itemConDescuento(0), isTrue);
     expect(state.itemConDescuento(1), isFalse);
   });
+
+  test('deshacerUltimoQuitado restaura el item en su posicion original con su descuento', () {
+    final notifier = container.read(nuevaCotizacionProvider.notifier);
+    notifier.agregarItem(_perfume('1', 'A', 25.0), 5); // index 0
+    notifier.agregarItem(_perfume('2', 'B', 30.0), 5); // index 1
+    notifier.agregarItem(_perfume('3', 'C', 45.0), 5); // index 2
+
+    notifier.toggleItemDescuento(1); // descuento en B (index 1)
+    notifier.quitarItem(1); // se borra B (con descuento)
+
+    var state = container.read(nuevaCotizacionProvider);
+    expect(state.cesta.map((i) => i.perfume.idPerfume), ['1', '3']);
+    expect(state.algunDescuento, isFalse); // B se fue con su descuento
+
+    final deshecho = notifier.deshacerUltimoQuitado();
+
+    state = container.read(nuevaCotizacionProvider);
+    expect(deshecho, isTrue);
+    // vuelve a su posicion original (index 1), no al final de la cesta
+    expect(state.cesta.map((i) => i.perfume.idPerfume), ['1', '2', '3']);
+    expect(state.itemConDescuento(1), isTrue);
+    expect(state.itemConDescuento(0), isFalse);
+    expect(state.itemConDescuento(2), isFalse);
+  });
+
+  test('deshacerUltimoQuitado no hace nada si no hay nada que deshacer', () {
+    final notifier = container.read(nuevaCotizacionProvider.notifier);
+    notifier.agregarItem(_perfume('1', 'A', 25.0), 5);
+
+    expect(notifier.deshacerUltimoQuitado(), isFalse);
+    expect(container.read(nuevaCotizacionProvider).cesta.length, 1);
+  });
+
+  test('deshacerUltimoQuitado se descarta tras un segundo quitarItem (un solo nivel de undo)', () {
+    final notifier = container.read(nuevaCotizacionProvider.notifier);
+    notifier.agregarItem(_perfume('1', 'A', 25.0), 5);
+    notifier.agregarItem(_perfume('2', 'B', 30.0), 5);
+
+    notifier.quitarItem(0); // A
+    notifier.quitarItem(0); // B — pisa el snapshot de A
+
+    final deshecho = notifier.deshacerUltimoQuitado();
+    final state = container.read(nuevaCotizacionProvider);
+    expect(deshecho, isTrue);
+    expect(state.cesta.map((i) => i.perfume.idPerfume), ['2']); // vuelve B, no A
+  });
 }

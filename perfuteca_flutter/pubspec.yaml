@@ -30,6 +30,7 @@ dependencies:
   # ── Images ───────────────────────────────────────────────────────────────────
   cached_network_image: ^3.4.1
   flutter_cache_manager: ^3.4.1
+  flutter_svg: ^2.0.10+1
 
   # ── Local Storage ────────────────────────────────────────────────────────────
   shared_preferences: ^2.3.3
@@ -47,6 +48,7 @@ dependencies:
   url_launcher: ^6.3.1
   intl: ^0.19.0
   android_intent_plus: ^5.2.0
+  flutter_displaymode: ^0.7.0
 
 dev_dependencies:
   flutter_test:
@@ -56,6 +58,7 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.8.0
   riverpod_generator: ^2.4.3
+  flutter_launcher_icons: ^0.14.2
 
 flutter:
   uses-material-design: true
@@ -63,3 +66,10 @@ flutter:
     - assets/images/
     - assets/icons/
     - assets/fonts/
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icons/icon.png"
+  adaptive_icon_background: "#FAF5F0"
+  adaptive_icon_foreground: "assets/icons/icon_foreground.png"

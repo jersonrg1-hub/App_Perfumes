@@ -6,6 +6,20 @@ part of 'perfume.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+_$CompletoPerfumeImpl _$$CompletoPerfumeImplFromJson(
+        Map<String, dynamic> json) =>
+    _$CompletoPerfumeImpl(
+      ml: (json['ml'] as num).toInt(),
+      precio: (json['precio'] as num).toDouble(),
+    );
+
+Map<String, dynamic> _$$CompletoPerfumeImplToJson(
+        _$CompletoPerfumeImpl instance) =>
+    <String, dynamic>{
+      'ml': instance.ml,
+      'precio': instance.precio,
+    };
+
 _$PerfumeImpl _$$PerfumeImplFromJson(Map<String, dynamic> json) =>
     _$PerfumeImpl(
       idPerfume: json['id_perfume'] as String,
@@ -22,6 +36,10 @@ _$PerfumeImpl _$$PerfumeImplFromJson(Map<String, dynamic> json) =>
       estacion: json['estacion'] as String?,
       hora: json['hora'] as String?,
       palabraClave: json['palabra_clave'] as String?,
+      completos: (json['completos'] as List<dynamic>?)
+              ?.map((e) => CompletoPerfume.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <CompletoPerfume>[],
     );
 
 Map<String, dynamic> _$$PerfumeImplToJson(_$PerfumeImpl instance) =>
@@ -40,4 +58,5 @@ Map<String, dynamic> _$$PerfumeImplToJson(_$PerfumeImpl instance) =>
       'estacion': instance.estacion,
       'hora': instance.hora,
       'palabra_clave': instance.palabraClave,
+      'completos': instance.completos,
     };

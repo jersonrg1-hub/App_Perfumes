@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:perfuteca/app.dart';
 import 'package:perfuteca/config/env.dart';
@@ -13,6 +15,14 @@ void main() async {
 
   // Despierta Render en segundo plano mientras carga la UI
   unawaited(_warmUpApi());
+
+  // Android no negocia el refresh rate alto por defecto en varios OEM
+  // (Samsung/One UI entre ellos) — sin esto la app queda fija en 60Hz aunque
+  // el hardware soporte 90/120Hz. No falla en iOS/otros OS, solo no aplica.
+  unawaited(FlutterDisplayMode.setHighRefreshRate());
+
+  // Necesario para DateFormat con patrones en español (ej. "Martes 18 de Agosto")
+  await initializeDateFormatting('es');
 
   final cacheDir = await getApplicationDocumentsDirectory();
 

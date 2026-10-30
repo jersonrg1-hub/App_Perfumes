@@ -89,7 +89,7 @@ class ItemCestaCard extends StatelessWidget {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '${item.ml} ml',
+                        item.esCompleto ? '${item.ml} ml · Completo' : '${item.ml} ml',
                         style: AppTextStyles.priceLabel,
                       ),
                     ),

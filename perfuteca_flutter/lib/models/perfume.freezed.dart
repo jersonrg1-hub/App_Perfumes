@@ -14,6 +14,174 @@ T _$identity<T>(T value) => value;
 final _privateConstructorUsedError = UnsupportedError(
     'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
+CompletoPerfume _$CompletoPerfumeFromJson(Map<String, dynamic> json) {
+  return _CompletoPerfume.fromJson(json);
+}
+
+/// @nodoc
+mixin _$CompletoPerfume {
+  int get ml => throw _privateConstructorUsedError;
+  double get precio => throw _privateConstructorUsedError;
+
+  /// Serializes this CompletoPerfume to a JSON map.
+  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+
+  /// Create a copy of CompletoPerfume
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  $CompletoPerfumeCopyWith<CompletoPerfume> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $CompletoPerfumeCopyWith<$Res> {
+  factory $CompletoPerfumeCopyWith(
+          CompletoPerfume value, $Res Function(CompletoPerfume) then) =
+      _$CompletoPerfumeCopyWithImpl<$Res, CompletoPerfume>;
+  @useResult
+  $Res call({int ml, double precio});
+}
+
+/// @nodoc
+class _$CompletoPerfumeCopyWithImpl<$Res, $Val extends CompletoPerfume>
+    implements $CompletoPerfumeCopyWith<$Res> {
+  _$CompletoPerfumeCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  /// Create a copy of CompletoPerfume
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? ml = null,
+    Object? precio = null,
+  }) {
+    return _then(_value.copyWith(
+      ml: null == ml
+          ? _value.ml
+          : ml // ignore: cast_nullable_to_non_nullable
+              as int,
+      precio: null == precio
+          ? _value.precio
+          : precio // ignore: cast_nullable_to_non_nullable
+              as double,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$CompletoPerfumeImplCopyWith<$Res>
+    implements $CompletoPerfumeCopyWith<$Res> {
+  factory _$$CompletoPerfumeImplCopyWith(_$CompletoPerfumeImpl value,
+          $Res Function(_$CompletoPerfumeImpl) then) =
+      __$$CompletoPerfumeImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({int ml, double precio});
+}
+
+/// @nodoc
+class __$$CompletoPerfumeImplCopyWithImpl<$Res>
+    extends _$CompletoPerfumeCopyWithImpl<$Res, _$CompletoPerfumeImpl>
+    implements _$$CompletoPerfumeImplCopyWith<$Res> {
+  __$$CompletoPerfumeImplCopyWithImpl(
+      _$CompletoPerfumeImpl _value, $Res Function(_$CompletoPerfumeImpl) _then)
+      : super(_value, _then);
+
+  /// Create a copy of CompletoPerfume
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? ml = null,
+    Object? precio = null,
+  }) {
+    return _then(_$CompletoPerfumeImpl(
+      ml: null == ml
+          ? _value.ml
+          : ml // ignore: cast_nullable_to_non_nullable
+              as int,
+      precio: null == precio
+          ? _value.precio
+          : precio // ignore: cast_nullable_to_non_nullable
+              as double,
+    ));
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _$CompletoPerfumeImpl implements _CompletoPerfume {
+  const _$CompletoPerfumeImpl({required this.ml, required this.precio});
+
+  factory _$CompletoPerfumeImpl.fromJson(Map<String, dynamic> json) =>
+      _$$CompletoPerfumeImplFromJson(json);
+
+  @override
+  final int ml;
+  @override
+  final double precio;
+
+  @override
+  String toString() {
+    return 'CompletoPerfume(ml: $ml, precio: $precio)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$CompletoPerfumeImpl &&
+            (identical(other.ml, ml) || other.ml == ml) &&
+            (identical(other.precio, precio) || other.precio == precio));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(runtimeType, ml, precio);
+
+  /// Create a copy of CompletoPerfume
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$CompletoPerfumeImplCopyWith<_$CompletoPerfumeImpl> get copyWith =>
+      __$$CompletoPerfumeImplCopyWithImpl<_$CompletoPerfumeImpl>(
+          this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$$CompletoPerfumeImplToJson(
+      this,
+    );
+  }
+}
+
+abstract class _CompletoPerfume implements CompletoPerfume {
+  const factory _CompletoPerfume(
+      {required final int ml,
+      required final double precio}) = _$CompletoPerfumeImpl;
+
+  factory _CompletoPerfume.fromJson(Map<String, dynamic> json) =
+      _$CompletoPerfumeImpl.fromJson;
+
+  @override
+  int get ml;
+  @override
+  double get precio;
+
+  /// Create a copy of CompletoPerfume
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  _$$CompletoPerfumeImplCopyWith<_$CompletoPerfumeImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
 Perfume _$PerfumeFromJson(Map<String, dynamic> json) {
   return _Perfume.fromJson(json);
 }
@@ -42,6 +210,7 @@ mixin _$Perfume {
   String? get hora => throw _privateConstructorUsedError;
   @JsonKey(name: 'palabra_clave')
   String? get palabraClave => throw _privateConstructorUsedError;
+  List<CompletoPerfume> get completos => throw _privateConstructorUsedError;
 
   /// Serializes this Perfume to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -71,7 +240,8 @@ abstract class $PerfumeCopyWith<$Res> {
       String? ocasion,
       String? estacion,
       String? hora,
-      @JsonKey(name: 'palabra_clave') String? palabraClave});
+      @JsonKey(name: 'palabra_clave') String? palabraClave,
+      List<CompletoPerfume> completos});
 }
 
 /// @nodoc
@@ -103,6 +273,7 @@ class _$PerfumeCopyWithImpl<$Res, $Val extends Perfume>
     Object? estacion = freezed,
     Object? hora = freezed,
     Object? palabraClave = freezed,
+    Object? completos = null,
   }) {
     return _then(_value.copyWith(
       idPerfume: null == idPerfume
@@ -161,6 +332,10 @@ class _$PerfumeCopyWithImpl<$Res, $Val extends Perfume>
           ? _value.palabraClave
           : palabraClave // ignore: cast_nullable_to_non_nullable
               as String?,
+      completos: null == completos
+          ? _value.completos
+          : completos // ignore: cast_nullable_to_non_nullable
+              as List<CompletoPerfume>,
     ) as $Val);
   }
 }
@@ -186,7 +361,8 @@ abstract class _$$PerfumeImplCopyWith<$Res> implements $PerfumeCopyWith<$Res> {
       String? ocasion,
       String? estacion,
       String? hora,
-      @JsonKey(name: 'palabra_clave') String? palabraClave});
+      @JsonKey(name: 'palabra_clave') String? palabraClave,
+      List<CompletoPerfume> completos});
 }
 
 /// @nodoc
@@ -216,6 +392,7 @@ class __$$PerfumeImplCopyWithImpl<$Res>
     Object? estacion = freezed,
     Object? hora = freezed,
     Object? palabraClave = freezed,
+    Object? completos = null,
   }) {
     return _then(_$PerfumeImpl(
       idPerfume: null == idPerfume
@@ -274,6 +451,10 @@ class __$$PerfumeImplCopyWithImpl<$Res>
           ? _value.palabraClave
           : palabraClave // ignore: cast_nullable_to_non_nullable
               as String?,
+      completos: null == completos
+          ? _value._completos
+          : completos // ignore: cast_nullable_to_non_nullable
+              as List<CompletoPerfume>,
     ));
   }
 }
@@ -295,7 +476,9 @@ class _$PerfumeImpl implements _Perfume {
       this.ocasion,
       this.estacion,
       this.hora,
-      @JsonKey(name: 'palabra_clave') this.palabraClave});
+      @JsonKey(name: 'palabra_clave') this.palabraClave,
+      final List<CompletoPerfume> completos = const <CompletoPerfume>[]})
+      : _completos = completos;
 
   factory _$PerfumeImpl.fromJson(Map<String, dynamic> json) =>
       _$$PerfumeImplFromJson(json);
@@ -336,10 +519,18 @@ class _$PerfumeImpl implements _Perfume {
   @override
   @JsonKey(name: 'palabra_clave')
   final String? palabraClave;
+  final List<CompletoPerfume> _completos;
+  @override
+  @JsonKey()
+  List<CompletoPerfume> get completos {
+    if (_completos is EqualUnmodifiableListView) return _completos;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_completos);
+  }
 
   @override
   String toString() {
-    return 'Perfume(idPerfume: $idPerfume, marca: $marca, nombre: $nombre, precio2ml: $precio2ml, precio5ml: $precio5ml, precio10ml: $precio10ml, stockMl: $stockMl, notas: $notas, perfilOlfativo: $perfilOlfativo, imageUrl: $imageUrl, ocasion: $ocasion, estacion: $estacion, hora: $hora, palabraClave: $palabraClave)';
+    return 'Perfume(idPerfume: $idPerfume, marca: $marca, nombre: $nombre, precio2ml: $precio2ml, precio5ml: $precio5ml, precio10ml: $precio10ml, stockMl: $stockMl, notas: $notas, perfilOlfativo: $perfilOlfativo, imageUrl: $imageUrl, ocasion: $ocasion, estacion: $estacion, hora: $hora, palabraClave: $palabraClave, completos: $completos)';
   }
 
   @override
@@ -368,7 +559,9 @@ class _$PerfumeImpl implements _Perfume {
                 other.estacion == estacion) &&
             (identical(other.hora, hora) || other.hora == hora) &&
             (identical(other.palabraClave, palabraClave) ||
-                other.palabraClave == palabraClave));
+                other.palabraClave == palabraClave) &&
+            const DeepCollectionEquality()
+                .equals(other._completos, _completos));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -388,7 +581,8 @@ class _$PerfumeImpl implements _Perfume {
       ocasion,
       estacion,
       hora,
-      palabraClave);
+      palabraClave,
+      const DeepCollectionEquality().hash(_completos));
 
   /// Create a copy of Perfume
   /// with the given fields replaced by the non-null parameter values.
@@ -408,21 +602,21 @@ class _$PerfumeImpl implements _Perfume {
 
 abstract class _Perfume implements Perfume {
   const factory _Perfume(
-          {@JsonKey(name: 'id_perfume') required final String idPerfume,
-          required final String marca,
-          required final String nombre,
-          @JsonKey(name: 'precio_2ml') final double? precio2ml,
-          @JsonKey(name: 'precio_5ml') final double? precio5ml,
-          @JsonKey(name: 'precio_10ml') final double? precio10ml,
-          @JsonKey(name: 'stock_ml') final double? stockMl,
-          final String? notas,
-          @JsonKey(name: 'perfil_olfativo') final String? perfilOlfativo,
-          @JsonKey(name: 'image_url') final String? imageUrl,
-          final String? ocasion,
-          final String? estacion,
-          final String? hora,
-          @JsonKey(name: 'palabra_clave') final String? palabraClave}) =
-      _$PerfumeImpl;
+      {@JsonKey(name: 'id_perfume') required final String idPerfume,
+      required final String marca,
+      required final String nombre,
+      @JsonKey(name: 'precio_2ml') final double? precio2ml,
+      @JsonKey(name: 'precio_5ml') final double? precio5ml,
+      @JsonKey(name: 'precio_10ml') final double? precio10ml,
+      @JsonKey(name: 'stock_ml') final double? stockMl,
+      final String? notas,
+      @JsonKey(name: 'perfil_olfativo') final String? perfilOlfativo,
+      @JsonKey(name: 'image_url') final String? imageUrl,
+      final String? ocasion,
+      final String? estacion,
+      final String? hora,
+      @JsonKey(name: 'palabra_clave') final String? palabraClave,
+      final List<CompletoPerfume> completos}) = _$PerfumeImpl;
 
   factory _Perfume.fromJson(Map<String, dynamic> json) = _$PerfumeImpl.fromJson;
 
@@ -462,6 +656,8 @@ abstract class _Perfume implements Perfume {
   @override
   @JsonKey(name: 'palabra_clave')
   String? get palabraClave;
+  @override
+  List<CompletoPerfume> get completos;
 
   /// Create a copy of Perfume
   /// with the given fields replaced by the non-null parameter values.

@@ -1,14 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:perfuteca/theme/app_colors.dart';
-import 'package:perfuteca/theme/app_spacing.dart';
-import 'package:perfuteca/theme/app_text_styles.dart';
+
+final _milesRegExp = RegExp(r'(\d)(?=(\d{3})+\.)');
+
+/// Chip inline de ícono + texto para sub-métricas (usado en hero cards de
+/// resumen e histórico).
+class StatChip extends StatelessWidget {
+  const StatChip(this.icon, this.label, {this.color = AppColors.gold, super.key});
+  final IconData icon;
+  final String   label;
+  final Color    color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 3),
+          Text(label, style: TextStyle(color: color, fontSize: 12)),
+        ],
+      );
+}
 
 /// Formatea un monto con separador de miles a partir de 1000 (sin símbolo de moneda).
 String formatMonto(double v) {
   if (v >= 1000) {
-    return v
-        .toStringAsFixed(2)
-        .replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+\.)'), (m) => '${m[1]},');
+    return v.toStringAsFixed(2).replaceAllMapped(_milesRegExp, (m) => '${m[1]},');
   }
   return v.toStringAsFixed(2);
 }
@@ -23,52 +40,6 @@ Widget skeletonBox({double? width, required double height, double radius = 8}) =
         borderRadius: BorderRadius.circular(radius),
       ),
     );
-
-/// Estado de error reutilizable para los tabs de estadísticas: ícono + título +
-/// subtítulo opcional + botón de reintentar.
-class EstadisticasErrorView extends StatelessWidget {
-  const EstadisticasErrorView({
-    super.key,
-    required this.title,
-    required this.onRetry,
-    this.subtitle,
-    this.icon = Icons.wifi_off_rounded,
-  });
-
-  final String title;
-  final String? subtitle;
-  final VoidCallback onRetry;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 48, color: AppColors.textFaint),
-              const SizedBox(height: 12),
-              Text(title, style: AppTextStyles.body, textAlign: TextAlign.center),
-              if (subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle!,
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textMuted),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Reintentar'),
-              ),
-            ],
-          ),
-        ),
-      );
-}
 
 /// Envuelve [child] en una animación de fade + slide hacia arriba, escalonada
 /// según [index] (usada en listas que aparecen en cascada).

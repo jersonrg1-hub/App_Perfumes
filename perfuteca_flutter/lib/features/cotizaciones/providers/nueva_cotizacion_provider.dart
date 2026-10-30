@@ -20,6 +20,7 @@ class NuevaCotizacionState {
     this.alias               = '',
     this.cesta               = const [],
     this.conDelivery         = false,
+    this.montoDelivery       = 10.0,
     this.indicesConDescuento = const {},
     this.registrando         = false,
     this.registrada,
@@ -33,16 +34,28 @@ class NuevaCotizacionState {
   final String                alias;
   final List<ItemCesta>       cesta;
   final bool                  conDelivery;
+  // Monto elegido entre opcionesDelivery — solo cuenta si conDelivery.
+  final double                montoDelivery;
   final Set<int>               indicesConDescuento;
   final bool                  registrando;
   final CotizacionRegistrada? registrada;
   final String?               error;
 
-  static const double costoDelivery = 10.0;
+  static const List<double> opcionesDelivery = [10.0, 12.0];
 
-  // True solo si TODOS los items de la cesta tienen descuento — estado del switch "seleccionar todos"
+  double get costoDelivery => conDelivery ? montoDelivery : 0;
+
+  // Items que admiten descuento (excluye completos — precio fijo de lista).
+  int get _itemsElegibles => cesta.where((i) => !i.esCompleto).length;
+
+  // True solo si TODOS los items elegibles de la cesta tienen descuento —
+  // estado del switch "seleccionar todos". Compara contra _itemsElegibles,
+  // no contra cesta.length: si comparara contra cesta.length, con al menos
+  // un completo en la cesta esto nunca sería true (los completos no entran
+  // a indicesConDescuento), y toggleDescuento() quedaría trabado siempre en
+  // "seleccionar" sin poder volver a "limpiar todos".
   bool get conDescuento =>
-      cesta.isNotEmpty && indicesConDescuento.length == cesta.length;
+      _itemsElegibles > 0 && indicesConDescuento.length == _itemsElegibles;
 
   // True si AL MENOS un item tiene descuento (parcial o total)
   bool get algunDescuento => indicesConDescuento.isNotEmpty;
@@ -70,7 +83,7 @@ class NuevaCotizacionState {
   double get total => subtotalDescuento;
 
   // Backward-compat: totalConDelivery uses discounted base
-  double get totalConDelivery => subtotalDescuento + (conDelivery ? costoDelivery : 0);
+  double get totalConDelivery => subtotalDescuento + costoDelivery;
 
   bool get paso1Valido => modo == 'celular'
       ? esCelularPeruValido(celular)
@@ -84,6 +97,7 @@ class NuevaCotizacionState {
     String?               alias,
     List<ItemCesta>?      cesta,
     bool?                 conDelivery,
+    double?               montoDelivery,
     Set<int>?             indicesConDescuento,
     bool?                 registrando,
     CotizacionRegistrada? registrada,
@@ -97,6 +111,7 @@ class NuevaCotizacionState {
     alias:               alias               ?? this.alias,
     cesta:               cesta               ?? this.cesta,
     conDelivery:         conDelivery         ?? this.conDelivery,
+    montoDelivery:       montoDelivery       ?? this.montoDelivery,
     indicesConDescuento: indicesConDescuento ?? this.indicesConDescuento,
     registrando:         registrando         ?? this.registrando,
     registrada:          clearRegistrada ? null : (registrada ?? this.registrada),
@@ -140,18 +155,28 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
   }
   void toggleDelivery()        => state = state.copyWith(conDelivery: !state.conDelivery);
 
-  // Shortcut "seleccionar todos": si ya estan todos seleccionados, limpia; si no, selecciona todos
+  // Elegir un monto implica querer delivery — se activa si estaba apagado.
+  void setMontoDelivery(double monto) =>
+      state = state.copyWith(conDelivery: true, montoDelivery: monto);
+
+  // Shortcut "seleccionar todos": si ya estan todos seleccionados, limpia; si no, selecciona todos.
+  // Los completos nunca entran — precio fijo de lista, no admite descuento por ítem.
   void toggleDescuento() {
     if (state.conDescuento) {
       state = state.copyWith(indicesConDescuento: {});
     } else {
       state = state.copyWith(
-        indicesConDescuento: {for (var i = 0; i < state.cesta.length; i++) i},
+        indicesConDescuento: {
+          for (var i = 0; i < state.cesta.length; i++)
+            if (!state.cesta[i].esCompleto) i,
+        },
       );
     }
   }
 
   void toggleItemDescuento(int index) {
+    if (index < 0 || index >= state.cesta.length) return;
+    if (state.cesta[index].esCompleto) return; // completos no admiten descuento
     final nuevos = Set<int>.from(state.indicesConDescuento);
     if (nuevos.contains(index)) {
       nuevos.remove(index);
@@ -161,39 +186,104 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     state = state.copyWith(indicesConDescuento: nuevos);
   }
 
+  CompletoPerfume? _completoDe(Perfume perfume, int ml) {
+    for (final c in perfume.completos) {
+      if (c.ml == ml) return c;
+    }
+    return null;
+  }
+
   void agregarItem(Perfume perfume, int ml) {
     // La UI solo permite un tamaño por perfume en la cesta (una vez
     // agregado, los botones de ml se ocultan) — pero eso depende del
     // rebuild, que llega después de la animación de _MlBtn (~320ms). Un
     // doble-tap rápido puede disparar dos llamadas antes de que el botón
     // desaparezca, duplicando el ítem silenciosamente. Se bloquea acá.
+    // Aplica igual a decants y completos: un perfume, un ítem en la cesta.
     if (state.cesta.any((i) => i.perfume.idPerfume == perfume.idPerfume)) {
       return;
     }
-    final precio = switch (ml) {
+    final precioDecant = switch (ml) {
       2  => perfume.precio2ml,
       5  => perfume.precio5ml,
       10 => perfume.precio10ml,
       _  => null,
     };
+    final esCompleto = precioDecant == null;
+    final precio = precioDecant ?? _completoDe(perfume, ml)?.precio;
     if (precio == null) return;
 
     final item = ItemCesta(
-      perfume: perfume,
-      ml:      ml,
-      precio:  precio,
-      metodo:  'Cotización',
+      perfume:    perfume,
+      ml:         ml,
+      precio:     precio,
+      metodo:     'Cotización',
+      esCompleto: esCompleto,
     );
     state = state.copyWith(cesta: [...state.cesta, item]);
   }
 
+  // Snapshot del último ítem quitado — permite un solo nivel de "Deshacer"
+  // (como el undo de archivar en Gmail: quitar uno nuevo descarta la
+  // posibilidad de deshacer el anterior). Vive acá, no en la screen, para
+  // que quitar/restaurar sea una operación atómica sobre `state` — la UI
+  // solo dispara quitarItem()/quitarItemPorId() y, más tarde, si el usuario
+  // se arrepiente, deshacerUltimoQuitado(), sin tener que reconstruir el
+  // índice/descuento originales por su cuenta (eso vivía antes en la screen
+  // y se desincronizaba si el usuario reagregaba el mismo perfume a mano
+  // antes de tocar "Deshacer", o si la cotización ya se había enviado).
+  ItemCesta? _ultimoQuitado;
+  int?       _ultimoQuitadoIndex;
+  bool       _ultimoQuitadoConDescuento = false;
+
   void quitarItem(int index) {
-    final nuevaCesta = List<ItemCesta>.from(state.cesta)..removeAt(index);
+    if (index < 0 || index >= state.cesta.length) return;
+    final nuevaCesta = List<ItemCesta>.from(state.cesta);
+    final item = nuevaCesta.removeAt(index);
+    _ultimoQuitado             = item;
+    _ultimoQuitadoIndex        = index;
+    _ultimoQuitadoConDescuento = state.indicesConDescuento.contains(index);
     final nuevosIndices = state.indicesConDescuento
         .where((i) => i != index)
         .map((i) => i > index ? i - 1 : i)
         .toSet();
     state = state.copyWith(cesta: nuevaCesta, indicesConDescuento: nuevosIndices);
+  }
+
+  // Resuelve el índice contra el estado vivo del notifier al momento de la
+  // llamada — a diferencia de quitarItem(index), no depende de un índice
+  // capturado en un build anterior que puede quedar stale si la cesta
+  // cambió entre el build y el tap (evita el RangeError de removeAt con un
+  // índice desfasado).
+  void quitarItemPorId(String idPerfume) {
+    final index = state.cesta.indexWhere((i) => i.perfume.idPerfume == idPerfume);
+    if (index == -1) return;
+    quitarItem(index);
+  }
+
+  // Restaura el último ítem quitado (swipe o botón) en su posición e índice
+  // de descuento original. false si no hay nada que deshacer, o si la
+  // cotización ya se envió — un "Deshacer" tardío (snackbar aún visible tras
+  // saltar a la pantalla de ticket) no debe mutar una cotización ya
+  // registrada en el backend.
+  bool deshacerUltimoQuitado() {
+    final item  = _ultimoQuitado;
+    final index = _ultimoQuitadoIndex;
+    if (item == null || index == null || state.registrada != null) {
+      return false;
+    }
+    _ultimoQuitado      = null;
+    _ultimoQuitadoIndex = null;
+    // clamp: la cesta pudo cambiar de tamaño entre quitar y deshacer (ej. el
+    // usuario agregó otro perfume mientras tanto).
+    final destino = index.clamp(0, state.cesta.length);
+    final nuevaCesta = List<ItemCesta>.from(state.cesta)..insert(destino, item);
+    final nuevosIndices = state.indicesConDescuento
+        .map((i) => i >= destino ? i + 1 : i)
+        .toSet();
+    if (_ultimoQuitadoConDescuento) nuevosIndices.add(destino);
+    state = state.copyWith(cesta: nuevaCesta, indicesConDescuento: nuevosIndices);
+    return true;
   }
 
   Future<void> guardar() async {
@@ -215,7 +305,13 @@ class NuevaCotizacionNotifier extends Notifier<NuevaCotizacionState> {
     }
   }
 
-  void reset() => state = const NuevaCotizacionState();
+  void reset() {
+    // Sin esto, un "Deshacer" con snackbar todavía visible de la cotización
+    // anterior podía inyectar ese perfume en la cesta recién reseteada.
+    _ultimoQuitado      = null;
+    _ultimoQuitadoIndex = null;
+    state = const NuevaCotizacionState();
+  }
 }
 
 final nuevaCotizacionProvider =

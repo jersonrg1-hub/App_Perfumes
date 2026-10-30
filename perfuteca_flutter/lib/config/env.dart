@@ -8,14 +8,18 @@ abstract class Env {
     defaultValue: 'https://app-perfuteca.onrender.com',
   );
 
-  static const String apiKey = String.fromEnvironment(
-    'API_KEY',
-    defaultValue: 'e9f169776a1ebc48498d3dd983f33aa08cdd6104b4eb8ed22268b8104d60227e',
-  );
+  static const String apiKey = String.fromEnvironment('API_KEY');
 
   static const Duration connectTimeout = Duration(seconds: 10);
   static const Duration receiveTimeout = Duration(seconds: 20);
   static const Duration sendTimeout    = Duration(seconds: 15);
 
   static const int maxRetries = 2;
+
+  /// Detecta builds sin --dart-define=API_KEY (asserts se eliminan en release,
+  /// solo protege debug/profile).
+  static bool get hasApiKey {
+    assert(apiKey.isNotEmpty, 'Falta --dart-define=API_KEY en el build');
+    return apiKey.isNotEmpty;
+  }
 }

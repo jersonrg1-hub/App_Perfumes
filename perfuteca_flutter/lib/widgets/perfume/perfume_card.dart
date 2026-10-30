@@ -94,7 +94,8 @@ class PerfumeCard extends ConsumerWidget {
               Expanded(
                 flex: 7,
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.sm, 8, AppSpacing.sm, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -128,10 +129,10 @@ class _StockBadge extends StatelessWidget {
     final color = esCritico ? AppColors.stockCritical : AppColors.stockLow;
     final label = esCritico ? '¡Último stock!' : 'Stock bajo';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 3),
       decoration: BoxDecoration(
         color: color,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
       child: Text(
         label,
@@ -155,7 +156,7 @@ class _PrecioChips extends StatelessWidget {
   Widget build(BuildContext context) {
     final precios = perfume.precios;
     if (precios.isEmpty) {
-      return Text('Sin precio', style: AppTextStyles.bodySmall);
+      return const Text('Sin precio', style: AppTextStyles.bodySmall);
     }
 
     final minPrecio = precios.values.reduce((a, b) => a < b ? a : b);
@@ -191,12 +192,12 @@ class _PrecioChips extends StatelessWidget {
         const SizedBox(height: 3),
         Row(
           children: precios.entries.map((e) => Padding(
-            padding: const EdgeInsets.only(right: 4),
+            padding: const EdgeInsets.only(right: AppSpacing.xs),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
               decoration: BoxDecoration(
                 color: AppColors.primaryPale,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 border: Border.all(color: AppColors.primaryLight),
               ),
               child: Text(

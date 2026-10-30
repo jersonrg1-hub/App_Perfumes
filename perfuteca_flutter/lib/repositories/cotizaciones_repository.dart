@@ -56,7 +56,7 @@ class CotizacionesRepository {
   }) async {
     try {
       await _dio.put<dynamic>(
-        '${ApiConstants.cotizaciones}$idCotizacion',
+        ApiConstants.cotizacionesDetalle(idCotizacion),
         data: {'nuevo_estado': nuevoEstado},
       );
     } on DioException catch (e) {

@@ -11,6 +11,7 @@ import 'package:perfuteca/models/venta.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:shimmer/shimmer.dart';
 
 // Timings unificados (H)
 const _kFast   = Duration(milliseconds: 160);
@@ -36,6 +37,23 @@ class NuevaCotizacionScreen extends ConsumerStatefulWidget {
 class _NuevaCotizacionScreenState
     extends ConsumerState<NuevaCotizacionScreen> {
   late final PageController _pageCtrl;
+
+  // Paso1/Paso2/Paso3 se construyen UNA sola vez y se reusan como la misma
+  // instancia en cada build de este State — si se reconstruyeran acá (como
+  // antes), Flutter fuerza el rebuild de esos hijos cada vez que este
+  // widget padre rebuildea (ej. al tipear el celular, que cambia
+  // `identificador` de abajo), sin importar qué tan acotado sea el
+  // `ref.watch`/`select` interno de cada paso — un widget nuevo (aunque con
+  // los mismos campos) nunca es `identical` al anterior, así que Flutter
+  // igual llama a su build(). Cachear la instancia es lo único que evita
+  // esa cascada.
+  late final Widget _paso1 = _Paso1(onSiguiente: () => _irA(2));
+  late final Widget _paso2 =
+      _Paso2(onAnterior: () => _irA(1), onSiguiente: () => _irA(3));
+  late final Widget _paso3 = _Paso3(
+    onAnterior: () => _irA(2),
+    onGuardar: () => ref.read(nuevaCotizacionProvider.notifier).guardar(),
+  );
 
   @override
   void initState() {
@@ -66,7 +84,15 @@ class _NuevaCotizacionScreenState
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(nuevaCotizacionProvider);
+    // select() acotado a lo que este build realmente usa (StepIndicator +
+    // decidir Paso3 vs Ticket) — así este widget (y por lo tanto la cascada
+    // de rebuild hacia Paso1/Paso2/Paso3 cacheados arriba) no se dispara por
+    // cambios que no le importan (ej. toggle de descuento/delivery en Paso3).
+    final paso       = ref.watch(nuevaCotizacionProvider.select((s) => s.paso));
+    final celular    = ref.watch(nuevaCotizacionProvider.select((s) => s.celular));
+    final alias      = ref.watch(nuevaCotizacionProvider.select((s) => s.alias));
+    final cestaCount = ref.watch(nuevaCotizacionProvider.select((s) => s.cesta.length));
+    final registrada = ref.watch(nuevaCotizacionProvider.select((s) => s.registrada));
 
     // Cuando se registra exitosamente, salta a paso 3.
     // OJO: paso==3 también se alcanza al pulsar "Revisar cotización" en el
@@ -85,41 +111,42 @@ class _NuevaCotizacionScreenState
       children: [
         // step indicator con info contextual de pasos completados
         _StepIndicator(
-          paso:       state.paso,
+          paso:       paso,
           onTapPaso:  _irA,
-          identificador: state.celular.isNotEmpty ? state.celular : state.alias,
-          cestaCount: state.cesta.length,
+          identificador: celular.isNotEmpty ? celular : alias,
+          cestaCount: cestaCount,
           // Ya registrada — navegar a paso 1/2 desde acá resetea todo el
           // estado (irPaso lo trata como "cotización nueva"). Bloqueamos los
           // dots para que ese borrado no ocurra sin que el usuario lo pida
           // explícitamente vía "Nueva cotización".
-          bloqueado:  state.registrada != null,
+          bloqueado:  registrada != null,
         ),
         Expanded(
           child: PageView(
             controller: _pageCtrl,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              _Paso1(onSiguiente: () => _irA(2)),
-              _Paso2(onAnterior: () => _irA(1), onSiguiente: () => _irA(3)),
-              state.registrada != null
+              _paso1,
+              _paso2,
+              registrada != null
                   ? _TicketExito(
-                      idCotizacion: state.registrada!.idCotizacion,
-                      celular:      state.celular,
-                      alias:        state.alias,
-                      total:        state.totalConDelivery,
-                      cesta:        state.cesta,
-                      conDelivery:         state.conDelivery,
-                      indicesConDescuento: state.indicesConDescuento,
+                      idCotizacion: registrada.idCotizacion,
+                      celular:      celular,
+                      alias:        alias,
+                      total: ref.watch(nuevaCotizacionProvider
+                          .select((s) => s.totalConDelivery)),
+                      cesta: ref.watch(
+                          nuevaCotizacionProvider.select((s) => s.cesta)),
+                      costoDelivery: ref.watch(nuevaCotizacionProvider
+                          .select((s) => s.costoDelivery)),
+                      indicesConDescuento: ref.watch(nuevaCotizacionProvider
+                          .select((s) => s.indicesConDescuento)),
                       onNueva:      () {
                         ref.read(nuevaCotizacionProvider.notifier).reset();
                         _irA(1);
                       },
                     )
-                  : _Paso3(
-                      onAnterior: () => _irA(2),
-                      onGuardar:  () => ref.read(nuevaCotizacionProvider.notifier).guardar(),
-                    ),
+                  : _paso3,
             ],
           ),
         ),
@@ -196,9 +223,24 @@ class _Dot extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Expanded(
-        child: GestureDetector(
+  Widget build(BuildContext context) {
+    final estado = actual
+        ? 'en edición'
+        : activo
+            ? 'completado'
+            : 'pendiente';
+    return Expanded(
+        child: Semantics(
+          button: onTap != null,
+          label: 'Paso $n: $label, $estado'
+              '${sublabel != null ? ' — $sublabel' : ''}'
+              '${onTap != null ? '. Toca para editar' : ''}',
+          child: GestureDetector(
           onTap: onTap,
+          // opaque: la zona tappeable pasa a ser todo el ancho/alto de la
+          // columna (icono + label + sublabel), no solo el círculo de
+          // 24-30px — ese solo era menor al mínimo táctil recomendado (48dp).
+          behavior: HitTestBehavior.opaque,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -222,7 +264,7 @@ class _Dot extends StatelessWidget {
                       ? const Icon(Icons.edit_rounded, size: 14, color: Colors.white)
                       : activo
                           ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
-                          : Text('$n', style: const TextStyle(
+                          : Text('$n', style: AppTextStyles.priceLabel.copyWith(
                               fontSize: 11, fontWeight: FontWeight.w700,
                               color: AppColors.textMuted)),
                 ),
@@ -254,7 +296,9 @@ class _Dot extends StatelessWidget {
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _Linea extends StatelessWidget {
@@ -318,29 +362,34 @@ class _ModoBoton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        child: AnimatedContainer(
-          duration: _kFast,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: activo ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 15,
-                  color: activo ? Colors.white : AppColors.textMuted),
-              const SizedBox(width: 6),
-              Text(label,
-                  style: TextStyle(
-                    fontSize:   13,
-                    fontWeight: FontWeight.w700,
-                    color: activo ? Colors.white : AppColors.textMuted,
-                  )),
-            ],
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        selected: activo,
+        label: label,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+          child: AnimatedContainer(
+            duration: _kFast,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: activo ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 15,
+                    color: activo ? Colors.white : AppColors.textMuted),
+                const SizedBox(width: 6),
+                Text(label,
+                    style: AppTextStyles.button.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: activo ? Colors.white : AppColors.textMuted,
+                    )),
+              ],
+            ),
           ),
         ),
       );
@@ -402,16 +451,46 @@ class _Paso1State extends ConsumerState<_Paso1> {
     notifier.setCelular(normalizado);
   }
 
+  // Flujo real del usuario: copia el número/alias desde WhatsApp y lo pega
+  // acá — no lo tipea. Botón de pegar explícito porque el chip de sugerencia
+  // del portapapeles del teclado no siempre aparece (depende de versión de
+  // Android/teclado instalado).
+  Future<void> _pegarCelular(NuevaCotizacionNotifier notifier) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    final texto = data?.text;
+    if (texto == null || texto.isEmpty) return;
+    _onCelularChanged(texto, notifier);
+  }
+
+  Future<void> _pegarAlias(NuevaCotizacionNotifier notifier) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+    final texto = data?.text?.trim();
+    if (texto == null || texto.isEmpty) return;
+    _aliasCtrl.value = TextEditingValue(
+      text: texto,
+      selection: TextSelection.collapsed(offset: texto.length),
+    );
+    notifier.setAlias(texto);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final state    = ref.watch(nuevaCotizacionProvider);
-    final notifier = ref.read(nuevaCotizacionProvider.notifier);
+    // select() por campo — sin esto, cualquier cambio en Paso2/Paso3 (ml
+    // agregado, descuento, delivery) reconstruía este Paso1 aunque no esté
+    // visible.
+    final modo        = ref.watch(nuevaCotizacionProvider.select((s) => s.modo));
+    final celular     = ref.watch(nuevaCotizacionProvider.select((s) => s.celular));
+    final alias       = ref.watch(nuevaCotizacionProvider.select((s) => s.alias));
+    final paso1Valido = ref.watch(nuevaCotizacionProvider.select((s) => s.paso1Valido));
+    final notifier    = ref.read(nuevaCotizacionProvider.notifier);
 
     // Mantiene los controllers sincronizados con el estado — necesario para
     // que al cambiar de modo (celular <-> alias) el campo oculto se vacíe
     // visualmente, ya que setModo() limpia el campo del modo anterior.
-    if (_celCtrl.text != state.celular) _celCtrl.text = state.celular;
-    if (_aliasCtrl.text != state.alias) _aliasCtrl.text = state.alias;
+    if (_celCtrl.text != celular) _celCtrl.text = celular;
+    if (_aliasCtrl.text != alias) _aliasCtrl.text = alias;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -430,11 +509,11 @@ class _Paso1State extends ConsumerState<_Paso1> {
           ),
           const SizedBox(height: AppSpacing.xl),
           _ModoIdentificadorToggle(
-            modo: state.modo,
+            modo: modo,
             onChanged: notifier.setModo,
           ),
           const SizedBox(height: AppSpacing.lg),
-          if (state.modo == 'celular') ...[
+          if (modo == 'celular') ...[
             Text(
               'Celular del cliente',
               style: AppTextStyles.body.copyWith(
@@ -448,6 +527,11 @@ class _Paso1State extends ConsumerState<_Paso1> {
               keyboardType: TextInputType.phone,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.content_paste_rounded, size: 18),
+                  tooltip: 'Pegar',
+                  onPressed: () => _pegarCelular(notifier),
+                ),
                 hintText: '+51 987654321 o 987654321',
                 helperText: 'Acepta formato WhatsApp, con o sin código de país',
                 counterText: '',
@@ -481,7 +565,13 @@ class _Paso1State extends ConsumerState<_Paso1> {
               controller: _aliasCtrl,
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.content_paste_rounded, size: 18),
+                  tooltip: 'Pegar',
+                  onPressed: () => _pegarAlias(notifier),
+                ),
                 hintText: '@perfutecalima',
+                helperText: 'Sin espacios, tal como aparece en WhatsApp',
                 filled: true,
                 fillColor: AppColors.primaryPale,
                 border: OutlineInputBorder(
@@ -504,7 +594,7 @@ class _Paso1State extends ConsumerState<_Paso1> {
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: state.paso1Valido ? widget.onSiguiente : null,
+              onPressed: paso1Valido ? widget.onSiguiente : null,
               icon: const Icon(Icons.arrow_forward_rounded, size: 18),
               label: const Text('Continuar — agregar perfumes'),
               style: FilledButton.styleFrom(
@@ -551,9 +641,15 @@ class _Paso2State extends ConsumerState<_Paso2> {
 
   @override
   Widget build(BuildContext context) {
-    final state    = ref.watch(nuevaCotizacionProvider);
-    final notifier = ref.read(nuevaCotizacionProvider.notifier);
-    final catalogoState = ref.watch(catalogoProvider);
+    // select() por campo — antes esta pantalla re-filtraba TODO el catálogo
+    // en cada rebuild disparado por cambios ajenos a ella (ej. tipear el
+    // celular en Paso1), porque watcheaba el NuevaCotizacionState completo.
+    final cesta               = ref.watch(nuevaCotizacionProvider.select((s) => s.cesta));
+    final total                = ref.watch(nuevaCotizacionProvider.select((s) => s.total));
+    final indicesConDescuento = ref.watch(nuevaCotizacionProvider.select((s) => s.indicesConDescuento));
+    final cestaValida          = ref.watch(nuevaCotizacionProvider.select((s) => s.cestaValida));
+    final notifier             = ref.read(nuevaCotizacionProvider.notifier);
+    final catalogoState        = ref.watch(catalogoProvider);
 
     final perfumes = catalogoState.perfumes.where((p) {
       if (_filtro.isEmpty) return true;
@@ -561,16 +657,24 @@ class _Paso2State extends ConsumerState<_Paso2> {
       return p.nombre.toLowerCase().contains(q) ||
           p.marca.toLowerCase().contains(q);
     }).toList();
+    // Map en vez de indexWhere por fila — evita O(n·m) al renderizar la
+    // lista completa de perfumes contra la cesta en cada build.
+    final cestaPorPerfume = {
+      for (final item in cesta) item.perfume.idPerfume: item,
+    };
 
     return Column(
       children: [
         // _CestaPanel con estado controlado desde aquí
-        if (state.cesta.isNotEmpty)
+        if (cesta.isNotEmpty)
           _CestaPanel(
-            cesta:    state.cesta,
-            total:    state.total,
-            indicesConDescuento: state.indicesConDescuento,
-            onQuitar: (i) => notifier.quitarItem(i),
+            cesta:    cesta,
+            total:    total,
+            indicesConDescuento: indicesConDescuento,
+            onQuitar: (i) {
+              HapticFeedback.lightImpact();
+              notifier.quitarItem(i);
+            },
           ),
 
         // Buscador
@@ -629,7 +733,24 @@ class _Paso2State extends ConsumerState<_Paso2> {
         // Lista de perfumes
         Expanded(
           child: catalogoState.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? Shimmer.fromColors(
+                  baseColor: AppColors.primaryLight,
+                  highlightColor: AppColors.primaryPale,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md),
+                    itemCount: 6,
+                    itemBuilder: (_, i) => Container(
+                      height: 64,
+                      margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
+                      ),
+                    ),
+                  ),
+                )
               : perfumes.isEmpty
                   ? Center(
                       child: Column(
@@ -652,11 +773,11 @@ class _Paso2State extends ConsumerState<_Paso2> {
                       itemCount: perfumes.length,
                       itemBuilder: (_, i) {
                         final p = perfumes[i];
-                        final idx = state.cesta.indexWhere(
-                            (item) => item.perfume.idPerfume == p.idPerfume);
+                        final itemEnCesta = cestaPorPerfume[p.idPerfume];
                         return _PerfumeRow(
+                          key:         ValueKey(p.idPerfume),
                           perfume:     p,
-                          itemEnCesta: idx != -1 ? state.cesta[idx] : null,
+                          itemEnCesta: itemEnCesta,
                           onAgregar: (ml) {
                             HapticFeedback.lightImpact();
                             notifier.agregarItem(p, ml);
@@ -674,7 +795,7 @@ class _Paso2State extends ConsumerState<_Paso2> {
                                     ),
                                   ),
                                 ]),
-                                duration: const Duration(seconds: 1),
+                                duration: const Duration(milliseconds: 1600),
                                 behavior: SnackBarBehavior.floating,
                                 backgroundColor: AppColors.success,
                                 margin: const EdgeInsets.fromLTRB(
@@ -686,8 +807,11 @@ class _Paso2State extends ConsumerState<_Paso2> {
                                 ),
                               ));
                           },
-                          onQuitar: idx != -1
-                              ? () => notifier.quitarItem(idx)
+                          onQuitar: itemEnCesta != null
+                              ? () {
+                                  HapticFeedback.lightImpact();
+                                  notifier.quitarItemPorId(p.idPerfume);
+                                }
                               : null,
                         );
                       },
@@ -699,14 +823,18 @@ class _Paso2State extends ConsumerState<_Paso2> {
           padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              OutlinedButton(
-                onPressed: widget.onAnterior,
-                child: const Text('Atrás'),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: widget.onAnterior,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Atrás'),
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
+                flex: 2,
                 child: FilledButton.icon(
-                  onPressed: state.cestaValida ? widget.onSiguiente : null,
+                  onPressed: cestaValida ? widget.onSiguiente : null,
                   icon: const Icon(Icons.arrow_forward_rounded, size: 18),
                   label: const Text('Revisar cotización'),
                 ),
@@ -721,8 +849,9 @@ class _Paso2State extends ConsumerState<_Paso2> {
 
 // ── Fila de perfume con botones ml (B + H) ────────────────────────────────────
 
-class _PerfumeRow extends StatelessWidget {
+class _PerfumeRow extends StatefulWidget {
   const _PerfumeRow({
+    super.key,
     required this.perfume,
     required this.itemEnCesta,
     required this.onAgregar,
@@ -734,7 +863,20 @@ class _PerfumeRow extends StatelessWidget {
   final VoidCallback?       onQuitar;
 
   @override
+  State<_PerfumeRow> createState() => _PerfumeRowState();
+}
+
+class _PerfumeRowState extends State<_PerfumeRow> {
+  // Colapsado por default: la mayoría de perfumes no tiene completos
+  // configurados, y de tenerlos, la venta de decant (2/5/10ml) sigue siendo
+  // el caso común — no queremos que la fila crezca por default en todas.
+  bool _completoExpandido = false;
+
+  @override
   Widget build(BuildContext context) {
+    final perfume     = widget.perfume;
+    final itemEnCesta = widget.itemEnCesta;
+
     return AnimatedContainer(
       duration: _kNormal,
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -748,8 +890,11 @@ class _PerfumeRow extends StatelessWidget {
           width: itemEnCesta != null ? 1.5 : 1,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
           // Info del perfume
           Expanded(
             child: Column(
@@ -780,10 +925,14 @@ class _PerfumeRow extends StatelessWidget {
 
           // Chip en cesta o botones ml (B: Wrap para responsividad)
           if (itemEnCesta != null)
-            ClipRRect(
+            Semantics(
+              button: true,
+              label:
+                  '${itemEnCesta.ml}ml agregado por S/${_fmtPrecio(itemEnCesta.precio)}. Toca para quitar del pedido',
+              child: ClipRRect(
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               child: InkWell(
-                onTap: onQuitar,
+                onTap: widget.onQuitar,
                 splashColor: AppColors.primaryDark.withValues(alpha: 0.3),
                 highlightColor: AppColors.primaryDark.withValues(alpha: 0.15),
                 child: Container(
@@ -799,7 +948,7 @@ class _PerfumeRow extends StatelessWidget {
                       const Icon(Icons.check_rounded, size: 14, color: Colors.white),
                       const SizedBox(width: 4),
                       Text(
-                        '${itemEnCesta!.ml}ml · S/${_fmtPrecio(itemEnCesta!.precio)}',
+                        '${itemEnCesta.ml}ml · S/${_fmtPrecio(itemEnCesta.precio)}',
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -812,18 +961,60 @@ class _PerfumeRow extends StatelessWidget {
                   ),
                 ),
               ),
+            ),
             )
           else
               Row(
               children: [
                 if (perfume.precio2ml != null)
-                  _MlBtn(ml: 2, precio: perfume.precio2ml!, onTap: () => onAgregar(2)),
+                  _MlBtn(ml: 2, precio: perfume.precio2ml!, onTap: () => widget.onAgregar(2)),
                 if (perfume.precio5ml != null)
-                  _MlBtn(ml: 5, precio: perfume.precio5ml!, onTap: () => onAgregar(5)),
+                  _MlBtn(ml: 5, precio: perfume.precio5ml!, onTap: () => widget.onAgregar(5)),
                 if (perfume.precio10ml != null)
-                  _MlBtn(ml: 10, precio: perfume.precio10ml!, onTap: () => onAgregar(10)),
+                  _MlBtn(ml: 10, precio: perfume.precio10ml!, onTap: () => widget.onAgregar(10)),
               ],
             ),
+            ],
+          ),
+          if (perfume.completos.isNotEmpty && itemEnCesta == null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            InkWell(
+              onTap: () => setState(() => _completoExpandido = !_completoExpandido),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _completoExpandido ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                      size: 16,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '¿Frasco completo?',
+                      style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_completoExpandido)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpacing.xs),
+                child: Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: [
+                    for (final c in perfume.completos)
+                      _MlBtn(ml: c.ml, precio: c.precio, onTap: () => widget.onAgregar(c.ml)),
+                  ],
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -863,24 +1054,33 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
     super.dispose();
   }
 
-  Future<void> _onTap() async {
-    await _ctrl.forward();
-    if (!mounted) return;
-    await _ctrl.reverse();
-    if (!mounted) return;
+  // El scale-in/out es puramente visual — antes se esperaba a que terminara
+  // (~320ms) para recién agregar el ítem a la cesta, lo que hacía sentir
+  // lento agregar varios perfumes seguidos. Ahora onTap() corre al toque y
+  // la animación se dispara en paralelo, sin bloquearlo.
+  void _onTap() {
     widget.onTap();
+    _ctrl.forward().then((_) {
+      if (mounted) _ctrl.reverse();
+    });
   }
 
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(left: AppSpacing.sm),
-        child: GestureDetector(
+        child: Semantics(
+          button: true,
+          label: 'Agregar ${widget.ml}ml por S/${_fmtPrecio(widget.precio)}',
+          child: GestureDetector(
           onTap: _onTap,
           child: ScaleTransition(
             scale: _scale,
             child: Container(
+              // vertical 10 (era 6): acerca el alto real del botón al mínimo
+              // táctil de 44dp — antes rondaba 34px y generaba mis-taps al
+              // agregar perfumes seguidos.
               padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.sm, vertical: 6),
+                  horizontal: AppSpacing.sm, vertical: 10),
               decoration: BoxDecoration(
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -916,6 +1116,7 @@ class _MlBtnState extends State<_MlBtn> with SingleTickerProviderStateMixin {
             ),
           ),
         ),
+        ),
       );
 }
 
@@ -935,8 +1136,51 @@ class _Paso3State extends ConsumerState<_Paso3> {
 
   @override
   Widget build(BuildContext context) {
-    final state    = ref.watch(nuevaCotizacionProvider);
-    final notifier = ref.read(nuevaCotizacionProvider.notifier);
+    // select() por campo — Paso3 usa casi todo el estado, pero al menos
+    // evita rebuild cuando cambia `modo`/`paso` solos (navegación) sin que
+    // cambie nada de lo que esta pantalla realmente muestra.
+    final celular             = ref.watch(nuevaCotizacionProvider.select((s) => s.celular));
+    final alias                = ref.watch(nuevaCotizacionProvider.select((s) => s.alias));
+    final cesta                = ref.watch(nuevaCotizacionProvider.select((s) => s.cesta));
+    final indicesConDescuento = ref.watch(nuevaCotizacionProvider.select((s) => s.indicesConDescuento));
+    final conDescuento         = ref.watch(nuevaCotizacionProvider.select((s) => s.conDescuento));
+    final algunDescuento       = ref.watch(nuevaCotizacionProvider.select((s) => s.algunDescuento));
+    final ahorro                = ref.watch(nuevaCotizacionProvider.select((s) => s.ahorro));
+    final conDelivery          = ref.watch(nuevaCotizacionProvider.select((s) => s.conDelivery));
+    final montoDelivery        = ref.watch(nuevaCotizacionProvider.select((s) => s.montoDelivery));
+    final subtotalOriginal    = ref.watch(nuevaCotizacionProvider.select((s) => s.subtotalOriginal));
+    final subtotal              = ref.watch(nuevaCotizacionProvider.select((s) => s.subtotal));
+    final totalConDelivery    = ref.watch(nuevaCotizacionProvider.select((s) => s.totalConDelivery));
+    final error                 = ref.watch(nuevaCotizacionProvider.select((s) => s.error));
+    final registrando          = ref.watch(nuevaCotizacionProvider.select((s) => s.registrando));
+    final cestaValida          = ref.watch(nuevaCotizacionProvider.select((s) => s.cestaValida));
+    final notifier              = ref.read(nuevaCotizacionProvider.notifier);
+    bool precioTieneDescuento(int i) => indicesConDescuento.contains(i);
+    double precioEfectivo(int i, double precio) =>
+        precioTieneDescuento(i) ? precioConDescuento(precio) : precio;
+
+    // Quitar + snackbar con "Deshacer" — compartido entre el swipe y el
+    // ícono de borrar de ItemCestaCard, antes tenían comportamiento
+    // distinto (uno ofrecía deshacer, el otro no) para la misma acción
+    // sobre la misma fila. `notifier` ya está resuelto (no vuelve a leer
+    // `ref`) así que "Deshacer" sigue andando aunque el usuario ya haya
+    // saltado a la pantalla de ticket y esta State se haya desmontado — el
+    // snapshot y el chequeo de "cotización ya enviada" viven en el
+    // notifier (deshacerUltimoQuitado), no acá.
+    void quitarConUndo(ItemCesta item) {
+      HapticFeedback.lightImpact();
+      notifier.quitarItemPorId(item.perfume.idPerfume);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text('${item.perfume.nombre} eliminado'),
+          action: SnackBarAction(
+            label: 'Deshacer',
+            onPressed: notifier.deshacerUltimoQuitado,
+          ),
+          duration: const Duration(seconds: 3),
+        ));
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.lg),
@@ -955,16 +1199,16 @@ class _Paso3State extends ConsumerState<_Paso3> {
             child: Row(
               children: [
                 Icon(
-                  state.celular.isNotEmpty
+                  celular.isNotEmpty
                       ? Icons.phone_outlined
                       : Icons.alternate_email_rounded,
                   size: 18, color: AppColors.primary,
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Text(
-                  state.celular.isNotEmpty
-                      ? state.celular
-                      : '@${_sinArroba(state.alias)}',
+                  celular.isNotEmpty
+                      ? celular
+                      : '@${_sinArroba(alias)}',
                   style: AppTextStyles.body.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.textPrimary,
@@ -991,12 +1235,12 @@ class _Paso3State extends ConsumerState<_Paso3> {
           const SizedBox(height: AppSpacing.sm),
 
           // Items de la cesta
-          ...state.cesta.asMap().entries.map((e) {
-            final seleccionado = state.itemConDescuento(e.key);
+          ...cesta.asMap().entries.map((e) {
+            final seleccionado = precioTieneDescuento(e.key);
             return Dismissible(
               key: ValueKey('${e.value.perfume.idPerfume}_${e.value.ml}_${e.key}'),
               direction: DismissDirection.endToStart,
-              onDismissed: (_) => notifier.quitarItem(e.key),
+              onDismissed: (_) => quitarConUndo(e.value),
               background: Container(
                 alignment: Alignment.centerRight,
                 padding: const EdgeInsets.only(right: AppSpacing.lg),
@@ -1028,12 +1272,15 @@ class _Paso3State extends ConsumerState<_Paso3> {
                         child: ItemCestaCard(
                           item:           e.value,
                           index:          e.key,
-                          onQuitar:       () => notifier.quitarItem(e.key),
+                          onQuitar:       () => quitarConUndo(e.value),
                           nombreFontSize: 15,
                           marcaFontSize:  12,
                         ),
                       ),
-                      if (_modoSeleccion) ...[
+                      // Completos: precio fijo de lista, sin chip de descuento
+                      // (toggleItemDescuento ya lo bloquea, pero mostrarlo
+                      // tappable sin efecto confunde).
+                      if (_modoSeleccion && !e.value.esCompleto) ...[
                         const SizedBox(width: AppSpacing.sm),
                         _DescuentoChip(
                           seleccionado: seleccionado,
@@ -1058,7 +1305,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '→  S/ ${_fmtPrecio(state.precioEfectivoIndex(e.key, e.value.precio))}',
+                            '→  S/ ${_fmtPrecio(precioEfectivo(e.key, e.value.precio))}',
                             style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.success,
                               fontWeight: FontWeight.w700,
@@ -1078,15 +1325,15 @@ class _Paso3State extends ConsumerState<_Paso3> {
           AnimatedContainer(
             duration: _kNormal,
             decoration: BoxDecoration(
-              color: state.conDescuento
+              color: conDescuento
                   ? AppColors.primaryPale
                   : AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               border: Border.all(
-                color: state.conDescuento
+                color: conDescuento
                     ? AppColors.primary
                     : AppColors.primaryLight,
-                width: state.conDescuento ? 1.5 : 1,
+                width: conDescuento ? 1.5 : 1,
               ),
             ),
             child: ClipRRect(
@@ -1103,7 +1350,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                       Icon(
                         Icons.local_offer_rounded,
                         size: 20,
-                        color: state.conDescuento
+                        color: conDescuento
                             ? AppColors.primary
                             : AppColors.textMuted,
                       ),
@@ -1116,17 +1363,17 @@ class _Paso3State extends ConsumerState<_Paso3> {
                               'Descuento 10%',
                               style: AppTextStyles.body.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: state.conDescuento
+                                color: conDescuento
                                     ? AppColors.primaryDark
                                     : AppColors.textPrimary,
                               ),
                             ),
                             Text(
-                              state.algunDescuento
-                                  ? 'ahorras S/ ${state.ahorro.toStringAsFixed(2)}'
+                              algunDescuento
+                                  ? 'ahorras S/ ${ahorro.toStringAsFixed(2)}'
                                   : 'aplica 10% sobre cada perfume',
                               style: AppTextStyles.bodySmall.copyWith(
-                                color: state.algunDescuento
+                                color: algunDescuento
                                     ? AppColors.success
                                     : AppColors.textMuted,
                               ),
@@ -1135,7 +1382,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                         ),
                       ),
                       Switch(
-                        value: state.conDescuento,
+                        value: conDescuento,
                         onChanged: (_) => notifier.toggleDescuento(),
                         activeThumbColor: AppColors.primary,
                         activeTrackColor: AppColors.primaryLight,
@@ -1153,15 +1400,15 @@ class _Paso3State extends ConsumerState<_Paso3> {
           AnimatedContainer(
             duration: _kNormal,
             decoration: BoxDecoration(
-              color: state.conDelivery
+              color: conDelivery
                   ? AppColors.primaryPale
                   : AppColors.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               border: Border.all(
-                color: state.conDelivery
+                color: conDelivery
                     ? AppColors.primary
                     : AppColors.primaryLight,
-                width: state.conDelivery ? 1.5 : 1,
+                width: conDelivery ? 1.5 : 1,
               ),
             ),
             child: ClipRRect(
@@ -1178,7 +1425,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                   Icon(
                     Icons.delivery_dining_rounded,
                     size: 20,
-                    color: state.conDelivery
+                    color: conDelivery
                         ? AppColors.primary
                         : AppColors.textMuted,
                   ),
@@ -1191,13 +1438,13 @@ class _Paso3State extends ConsumerState<_Paso3> {
                           'Incluir delivery',
                           style: AppTextStyles.body.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: state.conDelivery
+                            color: conDelivery
                                 ? AppColors.primaryDark
                                 : AppColors.textPrimary,
                           ),
                         ),
                         Text(
-                          '+S/ 10.00 (solo en el mensaje al cliente)',
+                          '+S/ ${montoDelivery.toStringAsFixed(2)} (solo en el mensaje al cliente)',
                           style: AppTextStyles.bodySmall.copyWith(
                               color: AppColors.textMuted),
                         ),
@@ -1205,7 +1452,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                     ),
                   ),
                   Switch(
-                    value: state.conDelivery,
+                    value: conDelivery,
                     onChanged: (_) => notifier.toggleDelivery(),
                     activeThumbColor: AppColors.primary,
                     activeTrackColor: AppColors.primaryLight,
@@ -1217,10 +1464,72 @@ class _Paso3State extends ConsumerState<_Paso3> {
             ),           // ClipRRect
           ),             // AnimatedContainer
 
+          // Monto del delivery — solo visible con delivery activo
+          AnimatedSize(
+            duration: _kNormal,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: conDelivery
+                ? Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: Row(
+                      children: [
+                        for (final monto
+                            in NuevaCotizacionState.opcionesDelivery) ...[
+                          if (monto != NuevaCotizacionState.opcionesDelivery.first)
+                            const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: ChoiceChip(
+                              label: SizedBox(
+                                width: double.infinity,
+                                child: Text(
+                                  'S/ ${monto.toStringAsFixed(0)}',
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              selected: montoDelivery == monto,
+                              onSelected: (_) {
+                                HapticFeedback.selectionClick();
+                                notifier.setMontoDelivery(monto);
+                              },
+                              showCheckmark: false,
+                              selectedColor: AppColors.primary,
+                              backgroundColor: AppColors.surface,
+                              labelStyle: AppTextStyles.body.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: montoDelivery == monto
+                                    ? Colors.white
+                                    : AppColors.textPrimary,
+                              ),
+                              side: BorderSide(
+                                color: montoDelivery == monto
+                                    ? AppColors.primary
+                                    : AppColors.primaryLight,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                    AppSpacing.radiusXxl),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+
           const SizedBox(height: AppSpacing.sm),
 
-          // Total
-          Container(
+          // Total — AnimatedSize porque el bloque DESCUENTO/DELIVERY
+          // aparece o desaparece según los toggles de arriba; sin esto el
+          // alto del resumen saltaba de golpe en vez de acompañar la
+          // transición suave que ya tienen esos toggles.
+          AnimatedSize(
+            duration: _kNormal,
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: Container(
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
@@ -1243,20 +1552,20 @@ class _Paso3State extends ConsumerState<_Paso3> {
                       ),
                     ),
                     Text(
-                      state.algunDescuento
-                          ? 'S/ ${state.subtotalOriginal.toStringAsFixed(2)}'
-                          : 'S/ ${state.subtotal.toStringAsFixed(2)}',
+                      algunDescuento
+                          ? 'S/ ${subtotalOriginal.toStringAsFixed(2)}'
+                          : 'S/ ${subtotal.toStringAsFixed(2)}',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        decoration: state.algunDescuento ? TextDecoration.lineThrough : null,
+                        decoration: algunDescuento ? TextDecoration.lineThrough : null,
                         decorationColor: Colors.white54,
                       ),
                     ),
                   ],
                 ),
-                if (state.algunDescuento) ...[
+                if (algunDescuento) ...[
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1271,9 +1580,9 @@ class _Paso3State extends ConsumerState<_Paso3> {
                         ),
                       ),
                       Text(
-                        '-S/ ${state.ahorro.toStringAsFixed(2)}',
+                        '-S/ ${ahorro.toStringAsFixed(2)}',
                         style: const TextStyle(
-                          color: Color(0xFF81C784),
+                          color: AppColors.successOnDark,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1281,12 +1590,12 @@ class _Paso3State extends ConsumerState<_Paso3> {
                     ],
                   ),
                 ],
-                if (state.conDelivery) ...[
+                if (conDelivery) ...[
                   const SizedBox(height: 4),
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
+                      const Text(
                         'DELIVERY',
                         style: TextStyle(
                           color: Colors.white54,
@@ -1296,8 +1605,8 @@ class _Paso3State extends ConsumerState<_Paso3> {
                         ),
                       ),
                       Text(
-                        'S/ 10.00',
-                        style: TextStyle(
+                        'S/ ${montoDelivery.toStringAsFixed(2)}',
+                        style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -1321,7 +1630,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                       ),
                     ),
                     Text(
-                      'S/ ${state.totalConDelivery.toStringAsFixed(2)}',
+                      'S/ ${totalConDelivery.toStringAsFixed(2)}',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 22,
@@ -1332,19 +1641,33 @@ class _Paso3State extends ConsumerState<_Paso3> {
                 ),
               ],
             ),
+            ),
           ),
 
-          if (state.error != null) ...[
+          if (error != null) ...[
             const SizedBox(height: AppSpacing.md),
             Container(
               padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
                 color: AppColors.errorSurface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                border: Border.all(
+                    color: AppColors.error.withValues(alpha: 0.3)),
               ),
-              child: Text(
-                state.error!,
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.error),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.error_outline_rounded,
+                      size: 16, color: AppColors.error),
+                  const SizedBox(width: AppSpacing.xs),
+                  Expanded(
+                    child: Text(
+                      error,
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.error),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1353,17 +1676,21 @@ class _Paso3State extends ConsumerState<_Paso3> {
 
           Row(
             children: [
-              OutlinedButton(
-                onPressed: state.registrando ? null : widget.onAnterior,
-                child: const Text('Editar'),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: registrando ? null : widget.onAnterior,
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Editar'),
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
+                flex: 2,
                 child: FilledButton.icon(
-                  onPressed: state.registrando || !state.cestaValida
+                  onPressed: registrando || !cestaValida
                       ? null
                       : widget.onGuardar,
-                  icon: state.registrando
+                  icon: registrando
                       ? const SizedBox(
                           width: 16, height: 16,
                           child: CircularProgressIndicator(
@@ -1371,7 +1698,7 @@ class _Paso3State extends ConsumerState<_Paso3> {
                         )
                       : const Icon(Icons.send_rounded, size: 18),
                   label: Text(
-                      state.registrando ? 'Guardando...' : 'Enviar cotización'),
+                      registrando ? 'Guardando...' : 'Enviar cotización'),
                   style: FilledButton.styleFrom(
                     padding:
                         const EdgeInsets.symmetric(vertical: AppSpacing.md),
@@ -1428,7 +1755,7 @@ class _TicketExito extends StatefulWidget {
     required this.alias,
     required this.total,
     required this.cesta,
-    required this.conDelivery,
+    required this.costoDelivery,
     required this.indicesConDescuento,
     required this.onNueva,
   });
@@ -1437,7 +1764,8 @@ class _TicketExito extends StatefulWidget {
   final String?         alias;
   final double          total;
   final List<ItemCesta> cesta;
-  final bool            conDelivery;
+  // 0 = sin delivery
+  final double          costoDelivery;
   final Set<int>        indicesConDescuento;
   final VoidCallback    onNueva;
 
@@ -1490,7 +1818,9 @@ class _TicketExitoState extends State<_TicketExito>
     final descuentoLine = widget.indicesConDescuento.isNotEmpty
         ? '🎉 *Descuento 10%* — ahorras S/ ${ahorroTotal.toStringAsFixed(2)}\n'
         : '';
-    final deliveryLine = widget.conDelivery ? '🛵 Delivery: +S/ 10.00\n' : '';
+    final deliveryLine = widget.costoDelivery > 0
+        ? '🛵 Delivery: +S/ ${widget.costoDelivery.toStringAsFixed(2)}\n'
+        : '';
     final texto =
         '✨ *Tu cotización — Perfuteca* ✨\n$sep\n\n'
         '${bloques.join('\n\n')}\n\n'
@@ -1500,7 +1830,15 @@ class _TicketExitoState extends State<_TicketExito>
     final numero = widget.celular.replaceAll(RegExp(r'\D'), '');
     try {
       await abrirWhatsAppBusiness(celular: numero, alias: widget.alias, mensaje: texto);
-    } catch (_) {}
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo abrir WhatsApp'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 
   @override
@@ -1543,7 +1881,7 @@ class _TicketExitoState extends State<_TicketExito>
               celular:      widget.celular,
               alias:        widget.alias,
               cesta:        widget.cesta,
-              conDelivery:  widget.conDelivery,
+              costoDelivery: widget.costoDelivery,
               total:        widget.total,
               indicesConDescuento: widget.indicesConDescuento,
             ),
@@ -1748,7 +2086,7 @@ class _ReceiptCard extends StatelessWidget {
     required this.celular,
     this.alias,
     required this.cesta,
-    required this.conDelivery,
+    required this.costoDelivery,
     required this.total,
     this.indicesConDescuento = const {},
   });
@@ -1756,7 +2094,8 @@ class _ReceiptCard extends StatelessWidget {
   final String          celular;
   final String?         alias;
   final List<ItemCesta> cesta;
-  final bool            conDelivery;
+  // 0 = sin delivery
+  final double          costoDelivery;
   final double          total;
   final Set<int>        indicesConDescuento;
 
@@ -1766,8 +2105,8 @@ class _ReceiptCard extends StatelessWidget {
       decoration: const BoxDecoration(
         color: AppColors.surface,
         boxShadow: [
-          BoxShadow(color: Color(0x28000000), blurRadius: 20, offset: Offset(0, 6)),
-          BoxShadow(color: Color(0x0F000000), blurRadius: 4,  offset: Offset(0, 2)),
+          BoxShadow(color: AppColors.shadowColor, blurRadius: 20, offset: Offset(0, 6)),
+          BoxShadow(color: AppColors.shadowColor, blurRadius: 4,  offset: Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1892,15 +2231,15 @@ class _ReceiptCard extends StatelessWidget {
                   ),
                   );
                 }),
-                if (conDelivery)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 5),
+                if (costoDelivery > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
                     child: Row(
                       children: [
-                        Icon(Icons.delivery_dining_rounded,
+                        const Icon(Icons.delivery_dining_rounded,
                             size: 10, color: AppColors.textMuted),
-                        SizedBox(width: 5),
-                        Expanded(
+                        const SizedBox(width: 5),
+                        const Expanded(
                           child: Text(
                             'Delivery',
                             style: TextStyle(
@@ -1911,8 +2250,8 @@ class _ReceiptCard extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          '+ S/ 10.00',
-                          style: TextStyle(
+                          '+ S/ ${costoDelivery.toStringAsFixed(2)}',
+                          style: const TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textMuted,
@@ -1974,8 +2313,8 @@ class _PerforatedEdge extends StatelessWidget {
                 count,
                 (_) => Container(
                   width: 10, height: 10,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
+                  decoration: const BoxDecoration(
+                    color: AppColors.background,
                     shape: BoxShape.circle,
                   ),
                 ),

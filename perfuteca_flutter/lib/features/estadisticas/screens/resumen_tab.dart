@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/errors/app_exception.dart';
 import 'package:perfuteca/features/catalogo/providers/catalogo_provider.dart';
 import 'package:perfuteca/features/estadisticas/providers/estadisticas_provider.dart';
 import 'package:perfuteca/features/estadisticas/widgets/estadisticas_shared.dart';
@@ -7,6 +8,7 @@ import 'package:perfuteca/features/ventas/screens/pendientes_screen.dart';
 import 'package:perfuteca/theme/app_colors.dart';
 import 'package:perfuteca/theme/app_spacing.dart';
 import 'package:perfuteca/theme/app_text_styles.dart';
+import 'package:perfuteca/widgets/common/app_error_widget.dart';
 import 'package:shimmer/shimmer.dart';
 
 const _meses = [
@@ -31,9 +33,12 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
     super.build(context);
     return ref.watch(resumenStatsProvider).when(
       loading: () => const _ResumenSkeleton(),
-      error:   (e, _) => EstadisticasErrorView(
+      error:   (e, _) => AppErrorWidget(
+        error: e,
         title: 'Error al cargar estadísticas',
-        subtitle: e.toString(),
+        subtitle: appErrorMessage(e),
+        icon: Icons.wifi_off_rounded,
+        subtle: true,
         onRetry: () {
           ref.invalidate(resumenBackendProvider);
           ref.invalidate(perfumesMapProvider);
@@ -58,18 +63,37 @@ class _ResumenTabState extends ConsumerState<ResumenTab>
 
 // ── Body ──────────────────────────────────────────────────────────────────────
 
-class _ResumenBody extends ConsumerWidget {
+class _ResumenBody extends ConsumerStatefulWidget {
   const _ResumenBody({required this.stats});
   final ResumenStats stats;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final s      = stats;
+  ConsumerState<_ResumenBody> createState() => _ResumenBodyState();
+}
+
+class _ResumenBodyState extends ConsumerState<_ResumenBody>
+    with SingleTickerProviderStateMixin {
+  late final _fadeCtrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+  )..forward();
+
+  @override
+  void dispose() {
+    _fadeCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s      = widget.stats;
     final now    = nowPeru();
     final semana  = ref.watch(semanaStatsProvider);
     final tamanios = ref.watch(tamaniosStatsProvider);
 
-    return ListView(
+    return FadeTransition(
+      opacity: CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut),
+      child: ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
         // ── Hoy — primero, es lo que más importa ─────────────────────────────
@@ -97,7 +121,7 @@ class _ResumenBody extends ConsumerWidget {
             tappable:   s.ventasHoy > 0,
           ),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
 
         // ── Pendientes ────────────────────────────────────────────────────────
         if (s.pendientesCount > 0) ...[
@@ -119,29 +143,35 @@ class _ResumenBody extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
         ],
 
         // ── Este mes ─────────────────────────────────────────────────────────
         _HeroMesCard(stats: s, now: now),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
 
         // ── Esta semana ───────────────────────────────────────────────────────
-        _SeccionLabel('Esta semana', icono: Icons.calendar_view_week_rounded),
+        const _SeccionLabel('Esta semana', icono: Icons.calendar_view_week_rounded),
         const SizedBox(height: AppSpacing.sm),
         semana.when(
           loading: () => _skeletonBox(h: 100),
           error:   (_, __) => const SizedBox.shrink(),
           data:    (sem) => _MiniSemanalCard(semana: sem),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
 
-        // ── Más vendidos del mes ──────────────────────────────────────────────
-        if (s.masVendidos.isNotEmpty) ...[
-          _SeccionLabel('Más vendidos del mes', icono: Icons.star_rounded),
+        // ── Más vendidos del mes (decants y completos por separado) ──────────
+        if (s.masVendidosDecants.isNotEmpty) ...[
+          const _SeccionLabel('Decants más vendidos del mes', icono: Icons.star_rounded),
           const SizedBox(height: AppSpacing.sm),
-          _TopPerfumesCard(perfumes: s.masVendidos.take(5).toList()),
-          const SizedBox(height: AppSpacing.md),
+          _TopPerfumesCard(perfumes: s.masVendidosDecants),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        if (s.masVendidosCompletos.isNotEmpty) ...[
+          const _SeccionLabel('Perfumes completos del mes', icono: Icons.inventory_2_rounded),
+          const SizedBox(height: AppSpacing.sm),
+          _TopPerfumesCard(perfumes: s.masVendidosCompletos, completos: true),
+          const SizedBox(height: AppSpacing.sm),
         ],
 
         // ── Mix del mes (tamaños) ─────────────────────────────────────────────
@@ -154,7 +184,7 @@ class _ResumenBody extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _SeccionLabel('Mix del mes', icono: Icons.water_drop_outlined),
+                  const _SeccionLabel('Mix del mes', icono: Icons.water_drop_outlined),
                   TextButton(
                     onPressed: () => showModalBottomSheet<void>(
                       context: context,
@@ -180,13 +210,14 @@ class _ResumenBody extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.sm),
               _TamaniosChips(tamanios: tams),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
             ],
           ),
         ),
 
         const SizedBox(height: AppSpacing.xl),
       ],
+      ),
     );
   }
 }
@@ -241,7 +272,7 @@ class _HeroMesCard extends StatelessWidget {
                 _BadgeVariacion(variacion: variacion, subiendo: subiendo),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
 
           // Total — tipografía limpia, sin gradiente
           Text(
@@ -254,7 +285,7 @@ class _HeroMesCard extends StatelessWidget {
               height:        1.0,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.sm),
 
           // Sub-métricas como fila de texto sutil
           DefaultTextStyle(
@@ -267,18 +298,11 @@ class _HeroMesCard extends StatelessWidget {
               spacing: 14,
               runSpacing: 4,
               children: [
-                _ChipStat(
-                  icono: Icons.receipt_long_rounded,
-                  texto: '${s.ventasMes} venta${s.ventasMes != 1 ? 's' : ''}',
-                ),
-                _ChipStat(
-                  icono: Icons.water_drop_outlined,
-                  texto: '${s.mlMes} ml',
-                ),
-                _ChipStat(
-                  icono: Icons.trending_up_rounded,
-                  texto: 'S/ ${s.ticketPromedioMes.toStringAsFixed(0)} prom.',
-                ),
+                StatChip(Icons.receipt_long_rounded,
+                    '${s.ventasMes} venta${s.ventasMes != 1 ? 's' : ''}'),
+                StatChip(Icons.water_drop_outlined, '${s.mlMes} ml'),
+                StatChip(Icons.trending_up_rounded,
+                    'S/ ${s.ticketPromedioMes.toStringAsFixed(0)} prom.'),
               ],
             ),
           ),
@@ -302,7 +326,7 @@ class _HeroMesCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 5),
+            const SizedBox(height: AppSpacing.xs),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
@@ -317,7 +341,7 @@ class _HeroMesCard extends StatelessWidget {
               ),
             ),
             if (s.totalMes >= s.totalMesPasado) ...[
-              const SizedBox(height: 4),
+              const SizedBox(height: AppSpacing.xs),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -351,9 +375,7 @@ class _BadgeVariacion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = subiendo
-        ? const Color(0xFF4CAF50)
-        : const Color(0xFFE53935);
+    final color = subiendo ? AppColors.success : AppColors.error;
     final signo = subiendo ? '+' : '';
 
     return Container(
@@ -382,32 +404,6 @@ class _BadgeVariacion extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-// ── Chip pequeño para sub-métricas ────────────────────────────────────────────
-
-class _ChipStat extends StatelessWidget {
-  const _ChipStat({required this.icono, required this.texto});
-  final IconData icono;
-  final String   texto;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icono, size: 12, color: const Color(0xFFD4A882)),
-        const SizedBox(width: 3),
-        Text(
-          texto,
-          style: const TextStyle(
-            color:    Color(0xFFD4A882),
-            fontSize: 12,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -453,6 +449,7 @@ class _SeccionHoy extends StatelessWidget {
                     label: 'Ingresos',
                     valor: 'S/ ${formatMonto(totalHoy)}',
                     sub: mlHoy > 0 ? '$mlHoy ml' : null,
+                    destacado: true,
                   ),
                 ),
                 const VerticalDivider(width: 1, thickness: 1, color: AppColors.primaryLight),
@@ -502,10 +499,16 @@ class _SeccionHoy extends StatelessWidget {
 }
 
 class _ColStat extends StatelessWidget {
-  const _ColStat({required this.label, required this.valor, this.sub});
+  const _ColStat({
+    required this.label,
+    required this.valor,
+    this.sub,
+    this.destacado = false,
+  });
   final String  label;
   final String  valor;
   final String? sub;
+  final bool    destacado;
 
   @override
   Widget build(BuildContext context) {
@@ -516,10 +519,10 @@ class _ColStat extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 10,
-              color: AppColors.textMuted,
-              fontWeight: FontWeight.w600,
+              color: destacado ? AppColors.primary : AppColors.textMuted,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0.3,
             ),
             textAlign: TextAlign.center,
@@ -527,9 +530,9 @@ class _ColStat extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             valor,
-            style: const TextStyle(
-              fontSize: 18,
-              color: AppColors.textPrimary,
+            style: TextStyle(
+              fontSize: destacado ? 21 : 17,
+              color: destacado ? AppColors.primaryDark : AppColors.textPrimary,
               fontWeight: FontWeight.w800,
               height: 1.1,
             ),
@@ -554,8 +557,39 @@ class _ColStat extends StatelessWidget {
 
 // ── Banner de pendientes ──────────────────────────────────────────────────────
 
-class _PendientesBanner extends StatelessWidget {
+class _PendientesBanner extends StatefulWidget {
   const _PendientesBanner({required this.count, required this.onTap});
+  final int          count;
+  final VoidCallback onTap;
+
+  @override
+  State<_PendientesBanner> createState() => _PendientesBannerState();
+}
+
+class _PendientesBannerState extends State<_PendientesBanner> {
+  double _opacity = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _opacity = 1);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      opacity: _opacity,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+      child: _PendientesBannerContent(count: widget.count, onTap: widget.onTap),
+    );
+  }
+}
+
+class _PendientesBannerContent extends StatelessWidget {
+  const _PendientesBannerContent({required this.count, required this.onTap});
   final int          count;
   final VoidCallback onTap;
 
@@ -674,35 +708,7 @@ class _MiniSemanalCard extends ConsumerWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               if (s.totalSemanaAnterior > 0)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: (subiendo
-                            ? const Color(0xFF4CAF50)
-                            : const Color(0xFFE53935))
-                        .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        subiendo ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                        size: 10,
-                        color: subiendo ? const Color(0xFF4CAF50) : const Color(0xFFE53935),
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        '${subiendo ? '+' : ''}${s.variacionSemana.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: subiendo ? const Color(0xFF4CAF50) : const Color(0xFFE53935),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                _BadgeVariacion(variacion: s.variacionSemana, subiendo: subiendo),
               const Spacer(),
               Text(
                 '${s.numOrdenes} venta${s.numOrdenes != 1 ? 's' : ''}  ·  ${s.totalMl} ml',
@@ -744,7 +750,9 @@ class _MiniSemanalCard extends ConsumerWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Container(
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
                             height: 32 * barPct + 4,
                             decoration: BoxDecoration(
                               color: tieneVentas
@@ -772,7 +780,7 @@ class _MiniSemanalCard extends ConsumerWidget {
               }).toList(),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Toca un día con ventas para ver el detalle',
             style: AppTextStyles.bodySmall.copyWith(
@@ -937,8 +945,10 @@ class _VentasDiaSheet extends ConsumerWidget {
 // ── Top 3 perfumes del mes ────────────────────────────────────────────────────
 
 class _TopPerfumesCard extends StatelessWidget {
-  const _TopPerfumesCard({required this.perfumes});
+  const _TopPerfumesCard({required this.perfumes, this.completos = false});
   final List<TopPerfume> perfumes;
+  // Completos muestran frascos vendidos en vez de ml.
+  final bool completos;
 
   @override
   Widget build(BuildContext context) {
@@ -1025,7 +1035,9 @@ class _TopPerfumesCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${p.totalMl} ml',
+                      completos
+                          ? '${p.cantidad} frasco${p.cantidad != 1 ? 's' : ''}'
+                          : '${p.totalMl} ml',
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textMuted,
                         fontWeight: FontWeight.w600,
@@ -1101,7 +1113,7 @@ class _TamaniosDetalle extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.xs),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: SizedBox(
@@ -1165,7 +1177,7 @@ class _TamaniosChips extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.water_drop_outlined, size: 11, color: AppColors.primary),
+              const Icon(Icons.water_drop_outlined, size: 11, color: AppColors.primary),
               const SizedBox(width: 4),
               Text(
                 '${t.ml}ml',
@@ -1213,11 +1225,23 @@ class _ResumenSkeleton extends StatelessWidget {
         padding: const EdgeInsets.all(AppSpacing.md),
         physics: const NeverScrollableScrollPhysics(),
         children: [
+          // Hoy
+          skeletonBox(width: 90, height: 11),
+          const SizedBox(height: AppSpacing.sm),
+          skeletonBox(height: 76, radius: AppSpacing.radiusMd),
+          const SizedBox(height: AppSpacing.sm),
+          // Este mes (hero)
           skeletonBox(height: 148, radius: AppSpacing.radiusLg),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
+          // Esta semana
           skeletonBox(width: 90, height: 11),
           const SizedBox(height: AppSpacing.sm),
           skeletonBox(height: 108, radius: AppSpacing.radiusMd),
+          const SizedBox(height: AppSpacing.sm),
+          // Más vendidos del mes
+          skeletonBox(width: 140, height: 11),
+          const SizedBox(height: AppSpacing.sm),
+          skeletonBox(height: 140, radius: AppSpacing.radiusMd),
         ],
       ),
     );

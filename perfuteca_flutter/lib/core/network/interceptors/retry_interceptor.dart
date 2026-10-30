@@ -32,9 +32,17 @@ class RetryInterceptor extends Interceptor {
   // idempotente. Si el timeout ocurre porque el backend sigue escribiendo
   // en Google Sheets (lento), reintentar duplica el registro aunque la
   // escritura original sí haya terminado en el servidor.
-  bool _isRetryable(DioException e) =>
-      e.requestOptions.method.toUpperCase() != 'POST' &&
-      (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.connectionError);
+  //
+  // PUT /catalogo/{id}/stock tampoco es idempotente: el body es un delta
+  // relativo (ml_delta), no un valor absoluto — reintentarlo aplicaría el
+  // delta dos veces si la escritura original ya había llegado a Sheets.
+  bool _isRetryable(DioException e) {
+    final method = e.requestOptions.method.toUpperCase();
+    final path   = e.requestOptions.path;
+    if (method == 'POST') return false;
+    if (method == 'PUT' && path.endsWith('/stock')) return false;
+    return e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionError;
+  }
 }

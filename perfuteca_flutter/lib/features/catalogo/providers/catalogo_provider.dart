@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:perfuteca/core/errors/app_exception.dart';
 import 'package:perfuteca/models/perfume.dart';
 import 'package:perfuteca/repositories/catalogo_repository.dart';
 
@@ -43,6 +44,9 @@ class CatalogoState {
 
 class CatalogoNotifier extends Notifier<CatalogoState> {
   static const _pageSize = 50;
+  static const _invalidarCooldown = Duration(seconds: 10);
+
+  DateTime? _ultimaInvalidacion;
 
   @override
   CatalogoState build() {
@@ -91,7 +95,76 @@ class CatalogoNotifier extends Notifier<CatalogoState> {
     }
   }
 
-  Future<void> refresh() => load();
+  /// Botón reload: invalida el cache del backend (Sheets → API) y recarga.
+  /// Sin esto, load() solo saltaba el cache HTTP local — el backend seguía
+  /// sirviendo el catálogo cacheado hasta 30 min tras editar Sheets.
+  ///
+  /// Cooldown de 10s: pull-to-refresh también dispara refresh() (RefreshIndicator
+  /// en catalogo_screen), así que sin límite cada pull repetido pega directo a
+  /// Sheets saltándose el TTL de 30 min que existe para acotar llamadas a la API.
+  Future<void> refresh() async {
+    final ahora = DateTime.now();
+    final reciente = _ultimaInvalidacion != null &&
+        ahora.difference(_ultimaInvalidacion!) < _invalidarCooldown;
+    if (!reciente) {
+      _ultimaInvalidacion = ahora;
+      try {
+        await _repo.invalidarCache();
+      } catch (_) {
+        // Si falla la invalidación (offline, key no configurada), igual
+        // intentamos recargar — puede que el cache ya haya expirado solo.
+      }
+    }
+    await load();
+  }
+
+  /// Refresca desde la página 1 (bypassCache) pero restaura la profundidad
+  /// ya cargada antes de publicar el nuevo estado, en un solo cambio de
+  /// estado — así ninguna pantalla que observe `catalogoProvider` ve la
+  /// lista truncarse a la primera página mientras se recarga el resto.
+  Future<void> refreshPreservandoProfundidad() async {
+    final cantidadPrevia = state.perfumes.length;
+    try {
+      var page = await _repo.getCatalogo(limit: _pageSize, offset: 0, bypassCache: true);
+      var perfumes = page.items;
+      var hasMore   = page.hasMore;
+      var total     = page.total;
+      while (perfumes.length < cantidadPrevia && hasMore) {
+        final next = await _repo.getCatalogo(
+          limit: _pageSize, offset: perfumes.length, bypassCache: true,
+        );
+        perfumes = [...perfumes, ...next.items];
+        hasMore  = next.hasMore;
+        total    = next.total;
+      }
+      state = CatalogoState(perfumes: perfumes, total: total, hasMore: hasMore);
+    } catch (e) {
+      state = state.copyWith(error: e);
+    }
+  }
+
+  /// Reponer/quitar stock desde el tab Análisis. Valida la cantidad y arma
+  /// el delta con signo — el screen solo pasa el modo (agregar/quitar) y el
+  /// valor ingresado, sin decidir reglas de negocio.
+  /// Lanza ValidationException si la cantidad es inválida o excede el stock
+  /// actual (al quitar). Retorna el stock_ml nuevo tras el ajuste.
+  Future<double> ajustarStock({
+    required String idPerfume,
+    required double stockActual,
+    required bool agregar,
+    required double valorIngresado,
+  }) {
+    if (valorIngresado <= 0) {
+      throw const ValidationException('Ingresa una cantidad válida');
+    }
+    if (!agregar && valorIngresado > stockActual) {
+      throw ValidationException(
+        'No puede quitar más del stock actual (${stockActual.toStringAsFixed(0)} ml)',
+      );
+    }
+    final delta = agregar ? valorIngresado : -valorIngresado;
+    return _repo.ajustarStock(idPerfume, delta);
+  }
 
   /// Carga todas las páginas restantes (usado por selectores que necesitan
   /// el catálogo completo para buscar/filtrar, ej. nueva cotización).

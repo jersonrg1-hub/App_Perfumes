@@ -233,7 +233,7 @@ class _TimelineMesesState extends State<_TimelineMeses> {
         final esMejor  = m.clave == widget.mejorMes;
         final barPct   = maxTotal > 0 ? (m.total / maxTotal).clamp(0.0, 1.0) : 0.0;
         final isOpen   = _expanded.contains(m.clave);
-        final hasTop   = m.topPerfumes.isNotEmpty;
+        final hasTop   = m.topDecants.isNotEmpty || m.topCompletos.isNotEmpty;
 
         return Container(
           margin: const EdgeInsets.only(bottom: AppSpacing.sm),
@@ -357,10 +357,23 @@ class _TimelineMesesState extends State<_TimelineMeses> {
                             const SizedBox(height: AppSpacing.sm),
                             const Divider(color: AppColors.primaryLight, height: 1),
                             const SizedBox(height: AppSpacing.sm),
-                            ...m.topPerfumes.asMap().entries.map((e) => _TopPerfumeMesRow(
-                                  pos:  e.key + 1,
-                                  item: e.value,
-                                )),
+                            if (m.topDecants.isNotEmpty) ...[
+                              const _TopMesSubtitulo('Decants'),
+                              ...m.topDecants.asMap().entries.map((e) => _TopPerfumeMesRow(
+                                    pos:  e.key + 1,
+                                    item: e.value,
+                                  )),
+                            ],
+                            if (m.topCompletos.isNotEmpty) ...[
+                              if (m.topDecants.isNotEmpty)
+                                const SizedBox(height: AppSpacing.sm),
+                              const _TopMesSubtitulo('Perfumes completos'),
+                              ...m.topCompletos.asMap().entries.map((e) => _TopPerfumeMesRow(
+                                    pos:      e.key + 1,
+                                    item:     e.value,
+                                    completo: true,
+                                  )),
+                            ],
                           ],
                         ),
                       ),
@@ -375,10 +388,31 @@ class _TimelineMesesState extends State<_TimelineMeses> {
   }
 }
 
+class _TopMesSubtitulo extends StatelessWidget {
+  const _TopMesSubtitulo(this.texto);
+  final String texto;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+        child: Text(
+          texto.toUpperCase(),
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.textMuted,
+            fontWeight: FontWeight.w700,
+            fontSize: 10,
+            letterSpacing: 0.8,
+          ),
+        ),
+      );
+}
+
 class _TopPerfumeMesRow extends StatelessWidget {
-  const _TopPerfumeMesRow({required this.pos, required this.item});
+  const _TopPerfumeMesRow({required this.pos, required this.item, this.completo = false});
   final int        pos;
   final TopPerfume item;
+  // Completos muestran frascos vendidos en vez de ml.
+  final bool       completo;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -412,7 +446,9 @@ class _TopPerfumeMesRow extends StatelessWidget {
               ),
             ),
             Text(
-              '${item.totalMl}ml',
+              completo
+                  ? '${item.cantidad} frasco${item.cantidad != 1 ? 's' : ''}'
+                  : '${item.totalMl}ml',
               style: AppTextStyles.bodySmall.copyWith(
                   color: AppColors.textMuted, fontWeight: FontWeight.w600),
             ),

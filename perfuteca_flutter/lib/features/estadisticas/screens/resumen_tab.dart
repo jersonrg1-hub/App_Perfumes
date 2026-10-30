@@ -160,11 +160,17 @@ class _ResumenBodyState extends ConsumerState<_ResumenBody>
         ),
         const SizedBox(height: AppSpacing.sm),
 
-        // ── Más vendidos del mes ──────────────────────────────────────────────
-        if (s.masVendidos.isNotEmpty) ...[
-          const _SeccionLabel('Más vendidos del mes', icono: Icons.star_rounded),
+        // ── Más vendidos del mes (decants y completos por separado) ──────────
+        if (s.masVendidosDecants.isNotEmpty) ...[
+          const _SeccionLabel('Decants más vendidos del mes', icono: Icons.star_rounded),
           const SizedBox(height: AppSpacing.sm),
-          _TopPerfumesCard(perfumes: s.masVendidos.take(5).toList()),
+          _TopPerfumesCard(perfumes: s.masVendidosDecants),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        if (s.masVendidosCompletos.isNotEmpty) ...[
+          const _SeccionLabel('Perfumes completos del mes', icono: Icons.inventory_2_rounded),
+          const SizedBox(height: AppSpacing.sm),
+          _TopPerfumesCard(perfumes: s.masVendidosCompletos, completos: true),
           const SizedBox(height: AppSpacing.sm),
         ],
 
@@ -939,8 +945,10 @@ class _VentasDiaSheet extends ConsumerWidget {
 // ── Top 3 perfumes del mes ────────────────────────────────────────────────────
 
 class _TopPerfumesCard extends StatelessWidget {
-  const _TopPerfumesCard({required this.perfumes});
+  const _TopPerfumesCard({required this.perfumes, this.completos = false});
   final List<TopPerfume> perfumes;
+  // Completos muestran frascos vendidos en vez de ml.
+  final bool completos;
 
   @override
   Widget build(BuildContext context) {
@@ -1027,7 +1035,9 @@ class _TopPerfumesCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      '${p.totalMl} ml',
+                      completos
+                          ? '${p.cantidad} frasco${p.cantidad != 1 ? 's' : ''}'
+                          : '${p.totalMl} ml',
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.textMuted,
                         fontWeight: FontWeight.w600,

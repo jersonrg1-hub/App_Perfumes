@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.api.dependencies import get_repo, get_ventas_cached, verify_api_key, paginate
 from backend.repositories.sheets_repository import SheetsRepository
-from backend.core.config import hoy_peru  # retorna date directamente
+from backend.core.config import es_decant, hoy_peru  # hoy_peru retorna date directamente
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 
@@ -81,6 +81,7 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
     # pueden divergir en un fix futuro.
     tamanios = _tamanios_por_ml(mes_df)
     top_perfumes = _top_perfumes(mes_df, n=10)
+    top_decants, top_completos = _top_por_tipo(mes_df, n=10)
 
     # Clientes top del mes
     clientes_top = []
@@ -127,6 +128,8 @@ def _compute_resumen(df: pd.DataFrame, pendientes_count: int) -> dict:
         ),
         "tamanios": tamanios,
         "top_perfumes": top_perfumes,
+        "top_decants": top_decants,
+        "top_completos": top_completos,
         "clientes_top": clientes_top,
     }
 
@@ -142,6 +145,8 @@ def _empty_resumen(pendientes_count: int) -> dict:
         "variacion_semana_pct": 0.0,
         "tamanios": [],
         "top_perfumes": [],
+        "top_decants": [],
+        "top_completos": [],
         "clientes_top": [],
     }
 
@@ -367,6 +372,26 @@ def _top_perfumes(df: pd.DataFrame, n: Optional[int] = None) -> List[dict]:
     ]
 
 
+def _top_por_tipo(df: pd.DataFrame, n: Optional[int] = None) -> tuple[List[dict], List[dict]]:
+    """
+    Top separado en (decants, completos) — un mismo perfume puede salir en
+    ambas listas. Decants se rankean por ml (como _top_perfumes); completos
+    por unidades vendidas, porque sumar ml de frascos de 100ml vs 50ml no
+    dice cuál se vende más.
+    """
+    if df.empty or "Ml_Vendido" not in df.columns:
+        return [], []
+    mask = df["Ml_Vendido"].map(es_decant)
+    decants = _top_perfumes(df[mask], n=n)
+    completos = sorted(
+        _top_perfumes(df[~mask]),
+        key=lambda r: (-r["cantidad"], -r["total_soles"]),
+    )
+    if n is not None:
+        completos = completos[:n]
+    return decants, completos
+
+
 def _empty_historico() -> dict:
     return {
         "total_ventas":      0,
@@ -400,6 +425,7 @@ def _compute_historico(df: pd.DataFrame) -> dict:
     por_mes = []
     for clave, grupo in entregadas.dropna(subset=["_mes"]).groupby("_mes"):
         year, month = clave.split("-")
+        top_decants, top_completos = _top_por_tipo(grupo, n=10)
         por_mes.append({
             "clave":        clave,
             "label":        f"{_MESES_CORTOS[int(month)]} {year}",
@@ -407,6 +433,8 @@ def _compute_historico(df: pd.DataFrame) -> dict:
             "total":        float(grupo["Precio_Cobrado"].sum()),
             "total_ml":     int(grupo["Ml_Vendido"].sum()),
             "top_perfumes": _top_perfumes(grupo, n=10),
+            "top_decants":  top_decants,
+            "top_completos": top_completos,
             "tamanios":     _tamanios_por_ml(grupo),
             "tipos_envio":  _tipos_envio(grupo),
         })
